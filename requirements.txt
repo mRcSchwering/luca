@@ -1,0 +1,8 @@
+pylint
+black
+mypy
+plotnine
+ipykernel
+tensorboard
+magicsoup
+
