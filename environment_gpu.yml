@@ -5,6 +5,7 @@ channels:
   - nvidia
 dependencies:
   - python=3.9
+  - pip
   - pytorch
   - torchvision
   - torchaudio
