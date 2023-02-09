@@ -2,13 +2,14 @@ from argparse import ArgumentParser, Namespace
 from contextlib import contextmanager
 import time
 from pathlib import Path
+import datetime as dt
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import magicsoup as ms
-from magicsoup.constants import NOW
 from magicsoup.examples.wood_ljungdahl import CHEMISTRY
 
 _this_dir = Path(__file__).parent
+_now = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
 
 @contextmanager
@@ -19,17 +20,17 @@ def timeit(label: str, step: int, writer: SummaryWriter):
 
 
 def main(args: Namespace):
-    writer = SummaryWriter(log_dir=_this_dir / "runs" / NOW)
+    writer = SummaryWriter(log_dir=_this_dir / "runs" / _now)
 
     world = ms.World(chemistry=CHEMISTRY, device=args.device)
-    world.save(rundir=_this_dir / "runs" / NOW)
+    world.save(rundir=_this_dir / "runs" / _now)
 
     mol_2_idx = {d.name: i for i, d in enumerate(CHEMISTRY.molecules)}
     ATP_IDX = mol_2_idx["ATP"]
 
     for step_i in range(args.n_steps):
         if step_i % 100 == 0:
-            world.save_state(statedir=_this_dir / "runs" / NOW / f"step={step_i}")
+            world.save_state(statedir=_this_dir / "runs" / _now / f"step={step_i}")
 
         with timeit("perStep", step_i, writer):
             n_cells = len(world.cells)

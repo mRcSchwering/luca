@@ -17,7 +17,7 @@ conda env create -f environment_cpu.yml
 
 **CUDA**
 
-_E.g._ on AWS as spot instance with `g4dn.xlarge`, `g4dn.2xlarge`, `g5.xlarge`, `g5.2xlarge` (see [G4 instances](https://aws.amazon.com/ec2/instance-types/g4/) and [G5 instances](https://aws.amazon.com/ec2/instance-types/g5/)) with a [Tesla driver AMI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/install-nvidia-driver.html).
+_E.g._ on AWS as spot instance with `g4dn.xlarge`, `g4dn.2xlarge`, `g5.xlarge`, `g5.2xlarge` (see [G4 instances](https://aws.amazon.com/ec2/instance-types/g4/) and [G5 instances](https://aws.amazon.com/ec2/instance-types/g5/)) with a [Deep Learning AMI](https://aws.amazon.com/machine-learning/amis/).
 
 ```
 nvcc --version
