@@ -5,13 +5,6 @@ from .chemistry import CHEMISTRY
 
 THIS_DIR = Path(__file__).parent
 
-# TODO: init world mit maps und save
-#       damit ich damit später verschiedene sims laufen lassen kann
-
-# TODO: vllt mehrere enzyme steps before ein mutation step kommt
-
-# TODO: labels für cells, die über Replikationen hinweg erhalten werden
-
 
 def sigm_incr(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = t**n / (t**n + k**n)
@@ -66,17 +59,20 @@ class Experiment:
         genomes = [ms.random_genome(init_genome_size) for _ in range(n_init_cells)]
         self.world.add_random_cells(genomes=genomes)
 
-    def step(self):
-        self._add_co2()
-        self._add_energy()
+    def step_10s(self):
         self._replicate_cells()
-        self.world.enzymatic_activity()
-        self.world.diffuse_molecules()
-        self.world.degrade_molecules()
         self._kill_cells()
         self._split_cells()
         self._mutate_cells()
         self.world.increment_cell_survival()
+
+    def step_1s(self):
+        self._add_co2()
+        self._add_energy()
+        for _ in range(10):
+            self.world.enzymatic_activity()
+        self.world.diffuse_molecules()
+        self.world.degrade_molecules()
 
     def _split_cells(self):
         if self.n_splits >= self.max_splits:

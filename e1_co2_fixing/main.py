@@ -62,12 +62,14 @@ def trial(hparams: dict):
         n_workers=hparams["n_workers"],
     )
 
-    name = hparams["name"]
-    rundir = THIS_DIR / "runs" / name
-    writer = SummaryWriter(log_dir=rundir)
-    exp.world.save(rundir=rundir)
-    with open(rundir / "hparams.json", "w", encoding="utf-8") as fh:
-        json.dump(hparams, fh)
+    rundir = THIS_DIR / "runs"
+    exp.world = exp.world.from_file(rundir=rundir)
+    assert exp.world.map_size == hparams["map_size"]
+    assert exp.world.device == hparams["device"]
+    assert exp.world.workers == hparams["n_workers"]
+
+    trial_dir = rundir / hparams["name"]
+    writer = SummaryWriter(log_dir=trial_dir)
 
     watch_molecules = [
         ("acetyl-CoA", exp.mol_2_idx["acetyl-CoA"]),
@@ -81,7 +83,7 @@ def trial(hparams: dict):
         ("methyl-Ni-ACS", exp.mol_2_idx["methyl-Ni-ACS"]),
     ]
 
-    print(f"Starting trial {name}")
+    print(f"Starting trial {hparams['name']}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
     trial_t0 = time.time()
     trial_max_time_h = hparams["trial_max_time_h"]
@@ -89,7 +91,10 @@ def trial(hparams: dict):
     for step_i in range(hparams["n_steps"]):
         step_t0 = time.time()
 
-        exp.step()
+        exp.step_1s()
+
+        if step_i % 10 == 0:
+            exp.step_10s()
 
         _log_tensorboard(
             exp=exp,
@@ -100,7 +105,7 @@ def trial(hparams: dict):
         )
 
         if step_i % 100 == 0:
-            exp.world.save_state(statedir=rundir / f"step={step_i}")
+            exp.world.save_state(statedir=trial_dir / f"step={step_i}")
 
         if len(exp.world.cells) == 0:
             print(f"after {step_i} steps 0 cells left")
@@ -110,12 +115,35 @@ def trial(hparams: dict):
             print(f"{trial_max_time_h}h have passed")
             break
 
-    print(f"Finishing trial {name}")
-    exp.world.save_state(statedir=rundir / f"step={step_i}")
+    print(f"Finishing trial {hparams['name']}")
+    exp.world.save_state(statedir=trial_dir / f"step={step_i}")
     writer.close()
 
 
+def init_exp(hparams: dict):
+    exp = Experiment(
+        map_size=hparams["map_size"],
+        init_genome_size=hparams["init_genome_size"],
+        split_ratio=hparams["split_ratio"],
+        split_thresh=hparams["split_thresh"],
+        max_splits=hparams["max_splits"],
+        device=hparams["device"],
+        n_workers=hparams["n_workers"],
+    )
+
+    rundir = THIS_DIR / "runs"
+    rundir.mkdir(exist_ok=True)
+    exp.world.save(rundir=rundir)
+    with open(rundir / "hparams.json", "w", encoding="utf-8") as fh:
+        json.dump(hparams, fh)
+
+
 def main(kwargs: dict):
+    is_init = kwargs.pop("init")
+    if is_init:
+        init_exp(hparams=kwargs)
+        return
+
     ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
     n_trials = kwargs.pop("n_trials")
     for trial_i in range(n_trials):
@@ -124,6 +152,7 @@ def main(kwargs: dict):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("--init", default=False, type=bool)
     parser.add_argument("--n_trials", default=3, type=int)
     parser.add_argument("--n_steps", default=10_000, type=int)
     parser.add_argument("--map_size", default=128, type=int)
