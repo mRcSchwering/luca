@@ -5,6 +5,13 @@ from .chemistry import CHEMISTRY
 
 THIS_DIR = Path(__file__).parent
 
+# TODO: init world mit maps und save
+#       damit ich damit später verschiedene sims laufen lassen kann
+
+# TODO: vllt mehrere enzyme steps before ein mutation step kommt
+
+# TODO: labels für cells, die über Replikationen hinweg erhalten werden
+
 
 def sigm_incr(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = t**n / (t**n + k**n)
@@ -22,15 +29,13 @@ class Experiment:
     def __init__(
         self,
         map_size: int,
-        n_init_cells: int,
         init_genome_size: int,
         split_ratio: float,
         split_thresh: float,
+        max_splits: int,
         device: str,
         n_workers: int,
     ):
-        self.n_init_cells = n_init_cells
-        self.init_genome_size = init_genome_size
         self.world = ms.World(
             chemistry=CHEMISTRY,
             map_size=map_size,
@@ -42,6 +47,7 @@ class Experiment:
         self.n_pxls = map_size**2
         self.split_ratio = split_ratio
         self.split_at_n = int(split_thresh * self.n_pxls)
+        self.max_splits = max_splits
         self.n_splits = 0
 
         self.mol_2_idx = {d.name: i for i, d in enumerate(CHEMISTRY.molecules)}
@@ -55,19 +61,26 @@ class Experiment:
 
         self._add_base_mols()
 
+        # most cells will not be viable
+        n_init_cells = int(self.n_pxls * 0.7)
+        genomes = [ms.random_genome(init_genome_size) for _ in range(n_init_cells)]
+        self.world.add_random_cells(genomes=genomes)
+
     def step(self):
-        self._add_cells()
         self._add_co2()
         self._add_energy()
+        self._replicate_cells()
         self.world.enzymatic_activity()
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
         self._kill_cells()
-        self._replicate_cells()
-        self._mutate_cells()
         self._split_cells()
+        self._mutate_cells()
+        self.world.increment_cell_survival()
 
     def _split_cells(self):
+        if self.n_splits >= self.max_splits:
+            return
         n_cells = len(self.world.cells)
         if n_cells > self.split_at_n:
             keep_n = int(n_cells * self.split_ratio)
@@ -102,14 +115,6 @@ class Experiment:
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=[d.genome for d in self.world.cells])
         self.world.update_cells(genome_idx_pairs=mutated)
-
-    def _add_cells(self):
-        if self.n_splits > 0:
-            return
-        d = self.n_init_cells - len(self.world.cells)
-        if d > 0:
-            seqs = [ms.random_genome(self.init_genome_size) for _ in range(d)]
-            self.world.add_random_cells(genomes=seqs)
 
     def _add_co2(self):
         n = int(self.world.map_size / 2)

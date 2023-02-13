@@ -5,7 +5,7 @@ I organized experiments in directories that each have preparation, simulation, a
 
 - [e0_co2_fixing](./e0_co2_fixing) bring cells to fix CO2
 
-## CPU-only Setup
+### CPU-only Setup
 
 For CPU-only with [conda](https://docs.conda.io/en/latest/) it is:
 
@@ -13,7 +13,7 @@ For CPU-only with [conda](https://docs.conda.io/en/latest/) it is:
 conda env create -f environment_cpu.yml
 ```
 
-## AWS EC2 with GPU
+### AWS EC2 with GPU
 
 Use one of the [Deep Learning AMIs](https://aws.amazon.com/machine-learning/amis/) with an instance like
 `g4dn.xlarge`, `g4dn.2xlarge`, `g5.xlarge`, `g5.2xlarge` (see [G4 instances](https://aws.amazon.com/ec2/instance-types/g4/) and [G5 instances](https://aws.amazon.com/ec2/instance-types/g5/)).
@@ -32,7 +32,7 @@ python -c 'import torch; print(torch.cuda.is_available())'  # check torch was co
 nvidia-smi -l 1  # monitor GPU
 ```
 
-## Screen
+### Screen
 
 A little cheatsheet for [Screen](https://wiki.ubuntuusers.de/Screen/)
 because I always forget the commands.

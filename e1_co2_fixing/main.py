@@ -54,10 +54,10 @@ def _log_tensorboard(
 def trial(hparams: dict):
     exp = Experiment(
         map_size=hparams["map_size"],
-        n_init_cells=hparams["n_init_cells"],
         init_genome_size=hparams["init_genome_size"],
         split_ratio=hparams["split_ratio"],
         split_thresh=hparams["split_thresh"],
+        max_splits=hparams["max_splits"],
         device=hparams["device"],
         n_workers=hparams["n_workers"],
     )
@@ -100,11 +100,10 @@ def trial(hparams: dict):
         )
 
         if step_i % 100 == 0:
-            print(f"Finished step {step_i:,}")
             exp.world.save_state(statedir=rundir / f"step={step_i}")
 
-        if exp.n_splits > 0 and len(exp.world.cells) == 0:
-            print(f"after {exp.n_splits} splits 0 cells left")
+        if len(exp.world.cells) == 0:
+            print(f"after {step_i} steps 0 cells left")
             break
 
         if (time.time() - trial_t0) * 60 * 60 > trial_max_time_h:
@@ -128,10 +127,10 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", default=3, type=int)
     parser.add_argument("--n_steps", default=10_000, type=int)
     parser.add_argument("--map_size", default=128, type=int)
-    parser.add_argument("--n_init_cells", default=1_000, type=int)
     parser.add_argument("--init_genome_size", default=500, type=int)
     parser.add_argument("--split_ratio", default=0.2, type=float)
     parser.add_argument("--split_thresh", default=0.7, type=float)
+    parser.add_argument("--max_splits", default=3, type=int)
     parser.add_argument("--device", default="cpu", type=str)
     parser.add_argument("--n_workers", default=4, type=int)
     parser.add_argument("--trial_max_time_h", default=12, type=int)
