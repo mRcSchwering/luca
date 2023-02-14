@@ -18,13 +18,19 @@ def _sigm_decr(t: torch.Tensor, k: float, n: int) -> list[int]:
     return idxs.flatten().tolist()
 
 
-def _get_co2_spots(world: ms.World) -> tuple[list[int], list[int]]:
-    s = world.map_size
-    ticks = list(range(0, s, 32))[1:]
+def _get_high_co2_spots(world: ms.World) -> tuple[list[int], list[int]]:
+    init_ticks = list(range(32, world.map_size + 1 - 32, 64))
+    ticks = []
+    for tick in init_ticks:
+        ticks.extend([tick - 1, tick, tick + 1])
     n = len(ticks)
     xs = ticks * n
     ys = [d for d in ticks for _ in range(n)]
     return xs, ys
+
+
+def _get_low_co2_lines(world: ms.World) -> list[int]:
+    return list(range(0, world.map_size, 64))
 
 
 class Experiment:
@@ -58,7 +64,8 @@ class Experiment:
         self.X_I = self.mol_2_idx["X"]
         self.Y_I = self.mol_2_idx["Y"]
 
-        self.co2_xs, self.co2_ys = _get_co2_spots(world=self.world)
+        self.co2_xs, self.co2_ys = _get_high_co2_spots(world=self.world)
+        self.co2_lows = _get_low_co2_lines(world=self.world)
 
     def prep_world(self):
         self.world.kill_cells(cell_idxs=[d.idx for d in self.world.cells])
@@ -101,13 +108,7 @@ class Experiment:
         self.world.molecule_map[:] = 10.0
 
         # setup CO2 gradient
-        inner = slice(min(self.co2_xs), max(self.co2_xs))
-        outer = slice(min(self.co2_xs) - 15, max(self.co2_xs) + 15)
-        self.world.molecule_map[self.CO2_I] = 20.0
-        self.world.molecule_map[self.CO2_I, outer, outer] = 40.0
-        self.world.molecule_map[self.CO2_I, inner, inner] = 60.0
-
-        # create equilibrium
+        self.world.molecule_map[self.CO2_I] = 35.0
         for _ in range(500):
             self._add_co2()
             self.world.diffuse_molecules()
@@ -118,8 +119,8 @@ class Experiment:
 
     def _add_co2(self):
         self.world.molecule_map[self.CO2_I, self.co2_xs, self.co2_ys] = 100.0
-        self.world.molecule_map[self.CO2_I, [0, -1]] = 1.0
-        self.world.molecule_map[self.CO2_I, :, [0, -1]] = 1.0
+        self.world.molecule_map[self.CO2_I, self.co2_lows] = 10.0
+        self.world.molecule_map[self.CO2_I, :, self.co2_lows] = 10.0
 
     def _add_energy(self):
         i = self.Y_I
