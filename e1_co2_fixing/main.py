@@ -50,6 +50,11 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
+# TODO: test params shown nicely
+# TODO: params for kill/replicate sampling
+# TODO: splits = on/off (only to prevent overcrouding)
+
+
 def trial(hparams: dict):
     name = hparams.pop("name")
     trial_dir = THIS_DIR / "runs" / name
