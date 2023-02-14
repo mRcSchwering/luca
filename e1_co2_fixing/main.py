@@ -9,6 +9,7 @@ import time
 import datetime as dt
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard.summary import hparams as get_summary
 from .experiment import Experiment
 
 THIS_DIR = Path(__file__).parent
@@ -42,7 +43,7 @@ def _log_scalars(
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
     writer.add_scalar("Other/Split", exp.split_i, step)
-    writer.add_scalar("Other/MaxStep", step)
+    writer.add_scalar("Other/Step", step, step)
 
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
@@ -53,9 +54,10 @@ def trial(hparams: dict):
     name = hparams.pop("name")
     trial_dir = THIS_DIR / "runs" / name
     writer = SummaryWriter(log_dir=trial_dir)
-    writer.add_hparams(
-        hparam_dict=hparams, metric_dict={"Other/MaxStep": 0}, run_name=name
-    )
+    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Step": 0})
+    writer.file_writer.add_summary(exp)
+    writer.file_writer.add_summary(ssi)
+    writer.file_writer.add_summary(sei)
 
     exp = Experiment(
         map_size=hparams["map_size"],
