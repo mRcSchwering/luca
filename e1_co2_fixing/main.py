@@ -7,7 +7,6 @@ Simulation to teach cells to fix CO2.
 from argparse import ArgumentParser
 import time
 import datetime as dt
-import json
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
 from .experiment import Experiment
@@ -50,6 +49,11 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
 
 
 def trial(hparams: dict):
+    name = hparams.pop("name")
+    trial_dir = THIS_DIR / "runs" / name
+    writer = SummaryWriter(log_dir=trial_dir)
+    writer.add_hparams(hparam_dict=hparams, metric_dict={}, run_name=name)
+
     exp = Experiment(
         map_size=hparams["map_size"],
         mol_map_init=hparams["mol_map_init"],
@@ -61,15 +65,11 @@ def trial(hparams: dict):
         n_workers=hparams["n_workers"],
     )
 
-    rundir = THIS_DIR / "runs"
-    exp.world = exp.world.from_file(rundir=rundir)
+    exp.world = exp.world.from_file(rundir=trial_dir.parent)
     assert exp.world.map_size == hparams["map_size"]
     assert exp.world.device == hparams["device"]
     assert exp.world.workers == hparams["n_workers"]
     exp.prep_world()
-
-    trial_dir = rundir / hparams["name"]
-    writer = SummaryWriter(log_dir=trial_dir)
 
     watch_molecules = [
         ("acetyl-CoA", exp.mol_2_idx["acetyl-CoA"]),
@@ -135,12 +135,8 @@ def init_exp(hparams: dict):
         device=hparams["device"],
         n_workers=hparams["n_workers"],
     )
-
     rundir = THIS_DIR / "runs"
-    rundir.mkdir(exist_ok=True)
     exp.world.save(rundir=rundir)
-    with open(rundir / "hparams.json", "w", encoding="utf-8") as fh:
-        json.dump(hparams, fh)
 
 
 def main(kwargs: dict):
