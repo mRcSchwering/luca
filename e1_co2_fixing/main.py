@@ -42,6 +42,7 @@ def _log_scalars(
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
     writer.add_scalar("Other/Split", exp.split_i, step)
+    writer.add_scalar("Other/MaxStep", step)
 
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
@@ -52,7 +53,9 @@ def trial(hparams: dict):
     name = hparams.pop("name")
     trial_dir = THIS_DIR / "runs" / name
     writer = SummaryWriter(log_dir=trial_dir)
-    writer.add_hparams(hparam_dict=hparams, metric_dict={}, run_name=name)
+    writer.add_hparams(
+        hparam_dict=hparams, metric_dict={"Other/MaxStep": 0}, run_name=name
+    )
 
     exp = Experiment(
         map_size=hparams["map_size"],
