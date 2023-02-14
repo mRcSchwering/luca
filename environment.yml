@@ -1,14 +1,12 @@
 name: luca
 channels:
-  - defaults
   - pytorch
   - nvidia
+  - defaults
 dependencies:
   - python=3.9
   - pip
   - pytorch
-  - torchvision
-  - torchaudio
-  - pytorch-cuda=11.7
+  - cpuonly
   - pip:
       - -r requirements.txt
