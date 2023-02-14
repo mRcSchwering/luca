@@ -78,7 +78,7 @@ def trial(hparams: dict):
         ("CO2", exp.mol_2_idx["CO2"]),
     ]
 
-    print(f"Starting trial {hparams['name']}")
+    print(f"Starting trial {name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
     trial_max_time_s = hparams["trial_max_time_h"] * 60 * 60
     trial_t0 = time.time()
@@ -119,7 +119,7 @@ def trial(hparams: dict):
             print(f"{hparams['trial_max_time_h']} hours have passed")
             break
 
-    print(f"Finishing trial {hparams['name']}")
+    print(f"Finishing trial {name}")
     exp.world.save_state(statedir=trial_dir / f"step={step_i}")
     writer.close()
 
