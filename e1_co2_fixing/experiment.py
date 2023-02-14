@@ -72,8 +72,16 @@ class Experiment:
     def prep_world(self):
         self.world.kill_cells(cell_idxs=[d.idx for d in self.world.cells])
 
-        self._add_base_mols()
+        # fresh molecule map
+        self.world.molecule_map[:] = self.mol_map_init
 
+        # setup CO2 gradient
+        self.world.molecule_map[self.CO2_I] = 35.0
+        for _ in range(500):
+            self._add_co2()
+            self.world.diffuse_molecules()
+
+        # new cells
         n_init_cells = int(self.n_pxls * 0.5)
         s = self.init_genome_size
         genomes = [ms.random_genome(s) for _ in range(n_init_cells)]
@@ -102,18 +110,7 @@ class Experiment:
             kill_n = n_cells - int(n_cells * self.split_ratio)
             idxs = torch.randint(n_cells, (kill_n,)).tolist()
             self.world.kill_cells(cell_idxs=idxs)
-            self._add_base_mols()
             self.split_i += 1
-
-    def _add_base_mols(self):
-        # fresh molecule map
-        self.world.molecule_map[:] = self.mol_map_init
-
-        # setup CO2 gradient
-        self.world.molecule_map[self.CO2_I] = 35.0
-        for _ in range(500):
-            self._add_co2()
-            self.world.diffuse_molecules()
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=[d.genome for d in self.world.cells])
