@@ -37,6 +37,7 @@ class Experiment:
     def __init__(
         self,
         map_size: int,
+        mol_map_init: float,
         init_genome_size: int,
         split_ratio: float,
         split_thresh: float,
@@ -52,6 +53,7 @@ class Experiment:
             workers=n_workers,
         )
 
+        self.mol_map_init = mol_map_init
         self.init_genome_size = init_genome_size
         self.n_pxls = map_size**2
         self.split_ratio = split_ratio
@@ -105,7 +107,7 @@ class Experiment:
 
     def _add_base_mols(self):
         # fresh molecule map
-        self.world.molecule_map[:] = 10.0
+        self.world.molecule_map[:] = self.mol_map_init
 
         # setup CO2 gradient
         self.world.molecule_map[self.CO2_I] = 35.0

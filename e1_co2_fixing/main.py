@@ -52,6 +52,7 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
 def trial(hparams: dict):
     exp = Experiment(
         map_size=hparams["map_size"],
+        mol_map_init=hparams["mol_map_init"],
         init_genome_size=hparams["init_genome_size"],
         split_ratio=hparams["split_ratio"],
         split_thresh=hparams["split_thresh"],
@@ -126,6 +127,7 @@ def trial(hparams: dict):
 def init_exp(hparams: dict):
     exp = Experiment(
         map_size=hparams["map_size"],
+        mol_map_init=hparams["mol_map_init"],
         init_genome_size=hparams["init_genome_size"],
         split_ratio=hparams["split_ratio"],
         split_thresh=hparams["split_thresh"],
@@ -159,6 +161,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_trials", default=3, type=int)
     parser.add_argument("--n_steps", default=10_000, type=int)
     parser.add_argument("--map_size", default=128, type=int)
+    parser.add_argument("--mol_map_init", default=5.0, type=float)
     parser.add_argument("--init_genome_size", default=500, type=int)
     parser.add_argument("--split_ratio", default=0.2, type=float)
     parser.add_argument("--split_thresh", default=0.6, type=float)

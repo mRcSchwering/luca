@@ -23,10 +23,11 @@ python -m e1_co2_fixing.main --init
 python -m e1_co2_fixing.main --n_steps=21 --n_trials=1
 ...
 # proper run on GPU:
+python -m e1_co2_fixing.main --init --device=cuda
 python -m e1_co2_fixing.main --device=cuda
 ...
 # watch progress on tensorboard
-tensorboard --logdir=./e1_co2_fixing/runs
+tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
 ```
 
 ## Chemistry
