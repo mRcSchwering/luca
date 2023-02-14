@@ -6,16 +6,25 @@ from .chemistry import CHEMISTRY
 THIS_DIR = Path(__file__).parent
 
 
-def sigm_incr(t: torch.Tensor, k: float, n: int) -> list[int]:
+def _sigm_incr(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = t**n / (t**n + k**n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
 
-def sigm_decr(t: torch.Tensor, k: float, n: int) -> list[int]:
+def _sigm_decr(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = k**n / (t**n + k**n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
+
+
+def _get_co2_spots(world: ms.World) -> tuple[list[int], list[int]]:
+    s = world.map_size
+    ticks = list(range(0, s, 32))[1:]
+    n = len(ticks)
+    xs = ticks * n
+    ys = [d for d in ticks for _ in range(n)]
+    return xs, ys
 
 
 class Experiment:
@@ -37,26 +46,28 @@ class Experiment:
             workers=n_workers,
         )
 
+        self.init_genome_size = init_genome_size
         self.n_pxls = map_size**2
         self.split_ratio = split_ratio
         self.split_at_n = int(split_thresh * self.n_pxls)
         self.max_splits = max_splits
-        self.n_splits = 0
+        self.split_i = 0
 
         self.mol_2_idx = {d.name: i for i, d in enumerate(CHEMISTRY.molecules)}
         self.CO2_I = self.mol_2_idx["CO2"]
-        self.ATP_I = self.mol_2_idx["ATP"]
-        self.ADP_I = self.mol_2_idx["ADP"]
-        self.NADPH_I = self.mol_2_idx["NADPH"]
-        self.NADP_I = self.mol_2_idx["NADP"]
-        self.ACA_I = self.mol_2_idx["acetyl-CoA"]
-        self.HCA_I = self.mol_2_idx["HS-CoA"]
+        self.X_I = self.mol_2_idx["X"]
+        self.Y_I = self.mol_2_idx["Y"]
+
+        self.co2_xs, self.co2_ys = _get_co2_spots(world=self.world)
+
+    def prep_world(self):
+        self.world.kill_cells(cell_idxs=[d.idx for d in self.world.cells])
 
         self._add_base_mols()
 
-        # most cells will not be viable
-        n_init_cells = int(self.n_pxls * 0.7)
-        genomes = [ms.random_genome(init_genome_size) for _ in range(n_init_cells)]
+        n_init_cells = int(self.n_pxls * 0.5)
+        s = self.init_genome_size
+        genomes = [ms.random_genome(s) for _ in range(n_init_cells)]
         self.world.add_random_cells(genomes=genomes)
 
     def step_10s(self):
@@ -75,37 +86,30 @@ class Experiment:
         self.world.degrade_molecules()
 
     def _split_cells(self):
-        if self.n_splits >= self.max_splits:
+        if self.split_i >= self.max_splits:
             return
         n_cells = len(self.world.cells)
         if n_cells > self.split_at_n:
-            keep_n = int(n_cells * self.split_ratio)
-            idxs = torch.randint(n_cells, (keep_n,)).tolist()
+            kill_n = n_cells - int(n_cells * self.split_ratio)
+            idxs = torch.randint(n_cells, (kill_n,)).tolist()
             self.world.kill_cells(cell_idxs=idxs)
             self._add_base_mols()
-            self.n_splits += 1
+            self.split_i += 1
 
     def _add_base_mols(self):
         # fresh molecule map
-        self.world.molecule_map = 10.0
+        self.world.molecule_map[:] = 10.0
 
         # setup CO2 gradient
-        device = self.world.device
-        s = self.world.map_size
-        n = int(s / 2)
-        map_ones = torch.ones((s, s)).to(device)
-        gradient = torch.cat(
-            [
-                torch.linspace(1.0, 100.0, n).to(device),
-                torch.linspace(100.0, 1.0, n).to(device),
-            ]
-        )
-        self.world.molecule_map[self.CO2_I] = torch.einsum(
-            "xy,x->xy", map_ones, gradient
-        )
+        inner = slice(min(self.co2_xs), max(self.co2_xs))
+        outer = slice(min(self.co2_xs) - 15, max(self.co2_xs) + 15)
+        self.world.molecule_map[self.CO2_I] = 20.0
+        self.world.molecule_map[self.CO2_I, outer, outer] = 40.0
+        self.world.molecule_map[self.CO2_I, inner, inner] = 60.0
 
         # create equilibrium
-        for _ in range(10):
+        for _ in range(500):
+            self._add_co2()
             self.world.diffuse_molecules()
 
     def _mutate_cells(self):
@@ -113,51 +117,40 @@ class Experiment:
         self.world.update_cells(genome_idx_pairs=mutated)
 
     def _add_co2(self):
-        n = int(self.world.map_size / 2)
-        self.world.molecule_map[self.CO2_I, [n - 1, n]] = 100.0
+        self.world.molecule_map[self.CO2_I, self.co2_xs, self.co2_ys] = 100.0
         self.world.molecule_map[self.CO2_I, [0, -1]] = 1.0
+        self.world.molecule_map[self.CO2_I, :, [0, -1]] = 1.0
 
     def _add_energy(self):
-        for high, low in [(self.ATP_I, self.ADP_I), (self.NADPH_I, self.NADP_I)]:
-            high_avg = self.world.molecule_map[high].mean()
-            low_avg = self.world.molecule_map[low].mean()
-            if high_avg / (low_avg + 1e-4) < 5.0:
-                self.world.molecule_map[high] += self.world.molecule_map[low] * 0.99
-                self.world.molecule_map[low] *= 0.01
+        i = self.Y_I
+        self.world.molecule_map[i] += 1.0
+        self.world.molecule_map[i] = self.world.molecule_map[i].clamp(max=10.0)
 
     def _kill_cells(self):
-        idxs0 = sigm_decr(self.world.cell_molecules[:, self.ATP_I], 0.5, 4)
-        idxs1 = sigm_decr(self.world.cell_molecules[:, self.NADPH_I], 0.5, 4)
-        idxs = list(set(idxs0 + idxs1))
-        self.world.kill_cells(cell_idxs=idxs)
+        ies = _sigm_decr(self.world.cell_molecules[:, self.Y_I], 0.5, 3)
+        sizes = torch.tensor([float(len(d.genome)) for d in self.world.cells])
+        iss = _sigm_incr(sizes, 4000.0, 7)
+        self.world.kill_cells(cell_idxs=list(set(ies + iss)))
 
     def _replicate_cells(self):
-        idxs1 = sigm_incr(self.world.cell_molecules[:, self.ACA_I], 15.0, 5)
+        i = self.X_I
+        ics = _sigm_incr(self.world.cell_molecules[:, i], 15.0, 3)
 
-        # successful cells will share their n molecules, which will then be reduced by 1.0
-        # so a cell must have n >= 2.0 to replicate
-        idxs2 = (
-            torch.argwhere(self.world.cell_molecules[:, self.ACA_I] > 2.2)
-            .flatten()
-            .tolist()
-        )
-        idxs = list(set(idxs1) & set(idxs2))
+        # cell divisions will use up 2 X
+        its = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
+        idxs = list(set(ics) & set(its))
+        self.world.cell_molecules[idxs, i] -= 2.0
 
         replicated = self.world.replicate_cells(parent_idxs=idxs)
         if len(replicated) == 0:
             return
 
-        # these cells have successfully divided and shared their molecules
-        parents, children = list(map(list, zip(*replicated)))
-        self.world.cell_molecules[parents + children, self.ACA_I] -= 1.0
-        self.world.cell_molecules[parents + children, self.HCA_I] += 1.0
-
         # add random recombinations
-        genomes = [
+        genome_pairs = [
             (self.world.cells[p].genome, self.world.cells[c].genome)
             for p, c in replicated
         ]
-        mutated = ms.recombinations(seq_pairs=genomes)
+        mutated = ms.recombinations(seq_pairs=genome_pairs)
 
         genome_idx_pairs = []
         for parent, child, idx in mutated:

@@ -1,7 +1,7 @@
 """
 Simulation to teach cells to fix CO2.
 
-  python -m experiments.e1_co2_fixing.main --help
+  python -m e1_co2_fixing.main --help
 
 """
 from argparse import ArgumentParser
@@ -15,16 +15,13 @@ from .experiment import Experiment
 THIS_DIR = Path(__file__).parent
 
 
-def _log_tensorboard(
+def _log_scalars(
     exp: Experiment,
     writer: SummaryWriter,
     step: int,
     dtime: float,
     mol_name_idx_list: list[tuple[str, int]],
 ):
-    if step % 10 != 0:
-        return
-
     n_cells = len(exp.world.cells)
     molecule_map = exp.world.molecule_map
     cell_molecules = exp.world.cell_molecules
@@ -45,10 +42,11 @@ def _log_tensorboard(
             writer.add_scalar(scalar, (mm + cm) / exp.n_pxls, step)
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
-    writer.add_scalar("Other/NSplits[s]", exp.n_splits, step)
+    writer.add_scalar("Other/Split", exp.split_i, step)
 
-    if step % 100 == 0:
-        writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
+
+def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
+    writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
 def trial(hparams: dict):
@@ -67,52 +65,57 @@ def trial(hparams: dict):
     assert exp.world.map_size == hparams["map_size"]
     assert exp.world.device == hparams["device"]
     assert exp.world.workers == hparams["n_workers"]
+    exp.prep_world()
 
     trial_dir = rundir / hparams["name"]
     writer = SummaryWriter(log_dir=trial_dir)
 
     watch_molecules = [
         ("acetyl-CoA", exp.mol_2_idx["acetyl-CoA"]),
-        ("HS-CoA", exp.mol_2_idx["HS-CoA"]),
-        ("formiat", exp.mol_2_idx["formiat"]),
-        ("FH4", exp.mol_2_idx["FH4"]),
-        ("formyl-FH4", exp.mol_2_idx["formyl-FH4"]),
-        ("methyl-FH4", exp.mol_2_idx["methyl-FH4"]),
-        ("methylen-FH4", exp.mol_2_idx["methylen-FH4"]),
-        ("Ni-ACS", exp.mol_2_idx["Ni-ACS"]),
-        ("methyl-Ni-ACS", exp.mol_2_idx["methyl-Ni-ACS"]),
+        ("G3P", exp.mol_2_idx["G3P"]),
+        ("pyruvate", exp.mol_2_idx["pyruvate"]),
+        ("CO2", exp.mol_2_idx["CO2"]),
     ]
 
     print(f"Starting trial {hparams['name']}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
+    trial_max_time_s = hparams["trial_max_time_h"] * 60 * 60
     trial_t0 = time.time()
-    trial_max_time_h = hparams["trial_max_time_h"]
 
-    for step_i in range(hparams["n_steps"]):
+    _log_scalars(
+        exp=exp,
+        writer=writer,
+        step=0,
+        dtime=0,
+        mol_name_idx_list=watch_molecules,
+    )
+    _log_imgs(exp=exp, writer=writer, step=0)
+
+    for step_i in range(1, hparams["n_steps"] + 1):
         step_t0 = time.time()
 
         exp.step_1s()
 
         if step_i % 10 == 0:
             exp.step_10s()
-
-        _log_tensorboard(
-            exp=exp,
-            writer=writer,
-            step=step_i,
-            dtime=time.time() - step_t0,
-            mol_name_idx_list=watch_molecules,
-        )
+            _log_scalars(
+                exp=exp,
+                writer=writer,
+                step=step_i,
+                dtime=time.time() - step_t0,
+                mol_name_idx_list=watch_molecules,
+            )
 
         if step_i % 100 == 0:
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
+            _log_imgs(exp=exp, writer=writer, step=step_i)
 
         if len(exp.world.cells) == 0:
             print(f"after {step_i} steps 0 cells left")
             break
 
-        if (time.time() - trial_t0) * 60 * 60 > trial_max_time_h:
-            print(f"{trial_max_time_h}h have passed")
+        if (time.time() - trial_t0) > trial_max_time_s:
+            print(f"{hparams['trial_max_time_h']} hours have passed")
             break
 
     print(f"Finishing trial {hparams['name']}")
@@ -152,18 +155,18 @@ def main(kwargs: dict):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--init", default=False, type=bool)
+    parser.add_argument("--init", action="store_true")
     parser.add_argument("--n_trials", default=3, type=int)
     parser.add_argument("--n_steps", default=10_000, type=int)
     parser.add_argument("--map_size", default=128, type=int)
     parser.add_argument("--init_genome_size", default=500, type=int)
     parser.add_argument("--split_ratio", default=0.2, type=float)
-    parser.add_argument("--split_thresh", default=0.7, type=float)
+    parser.add_argument("--split_thresh", default=0.6, type=float)
     parser.add_argument("--max_splits", default=3, type=int)
     parser.add_argument("--device", default="cpu", type=str)
     parser.add_argument("--n_workers", default=4, type=int)
     parser.add_argument("--trial_max_time_h", default=12, type=int)
     args = parser.parse_args()
 
-    main(**vars(args))
+    main(vars(args))
     print("done")

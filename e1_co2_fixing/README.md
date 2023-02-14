@@ -16,11 +16,14 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 - [analyze_2023-01-17_21-45.ipynb](./analyze_2023-01-17_21-45.ipynb) cells formed a stable colony, but they enlarged their genomes without end
 
 ```
+# init world
+python -m e1_co2_fixing.main --init
+
 # short test run:
-python -m experiments.e1_co2_fixing.main --n_steps=20
+python -m e1_co2_fixing.main --n_steps=21 --n_trials=1
 ...
 # watch progress on tensorboard
-tensorboard --logdir=./experiments/e1_co2_fixing/runs
+tensorboard --logdir=./e1_co2_fixing/runs
 ```
 
 ## Chemistry
