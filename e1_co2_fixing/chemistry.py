@@ -131,7 +131,7 @@ pathway but I don't know enough about this topic.
 E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
 from collections import Counter
-from magicsoup.containers import Molecule, Chemistry
+from magicsoup.containers import Molecule, Chemistry, ProteinFact, CatalyticDomainFact
 
 _co2 = Molecule("CO2", 10.0 * 1e3, diffusivity=1.0, permeability=1.0)
 _NADPH = Molecule("NADPH", 200.0 * 1e3)
@@ -179,7 +179,7 @@ _13BPG = Molecule("1,3BPG", 370.0 * 1e3)  # 2P 3C 10e
 _G3P = Molecule("G3P", 420.0 * 1e3)  # P 3C 12e
 _Ru5P = Molecule("Ru5P", 695.0 * 1e3)  # P 5C 20e
 
-_calvin_reacts = [
+calvin_reacts = [
     ([_RuBP, _co2], [_3PGA, _3PGA]),  # -35
     ([_3PGA, _ATP], [_13BPG, _ADP]),  # -15
     ([_13BPG, _NADPH], [_G3P, _NADP]),  # -20
@@ -206,7 +206,7 @@ _methylmalylCoA = Molecule("methylmalyl-CoA", 810.0 * 1e3)  # 5C 18e !
 _citramalylCoA = Molecule("citramalyl-CoA", 810.0 * 1e3)  # 5C 18e !
 _pyruvate = Molecule("pyruvate", 330.0 * 1e3)  # 3C 10e !
 
-_hprop_reacts = [
+hprop_reacts = [
     ([_acetylCoA, _co2], [_malonylCoA]),  # +10
     (
         [_malonylCoA, _NADPH, _NADPH, _NADPH],
@@ -249,7 +249,7 @@ _co = Molecule("CO", 75 * 1e3)  # 1C 2e !
 _acetylCoA = Molecule("acetyl-CoA", 475.0 * 1e3)  # 2C 8e !
 _HSCoA = Molecule("HS-CoA", 190.0 * 1e3)
 
-_wl_reacts = [
+wl_reacts = [
     ([_co2, _NADPH], [_formate, _NADP]),  # -10
     ([_formate, _FH4], [_formylFH4]),  # -10
     ([_formylFH4, _NADPH], [_methylenFH4, _NADP]),  # -10
@@ -279,7 +279,7 @@ _aKetoglutarate = Molecule("alpha-ketoglutarate", 540.0 * 1e3)  # 5C 16e !
 _isocitrate = Molecule("isocitrate", 600.0 * 1e3)  # 5C 18e !
 _citrate = Molecule("citrate", 600.0 * 1e3)  # 5C 18e !
 
-_rtca_reacts = [
+rtca_reacts = [
     ([_oxalacetate, _NADPH], [_malate, _NADP]),  # -5
     ([_malate], [_fumarate]),  # 0
     ([_fumarate, _NADPH], [_succinate, _NADP]),  # 0
@@ -315,7 +315,7 @@ _GHB = Molecule("GHB", 600.0 * 1e3)  # 4C 18e !
 _hydroxybutyrylCoA = Molecule("hydroxybutyryl-CoA", 825.0 * 1e3)
 _acetoacetylCoA = Molecule("acetoacetyl-CoA", 760.0 * 1e3)  # 4C 16e !
 
-_dcarbhb_reacts = [
+dcarbhb_reacts = [
     ([_acetylCoA, _co2, _NADPH], [_pyruvate, _HSCoA, _NADP]),  # -35
     ([_pyruvate, _ATP], [_PEP, _ADP]),  # -15
     ([_PEP, _co2], [_oxalacetate]),  # -10
@@ -355,7 +355,7 @@ _GHB = Molecule("GHB", 600.0 * 1e3)
 _hydroxybutyrylCoA = Molecule("hydroxybutyryl-CoA", 825.0 * 1e3)
 _acetoacetylCoA = Molecule("acetoacetyl-CoA", 760.0 * 1e3)
 
-_hprophbut_reacts = [
+hprophbut_reacts = [
     ([_acetylCoA, _co2], [_malonylCoA]),  # +10
     (
         [_malonylCoA, _NADPH, _NADPH, _NADPH],
@@ -394,12 +394,12 @@ MOLECULES = (
 
 REACTIONS = (
     _common_reacts
-    + _calvin_reacts
-    + _wl_reacts
-    + _hprop_reacts
-    + _rtca_reacts
-    + _dcarbhb_reacts
-    + _hprophbut_reacts
+    + calvin_reacts
+    + wl_reacts
+    + hprop_reacts
+    + rtca_reacts
+    + dcarbhb_reacts
+    + hprophbut_reacts
 )
 
 CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
@@ -425,3 +425,13 @@ def print_mathjax(chem: Chemistry):
             + r" \\"
         )
     print(r"\end{align*}")
+
+
+def get_proteome_fact(
+    reacts: list[tuple[list[Molecule], list[Molecule]]]
+) -> list[ProteinFact]:
+    proteome: list[ProteinFact] = []
+    for react in reacts:
+        dom = CatalyticDomainFact(reaction=react)
+        proteome.append(ProteinFact(domain_facts=[dom]))
+    return proteome

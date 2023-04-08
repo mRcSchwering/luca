@@ -4,5 +4,5 @@ mypy
 plotnine
 ipykernel
 tensorboard
-magicsoup
+magicsoup>=0.3.3,<0.4.0
 

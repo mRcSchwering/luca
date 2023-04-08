@@ -4,9 +4,9 @@ channels:
   - nvidia
   - defaults
 dependencies:
-  - python=3.9
+  - python=3.10
   - pip
   - pytorch
-  - pytorch-cuda=11.6
+  - pytorch-cuda=11.7
   - pip:
       - -r requirements.txt
