@@ -42,8 +42,7 @@ def _log_scalars(
         writer.add_scalar("Cells/total[n]", n_cells, step)
         mean_surv = exp.world.cell_survival.mean()
         writer.add_scalar("Cells/Survival[avg]", mean_surv, step)
-        cell_divis = exp.world.cell_divisions.mean()
-        writer.add_scalar("Cells/Generation", cell_divis, step)
+        writer.add_scalar("Cells/Generation", exp.gen_i, step)
         for scalar, idx in molecules.items():
             mm = molecule_map[idx].sum().item()
             cm = cell_molecules[:, idx].sum().item()
@@ -88,13 +87,11 @@ def trial(
         init_cell_cover=hparams["init_cell_cover"],
         split_ratio=hparams["split_ratio"],
         split_thresh=hparams["split_thresh"],
-        max_splits=hparams["max_splits"],
     )
 
     assert exp.world.map_size == hparams["map_size"]
     assert exp.world.device == hparams["device"]
     assert exp.world.workers == hparams["n_workers"]
-    exp.prep_world()
 
     print(f"Starting trial {name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")

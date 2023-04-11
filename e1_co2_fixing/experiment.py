@@ -1,99 +1,101 @@
-from typing import Callable
 from pathlib import Path
 import random
 import torch
 import magicsoup as ms
-from .chemistry import CHEMISTRY, ESSENTIAL_MOLS
+from .chemistry import ESSENTIAL_MOLS
 
 THIS_DIR = Path(__file__).parent
 
 
-def _sigm_incr(t: torch.Tensor, k: float, n: int) -> list[int]:
+def _sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = t**n / (t**n + k**n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
 
-def _sigm_decr(t: torch.Tensor, k: float, n: int) -> list[int]:
+def _rev_sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = k**n / (t**n + k**n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
 
-def _get_high_co2_spots(map_size: int) -> tuple[list[int], list[int]]:
-    init_ticks = list(range(32, map_size + 1 - 32, 64))
-    ticks = []
-    for tick in init_ticks:
-        ticks.extend([tick - 1, tick, tick + 1])
-    n = len(ticks)
-    xs = ticks * n
-    ys = [d for d in ticks for _ in range(n)]
-    return xs, ys
+class MoleculeDependentCellDeath:
+    """
+    Sample cell indexes based on molecule abundance.
+    Lower abundance leads to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, k: float, n: int):
+        self.k = k
+        self.n = n
+
+    def __call__(self, cellmols: torch.Tensor) -> list[int]:
+        return _rev_sigm_sample(cellmols, self.k, self.n)
 
 
-class LinearMutationRate:
+class GenomeSizeDependentCellDeath:
+    """
+    Sample cell indexes based on genome size.
+    Larger genomes lead to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, k: float, n: int):
+        self.k = k
+        self.n = n
+
+    def __call__(self, genomes: list[str]) -> list[int]:
+        sizes = torch.tensor([float(len(d)) for d in genomes])
+        return _sigm_sample(sizes, self.k, self.n)
+
+
+class MoleculeDependentCellDivision:
+    """
+    Sample cell indexes based on molecule abundance.
+    Higher abundance leads to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, k: float, n: int):
+        self.k = k
+        self.n = n
+
+    def __call__(self, cellmols: torch.Tensor) -> list[int]:
+        return _sigm_sample(cellmols, self.k, self.n)
+
+
+class LinearGenerationDepedentMutationRate:
     """
     Linearly change mutation rate from `from_p` to `to_p`
     over the course of `n_gens` generations
     """
 
-    # TODO: rather do mutations in class?
-    #       first see how replicate cells in class looks like
-
-    def __init__(self, n_gens: int, from_p: float, to_p: float):
+    def __init__(self, n_gens: float, from_p: float, to_p: float):
         self.n_gens = n_gens
         self.from_p = from_p
         self.to_p = to_p
 
-    def __call__(self, gen_i: int) -> float:
+    def __call__(self, gen_i: float) -> float:
         if gen_i > self.n_gens:
             return self.to_p
         dn = (self.n_gens - gen_i) / self.n_gens
         return dn * self.from_p + (1 - dn) * self.to_p
 
 
-class CO2IslandsFact:
+class IncrementWithLimit:
     """
-    Distribute points of high CO2 concentrations across the map
-    with comparitively low CO2 levels in between.
-    """
-
-    def __init__(self, map_size: int):
-        self.mol_2_idx = {d.name: i for i, d in enumerate(CHEMISTRY.molecules)}
-        self.co2_i = self.mol_2_idx["CO2"]
-
-        self.co2_xs, self.co2_ys = _get_high_co2_spots(map_size=map_size)
-        self.co2_lows = list(range(0, map_size, 64))
-
-    def prep(self, molmap: torch.Tensor, diffuse: Callable):
-        co2_i = self.mol_2_idx["CO2"]
-        molmap[co2_i] = 35.0
-        for _ in range(500):
-            self(molmap)
-            diffuse()
-
-    def __call__(self, molmap: torch.Tensor):
-        molmap[self.co2_i, self.co2_xs, self.co2_ys] = 100.0
-        molmap[self.co2_i, self.co2_lows] = 10.0
-        molmap[self.co2_i, :, self.co2_lows] = 10.0
-
-
-class LimitedEnergyIncrement:
-    """
-    Increment high-energy molecule `y_i` by a constant value `val`
+    Increment molecule abundance by a constant value `val`
     up to a maximum value `limit`.
     """
 
-    def __init__(self, y_i: int, val: float, limit: float):
-        self.i = y_i
+    def __init__(self, val: float, limit: float):
         self.val = val
         self.limit = limit
 
     def __call__(self, molmap: torch.Tensor):
-        """asd"""
-        molmap[self.i] += self.val
-        molmap[self.i] = molmap[self.i].clamp(max=self.limit)
-        # TODO: check that this works
+        molmap += self.val
+        molmap -= (molmap - self.limit).clamp(min=0.0)
 
 
 class LinearComplexToMinimalMedium:
@@ -109,23 +111,27 @@ class LinearComplexToMinimalMedium:
         mol_init: float,
         molecules: list[ms.Molecule],
         essentials: list[ms.Molecule],
+        molmap: torch.Tensor,
     ):
         self.n_gens = n_gens
         self.mol_init = mol_init
         self.essentials = [i for i, d in enumerate(molecules) if d in essentials]
         self.others = [i for i, d in enumerate(molecules) if d not in essentials]
         self.eps = 1e-3
+        self.device = molmap.device
+        self.size = molmap.size()
 
-    def __call__(self, molmap: torch.Tensor, gen_i: int):
+    def __call__(self, gen_i: int) -> torch.Tensor:
+        molmap = torch.zeros(self.size, device=self.device)
         if gen_i > self.n_gens:
             molmap[:] = self.eps
-            return
+            return molmap
         dn = (self.n_gens - gen_i) / self.n_gens
         molmap[self.essentials] = dn * self.mol_init + self.eps
         molmap[self.others] = self.eps
+        return molmap
 
 
-# TODO: other name?
 class Experiment:
     def __init__(
         self,
@@ -137,11 +143,10 @@ class Experiment:
         split_thresh: float,
     ):
         self.world = world
+        assert world.n_cells == 0
 
-        self.init_genomes = init_genomes
-        self.mol_map_init = mol_map_init
         self.n_pxls = world.map_size**2
-        self.n_init_cells = int(init_cell_cover * self.n_pxls)
+        n_init_cells = int(init_cell_cover * self.n_pxls)
         self.split_ratio = split_ratio
         self.split_at_n = int(split_thresh * self.n_pxls)
         self.split_i = 0
@@ -153,30 +158,28 @@ class Experiment:
         self.X_I = self.mol_2_idx["X"]
         self.Y_I = self.mol_2_idx["Y"]
 
-        # TODO: injection
-        self.mutation_rate = LinearMutationRate(n_gens=1000, from_p=1e-3, to_p=1e-6)
-        self.co2_fact = CO2IslandsFact(map_size=world.map_size)
-        self.energy_fact = LimitedEnergyIncrement(y_i=self.Y_I, val=1.0, limit=10.0)
+        self.mutations_by_gen = LinearGenerationDepedentMutationRate(
+            n_gens=1000, from_p=1e-3, to_p=1e-6
+        )
+        self.mutation_rate = self.mutations_by_gen(self.gen_i)
+
+        self.divide_by_mol = MoleculeDependentCellDivision(k=15.0, n=3)
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.5, n=3)
+        self.kill_by_genome = GenomeSizeDependentCellDeath(k=4000.0, n=7)
+
+        self.increment_energy = IncrementWithLimit(val=1.0, limit=10.0)
+        self.increment_co2 = IncrementWithLimit(val=1.0, limit=10.0)
+
         self.medium_fact = LinearComplexToMinimalMedium(
             n_gens=1000,
             mol_init=mol_map_init,
             molecules=molecules,
             essentials=ESSENTIAL_MOLS,
+            molmap=self.world.molecule_map,
         )
 
-    def new_plate(self):
-        self.world.kill_cells(cell_idxs=list(range(self.world.n_cells)))
-
-        # fresh molecule map
-        self.medium_fact(self.world.molecule_map, gen_i=self.gen_i)
-
-        # setup CO2 gradient
-        self.co2_fact.prep(
-            molmap=self.world.molecule_map, diffuse=self.world.diffuse_molecules
-        )
-
-        # initial cells
-        seqs = random.choices(self.init_genomes, k=self.n_init_cells)
+        self._prepare_fresh_plate()
+        seqs = random.choices(init_genomes, k=n_init_cells)
         self.world.add_cells(genomes=seqs)
 
     def step_10s(self):
@@ -184,11 +187,14 @@ class Experiment:
         self._kill_cells()
         self._split_cells()
         self._mutate_cells()
+
         self.world.increment_cell_survival()
+        self.gen_i = self.world.cell_divisions.mean().item()
+        self.mutation_rate = self.mutations_by_gen(self.gen_i)
 
     def step_1s(self):
-        self.co2_fact(self.world.molecule_map)
-        self.energy_fact(self.world.molecule_map)
+        self.increment_energy(self.world.molecule_map[self.X_I])
+        self.increment_energy(self.world.molecule_map[self.CO2_I])
         for _ in range(10):
             self.world.enzymatic_activity()
         self.world.diffuse_molecules()
@@ -201,39 +207,30 @@ class Experiment:
             idxs = torch.randint(n_cells, (kill_n,)).tolist()
             self.world.kill_cells(cell_idxs=idxs)
             self.split_i += 1
-        # TODO: reset molecule_map
-        # TODO: randomly place remaining cells?
+        self._prepare_fresh_plate()
+        self.world.reposition_cells()  # TODO: implement
 
     def _mutate_cells(self):
-        p = self.mutation_rate(self.gen_i)
-        mutated = ms.point_mutations(seqs=self.world.genomes, p=p)
+        mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         self.world.update_cells(genome_idx_pairs=mutated)
 
-    def _kill_cells(self):
-        # TODO: as class
-        ies = _sigm_decr(self.world.cell_molecules[:, self.Y_I], 0.5, 3)
-        sizes = torch.tensor([float(len(d)) for d in self.world.genomes])
-        iss = _sigm_incr(sizes, 4000.0, 7)
-        self.world.kill_cells(cell_idxs=list(set(ies + iss)))
-
     def _replicate_cells(self):
-        # TODO: as class
         i = self.X_I
-        ics = _sigm_incr(self.world.cell_molecules[:, i], 15.0, 3)
+        idxs0 = self.divide_by_mol(self.world.cell_molecules[:, i])
 
-        # cell divisions will use up 2 X
-        its = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
-        idxs = list(set(ics) & set(its))
-        self.world.cell_molecules[idxs, i] -= 2.0
+        idxs1 = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
+        idxs = list(set(idxs0) & set(idxs1))
 
         successes = self.world.divide_cells(cell_idxs=idxs)
         if len(successes) == 0:
             return
 
-        # add random recombinations
-        p = self.mutation_rate(self.gen_i)
+        ps, cs = list(zip(*successes))
+        self.world.cell_molecules[ps, i] -= 1.0
+        self.world.cell_molecules[cs, i] -= 1.0
+
         pairs = [(self.world.genomes[p], self.world.genomes[c]) for p, c in successes]
-        mutated = ms.recombinations(seq_pairs=pairs, p=p)
+        mutated = ms.recombinations(seq_pairs=pairs, p=self.mutation_rate)
 
         genome_idx_pairs = []
         for c0, c1, idx in mutated:
@@ -241,3 +238,13 @@ class Experiment:
             genome_idx_pairs.append((c0, c0_i))
             genome_idx_pairs.append((c1, c1_i))
         self.world.update_cells(genome_idx_pairs=genome_idx_pairs)
+
+    def _kill_cells(self):
+        idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.X_I])
+        idxs1 = self.kill_by_genome(self.world.genomes)
+        self.world.kill_cells(cell_idxs=set(idxs0 + idxs1))
+
+    def _prepare_fresh_plate(self):
+        self.world.molecule_map = self.medium_fact(gen_i=self.gen_i)
+        self.increment_energy(self.world.molecule_map[self.X_I])
+        self.increment_co2(self.world.molecule_map[self.CO2_I])
