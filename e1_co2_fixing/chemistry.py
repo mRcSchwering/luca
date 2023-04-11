@@ -25,6 +25,8 @@ Stage 2:
 5 G3P -> 3 Ru5P
 Ru5P + ATP -> RuBP + ADP
 
+essential: RuBP
+
 ## 3-Hydroxypropionate Bicycle
 
 CO2 fixation:
@@ -43,6 +45,8 @@ propionyl-CoA + glyoxylate -> methylmalyl-CoA
 methylmalyl-CoA -> citramalyl-CoA
 citramalyl-CoA -> acetyl-CoA + pyruvate
 
+essential: HS-CoA
+
 ## Wood-Ljungdahl cycle
 
 Methyl (Eastern) Branch:
@@ -55,6 +59,8 @@ Carbonyl (Western) Branch:
 CO2 + 2 Fd-red -> CO + 2 Fd-ox
 methyl-FH4 + CO + HS-CoA -> acetyl-CoA + FH4
 
+essential: FH4, HS-CoA
+
 ## Reductive TCA
 
 oxalacetate + NADPH -> malate + NADP (-64.2 kJ/mol)
@@ -65,6 +71,8 @@ succinyl-CoA + FdRed + CO2 -> a-ketoglutarate + HS-CoA + FdOx (-14.8 kJ/mol incl
 a-ketoglutarate + CO2 + NADPH -> isocitrate + NADP (+3.8 kJ/mol)
 isocitrate -> citrate (-8.5 kJ/mol)
 citrate + HS-CoA + ATP -> oxalacetate + acetyl-CoA + ADP
+
+essential: HS-CoA, oxalacetate (could also be created from pyruvate)
 
 ## Dicarboxylate/4-Hydroxybutyrate Cycle
 
@@ -81,6 +89,8 @@ succinic semialdehyde + NADPH -> 4-hydroxy-butyrate + NADP
 hydroxybutyryl-CoA + NADP -> acetoacetyl-CoA + NADPH
 acetoacetyl-CoA + HS-CoA -> 2 acetyl-CoA
 
+essential: HS-CoA
+
 ## 3-Hydroxypropionate/4-Hydroxybutyrate Cycle
 
 acetyl-CoA + CO2 + ATP -> malonyl-CoA + ADP
@@ -92,6 +102,8 @@ succinic semialdehyde + NADPH -> 4-hydroxy-butyrate + NADP
 4-hydroxy-butyrate + HS-CoA + ATP -> hydroxybutyryl-CoA + ADP
 hydroxybutyryl-CoA + NADP -> acetoacetyl-CoA + NADPH
 acetoacetyl-CoA + HS-CoA -> 2 acetyl-CoA
+
+essential: HS-CoA
 
 ## Common Reactions
 
@@ -391,6 +403,9 @@ MOLECULES = (
     + _dcarbhb_mols
     + _hprophbut_mols
 )
+
+# TODO: remove oxalacetate as essential?
+ESSENTIAL_MOLS = [_HSCoA, _FH4, _RuBP, _oxalacetate]
 
 REACTIONS = (
     _common_reacts
