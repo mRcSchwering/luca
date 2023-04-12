@@ -1,22 +1,12 @@
 from pathlib import Path
+from itertools import product
 import random
 import torch
 import magicsoup as ms
 from .chemistry import ESSENTIAL_MOLS
+from .util import sigm_sample, rev_sigm_sample
 
 THIS_DIR = Path(__file__).parent
-
-
-def _sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
-    p = t**n / (t**n + k**n)
-    idxs = torch.argwhere(torch.bernoulli(p))
-    return idxs.flatten().tolist()
-
-
-def _rev_sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
-    p = k**n / (t**n + k**n)
-    idxs = torch.argwhere(torch.bernoulli(p))
-    return idxs.flatten().tolist()
 
 
 class MoleculeDependentCellDeath:
@@ -26,12 +16,12 @@ class MoleculeDependentCellDeath:
     `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
     """
 
-    def __init__(self, k: float, n: int):
+    def __init__(self, k: float, n=3):
         self.k = k
         self.n = n
 
     def __call__(self, cellmols: torch.Tensor) -> list[int]:
-        return _rev_sigm_sample(cellmols, self.k, self.n)
+        return rev_sigm_sample(cellmols, self.k, self.n)
 
 
 class GenomeSizeDependentCellDeath:
@@ -41,13 +31,13 @@ class GenomeSizeDependentCellDeath:
     `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
     """
 
-    def __init__(self, k: float, n: int):
+    def __init__(self, k: float, n=7):
         self.k = k
         self.n = n
 
     def __call__(self, genomes: list[str]) -> list[int]:
         sizes = torch.tensor([float(len(d)) for d in genomes])
-        return _sigm_sample(sizes, self.k, self.n)
+        return sigm_sample(sizes, self.k, self.n)
 
 
 class MoleculeDependentCellDivision:
@@ -57,12 +47,12 @@ class MoleculeDependentCellDivision:
     `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
     """
 
-    def __init__(self, k: float, n: int):
+    def __init__(self, k: float, n=3):
         self.k = k
         self.n = n
 
     def __call__(self, cellmols: torch.Tensor) -> list[int]:
-        return _sigm_sample(cellmols, self.k, self.n)
+        return sigm_sample(cellmols, self.k, self.n)
 
 
 class LinearGenerationDepedentMutationRate:
@@ -89,13 +79,56 @@ class IncrementWithLimit:
     up to a maximum value `limit`.
     """
 
-    def __init__(self, val: float, limit: float):
+    def __init__(self, val: float, limit=10.0):
         self.val = val
         self.limit = limit
 
     def __call__(self, molmap: torch.Tensor):
         molmap += self.val
         molmap -= (molmap - self.limit).clamp(min=0.0)
+
+
+class MapCenterSquareGradient:
+    """
+    Create square gradient in center of map by setting molecule abundance to
+    a high level in a center square, and to a low level at the borders of the map.
+    `ratio` is the size of that square relative to the overall map size.
+    """
+
+    def __init__(self, map_size: int, ratio: float, high=100.0, low=1e-3):
+        s = map_size / 2
+        w = int(map_size * ratio / 2)
+        center = range(int(s - w), int(s + w))
+        xys = [(x, y) for x, y in product(center, center)]
+
+        self.xs, self.ys = list(zip(*xys))
+        self.borders = [0, map_size - 1]
+        self.low = low
+        self.high = high
+
+    def __call__(self, molmap: torch.Tensor):
+        molmap[self.borders] = self.low
+        molmap[:, self.borders] = self.low
+        molmap[self.xs, self.ys] = self.high
+
+
+class KillCellsForSplit:
+    """
+    Sample cell indexes to be killed if the cell map is overgrown.
+    Cell map has `n_pxls` pixels and cells are split if more than `thresh`
+    of this map is overgrown with cells.
+    Afterwards `ratio` of cells will survive.
+    """
+
+    def __init__(self, ratio: float, thresh: float, n_pxls: int):
+        self.ratio = ratio
+        self.split_at_n = int(n_pxls * thresh)
+
+    def __call__(self, n_cells: int) -> list[int]:
+        if n_cells > self.split_at_n:
+            kill_n = n_cells - int(n_cells * self.ratio)
+            return torch.randint(n_cells, (kill_n,)).tolist()
+        return []
 
 
 class LinearComplexToMinimalMedium:
@@ -107,28 +140,29 @@ class LinearComplexToMinimalMedium:
 
     def __init__(
         self,
-        n_gens: int,
+        n_gens: float,
         mol_init: float,
         molecules: list[ms.Molecule],
         essentials: list[ms.Molecule],
-        molmap: torch.Tensor,
+        size: torch.Size,
+        device: str,
     ):
         self.n_gens = n_gens
         self.mol_init = mol_init
         self.essentials = [i for i, d in enumerate(molecules) if d in essentials]
         self.others = [i for i, d in enumerate(molecules) if d not in essentials]
         self.eps = 1e-3
-        self.device = molmap.device
-        self.size = molmap.size()
+        self.device = device
+        self.size = size
 
-    def __call__(self, gen_i: int) -> torch.Tensor:
+    def __call__(self, gen_i: float) -> torch.Tensor:
         molmap = torch.zeros(self.size, device=self.device)
+        molmap[self.essentials] = self.mol_init
         if gen_i > self.n_gens:
-            molmap[:] = self.eps
+            molmap[self.others] = self.eps
             return molmap
         dn = (self.n_gens - gen_i) / self.n_gens
-        molmap[self.essentials] = dn * self.mol_init + self.eps
-        molmap[self.others] = self.eps
+        molmap[self.others] = dn * self.mol_init + self.eps
         return molmap
 
 
@@ -137,18 +171,21 @@ class Experiment:
         self,
         world: ms.World,
         mol_map_init: float,
-        init_genomes: list[str],
+        n_gen_adaption: float,
         init_cell_cover: float,
         split_ratio: float,
         split_thresh: float,
+        k_replicate: float,
+        k_kill: float,
+        k_genome_size: float,
+        energy_supply: float,
+        co2_size: float,
+        init_genomes: list[str],
     ):
         self.world = world
-        assert world.n_cells == 0
 
         self.n_pxls = world.map_size**2
-        n_init_cells = int(init_cell_cover * self.n_pxls)
-        self.split_ratio = split_ratio
-        self.split_at_n = int(split_thresh * self.n_pxls)
+        self.n_init_cells = int(init_cell_cover * self.n_pxls)
         self.split_i = 0
         self.gen_i = 0.0
 
@@ -163,52 +200,54 @@ class Experiment:
         )
         self.mutation_rate = self.mutations_by_gen(self.gen_i)
 
-        self.divide_by_mol = MoleculeDependentCellDivision(k=15.0, n=3)
-        self.kill_by_mol = MoleculeDependentCellDeath(k=0.5, n=3)
-        self.kill_by_genome = GenomeSizeDependentCellDeath(k=4000.0, n=7)
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=k_replicate)
+        self.kill_by_mol = MoleculeDependentCellDeath(k=k_kill)
+        self.kill_by_genome = GenomeSizeDependentCellDeath(k=k_genome_size)
 
-        self.increment_energy = IncrementWithLimit(val=1.0, limit=10.0)
-        self.increment_co2 = IncrementWithLimit(val=1.0, limit=10.0)
+        self.add_energy = IncrementWithLimit(val=energy_supply)
+        self.add_co2 = MapCenterSquareGradient(ratio=co2_size, map_size=world.map_size)
+        self.kill_for_split = KillCellsForSplit(
+            ratio=split_ratio, thresh=split_thresh, n_pxls=self.n_pxls
+        )
 
         self.medium_fact = LinearComplexToMinimalMedium(
-            n_gens=1000,
+            n_gens=n_gen_adaption,
             mol_init=mol_map_init,
             molecules=molecules,
             essentials=ESSENTIAL_MOLS,
-            molmap=self.world.molecule_map,
+            size=self.world.molecule_map.size(),
+            device=self.world.device,
         )
 
         self._prepare_fresh_plate()
-        seqs = random.choices(init_genomes, k=n_init_cells)
+        seqs = random.choices(init_genomes, k=self.n_init_cells)
         self.world.add_cells(genomes=seqs)
 
     def step_10s(self):
         self._replicate_cells()
         self._kill_cells()
-        self._split_cells()
+        self._passage_cells()
         self._mutate_cells()
 
         self.world.increment_cell_survival()
-        self.gen_i = self.world.cell_divisions.mean().item()
+        self.gen_i = self.world.cell_divisions.float().mean().item()
         self.mutation_rate = self.mutations_by_gen(self.gen_i)
 
     def step_1s(self):
-        self.increment_energy(self.world.molecule_map[self.X_I])
-        self.increment_energy(self.world.molecule_map[self.CO2_I])
+        self.add_energy(self.world.molecule_map[self.X_I])
+        self.add_energy(self.world.molecule_map[self.CO2_I])
         for _ in range(10):
             self.world.enzymatic_activity()
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
 
-    def _split_cells(self):
-        n_cells = self.world.n_cells
-        if n_cells > self.split_at_n:
-            kill_n = n_cells - int(n_cells * self.split_ratio)
-            idxs = torch.randint(n_cells, (kill_n,)).tolist()
+    def _passage_cells(self):
+        idxs = self.kill_for_split(self.world.n_cells)
+        if len(idxs) > 0:
             self.world.kill_cells(cell_idxs=idxs)
+            self._prepare_fresh_plate()
+            self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
             self.split_i += 1
-        self._prepare_fresh_plate()
-        self.world.reposition_cells()  # TODO: implement
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
@@ -216,7 +255,7 @@ class Experiment:
 
     def _replicate_cells(self):
         i = self.X_I
-        idxs0 = self.divide_by_mol(self.world.cell_molecules[:, i])
+        idxs0 = self.replicate_by_mol(self.world.cell_molecules[:, i])
 
         idxs1 = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
         idxs = list(set(idxs0) & set(idxs1))
@@ -242,9 +281,11 @@ class Experiment:
     def _kill_cells(self):
         idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.X_I])
         idxs1 = self.kill_by_genome(self.world.genomes)
-        self.world.kill_cells(cell_idxs=set(idxs0 + idxs1))
+        self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1)))
 
     def _prepare_fresh_plate(self):
-        self.world.molecule_map = self.medium_fact(gen_i=self.gen_i)
-        self.increment_energy(self.world.molecule_map[self.X_I])
-        self.increment_co2(self.world.molecule_map[self.CO2_I])
+        self.world.molecule_map = self.medium_fact(self.gen_i)
+        self.add_co2(self.world.molecule_map[self.CO2_I])
+        for _ in range(10):
+            self.world.diffuse_molecules()
+        self.add_energy(self.world.molecule_map[self.X_I])
