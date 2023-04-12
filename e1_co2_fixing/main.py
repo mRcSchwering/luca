@@ -10,7 +10,8 @@ import datetime as dt
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
-from .util import GENOMES, init_world, load_world, generate_genomes
+from .chemistry import GENOMES
+from .util import init_world, load_world, generate_genomes
 from .experiment import Experiment
 
 THIS_DIR = Path(__file__).parent
@@ -57,8 +58,8 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
 
 
 # TODO: test params shown nicely
-# TODO: params for kill/replicate sampling
-# TODO: splits = on/off (only to prevent overcrouding)
+# TODO: stop after 2000 generations (as hparam?)
+# TODO: unimportant hparams shouldnt be shown in table
 
 
 def trial(
@@ -196,13 +197,13 @@ if __name__ == "__main__":
     )
     trial_parser.add_argument(
         "--init_genome_size",
-        default=500,
+        default=600,
         type=int,
-        help="Size of initial genomes (must be large enough to encode proteome)",
+        help="Size of initial genomes (min=600 to accomodate all proteomes, max=1k as they die quickly with large genomes)",
     )
     trial_parser.add_argument(
         "--init_cell_cover",
-        default=0.1,
+        default=0.2,
         type=float,
         help="Ratio of map initially covered by cells",
     )
@@ -210,40 +211,40 @@ if __name__ == "__main__":
         "--split_ratio",
         default=0.15,
         type=float,
-        help="Ratio of cells carried over during passage",
+        help="Ratio of cells carried over during passage (theoretically 0.13-0.2 is best)",
     )
     trial_parser.add_argument(
         "--split_thresh",
         default=0.75,
         type=float,
-        help="Ratio of map covered in cells that will trigger passage",
+        help="Ratio of map covered in cells that will trigger passage (should be below 0.8)",
     )
     trial_parser.add_argument(
         "--k_replicate",
-        default=15.0,
+        default=20.0,
         type=float,
-        help="Sensitivity to X for cell replication (low=cells with low X replicate more rapidly)",
+        help="Sensitivity to X for cell replication (low=rapid replication, from 15 to 30)",
     )
     trial_parser.add_argument(
         "--k_kill",
-        default=0.5,
+        default=0.25,
         type=float,
-        help="Sensitivity to X for cell death (high=cells with low X die more rapidly)",
+        help="Sensitivity to X for cell death (low=long survival, from 0.2 to 0.4)",
     )
     trial_parser.add_argument(
         "--k_genome_size",
-        default=4_000.0,
+        default=2_250.0,
         type=float,
-        help="Sensitivity to genome size for cell death (small=cells with large genomes die more rapidly)",
+        help="Sensitivity to genome size for cell death (small=short survival, from 2000 to 2500)",
     )
     trial_parser.add_argument(
         "--energy_supply", default=1.0, type=float, help="Amount of Y added each second"
     )
     trial_parser.add_argument(
         "--co2_size",
-        default=0.1,
+        default=0.2,
         type=float,
-        help="Relative size of CO2 island in center of map",
+        help="Relative size of CO2 island in center of map (maximum 0.6)",
     )
     trial_parser.add_argument(
         "--n_trials",
@@ -253,7 +254,7 @@ if __name__ == "__main__":
     )
     trial_parser.add_argument(
         "--n_steps",
-        default=50_000,
+        default=100_000,
         type=int,
         help="For how many steps (=virtual seconds) to run each trial",
     )

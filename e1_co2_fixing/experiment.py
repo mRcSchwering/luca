@@ -195,10 +195,14 @@ class Experiment:
         self.X_I = self.mol_2_idx["X"]
         self.Y_I = self.mol_2_idx["Y"]
 
-        self.mutations_by_gen = LinearGenerationDepedentMutationRate(
-            n_gens=1000, from_p=1e-3, to_p=1e-6
+        self.point_mutations_by_gen = LinearGenerationDepedentMutationRate(
+            n_gens=1000, from_p=1e-4, to_p=1e-6
         )
-        self.mutation_rate = self.mutations_by_gen(self.gen_i)
+        self.recombinations_by_gen = LinearGenerationDepedentMutationRate(
+            n_gens=1000, from_p=1e-5, to_p=1e-7
+        )
+        self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
+        self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
         self.replicate_by_mol = MoleculeDependentCellDivision(k=k_replicate)
         self.kill_by_mol = MoleculeDependentCellDeath(k=k_kill)
@@ -231,15 +235,16 @@ class Experiment:
 
         self.world.increment_cell_survival()
         self.gen_i = self.world.cell_divisions.float().mean().item()
-        self.mutation_rate = self.mutations_by_gen(self.gen_i)
+        self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
+        self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
     def step_1s(self):
         self.add_energy(self.world.molecule_map[self.X_I])
-        self.add_energy(self.world.molecule_map[self.CO2_I])
-        for _ in range(10):
-            self.world.enzymatic_activity()
+        self.add_co2(self.world.molecule_map[self.CO2_I])
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
+        for _ in range(10):
+            self.world.enzymatic_activity()
 
     def _passage_cells(self):
         idxs = self.kill_for_split(self.world.n_cells)
@@ -250,7 +255,9 @@ class Experiment:
             self.split_i += 1
 
     def _mutate_cells(self):
-        mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
+        mutated = ms.point_mutations(
+            seqs=self.world.genomes, p=self.point_mutation_rate
+        )
         self.world.update_cells(genome_idx_pairs=mutated)
 
     def _replicate_cells(self):
@@ -269,7 +276,7 @@ class Experiment:
         self.world.cell_molecules[cs, i] -= 1.0
 
         pairs = [(self.world.genomes[p], self.world.genomes[c]) for p, c in successes]
-        mutated = ms.recombinations(seq_pairs=pairs, p=self.mutation_rate)
+        mutated = ms.recombinations(seq_pairs=pairs, p=self.recombination_rate)
 
         genome_idx_pairs = []
         for c0, c1, idx in mutated:
@@ -285,7 +292,7 @@ class Experiment:
 
     def _prepare_fresh_plate(self):
         self.world.molecule_map = self.medium_fact(self.gen_i)
-        self.add_co2(self.world.molecule_map[self.CO2_I])
-        for _ in range(10):
-            self.world.diffuse_molecules()
         self.add_energy(self.world.molecule_map[self.X_I])
+        for _ in range(100):
+            self.add_co2(self.world.molecule_map[self.CO2_I])
+            self.world.diffuse_molecules()

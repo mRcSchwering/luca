@@ -1,19 +1,29 @@
 from pathlib import Path
 import torch
 import magicsoup as ms
-from .chemistry import GENOMES, CHEMISTRY, get_proteome_fact
+from .chemistry import CHEMISTRY, get_proteome_fact
+
+
+def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
+    """$t^n / (t^n + k^n)$"""
+    return t**n / (t**n + k**n)
+
+
+def rev_sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
+    """$k^n / (t^n + k^n)$"""
+    return k**n / (t**n + k**n)
 
 
 def sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     """Sample with probability $t^n / (t^n + k^n)$"""
-    p = t**n / (t**n + k**n)
+    p = sigm(t=t, k=k, n=n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
 
 def rev_sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     """Sample with probability $k^n / (t^n + k^n)$"""
-    p = k**n / (t**n + k**n)
+    p = rev_sigm(t=t, k=k, n=n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
