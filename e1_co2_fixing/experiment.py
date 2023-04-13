@@ -1,6 +1,6 @@
 from pathlib import Path
-from itertools import product
 import random
+import math
 import torch
 import magicsoup as ms
 from .chemistry import ESSENTIAL_MOLS
@@ -67,7 +67,7 @@ class LinearGenerationDepedentMutationRate:
         self.to_p = to_p
 
     def __call__(self, gen_i: float) -> float:
-        if gen_i > self.n_gens:
+        if gen_i >= self.n_gens:
             return self.to_p
         dn = (self.n_gens - gen_i) / self.n_gens
         return dn * self.from_p + (1 - dn) * self.to_p
@@ -88,30 +88,6 @@ class IncrementWithLimit:
         molmap -= (molmap - self.limit).clamp(min=0.0)
 
 
-class MapCenterSquareGradient:
-    """
-    Create square gradient in center of map by setting molecule abundance to
-    a high level in a center square, and to a low level at the borders of the map.
-    `ratio` is the size of that square relative to the overall map size.
-    """
-
-    def __init__(self, map_size: int, ratio: float, high=100.0, low=1e-3):
-        s = map_size / 2
-        w = int(map_size * ratio / 2)
-        center = range(int(s - w), int(s + w))
-        xys = [(x, y) for x, y in product(center, center)]
-
-        self.xs, self.ys = list(zip(*xys))
-        self.borders = [0, map_size - 1]
-        self.low = low
-        self.high = high
-
-    def __call__(self, molmap: torch.Tensor):
-        molmap[self.borders] = self.low
-        molmap[:, self.borders] = self.low
-        molmap[self.xs, self.ys] = self.high
-
-
 class KillCellsForSplit:
     """
     Sample cell indexes to be killed if the cell map is overgrown.
@@ -127,7 +103,7 @@ class KillCellsForSplit:
     def __call__(self, n_cells: int) -> list[int]:
         if n_cells > self.split_at_n:
             kill_n = n_cells - int(n_cells * self.ratio)
-            return torch.randint(n_cells, (kill_n,)).tolist()
+            return random.sample(range(n_cells), k=kill_n)
         return []
 
 
@@ -147,18 +123,18 @@ class LinearComplexToMinimalMedium:
         size: torch.Size,
         device: str,
     ):
+        self.eps = 1e-5
         self.n_gens = n_gens
         self.mol_init = mol_init
         self.essentials = [i for i, d in enumerate(molecules) if d in essentials]
         self.others = [i for i, d in enumerate(molecules) if d not in essentials]
-        self.eps = 1e-3
         self.device = device
         self.size = size
 
     def __call__(self, gen_i: float) -> torch.Tensor:
         molmap = torch.zeros(self.size, device=self.device)
         molmap[self.essentials] = self.mol_init
-        if gen_i > self.n_gens:
+        if gen_i >= self.n_gens:
             molmap[self.others] = self.eps
             return molmap
         dn = (self.n_gens - gen_i) / self.n_gens
@@ -170,24 +146,20 @@ class Experiment:
     def __init__(
         self,
         world: ms.World,
-        mol_map_init: float,
-        n_gen_adaption: float,
-        init_cell_cover: float,
+        n_adaption_gens: float,
+        n_final_gens: float,
         split_ratio: float,
         split_thresh: float,
-        k_replicate: float,
-        k_kill: float,
-        k_genome_size: float,
-        energy_supply: float,
-        co2_size: float,
         init_genomes: list[str],
     ):
         self.world = world
 
         self.n_pxls = world.map_size**2
-        self.n_init_cells = int(init_cell_cover * self.n_pxls)
+        self.n_adaption_gens = n_adaption_gens
+        self.n_total_gens = n_adaption_gens + n_final_gens
         self.split_i = 0
         self.gen_i = 0.0
+        self.score = 0.0
 
         molecules = self.world.chemistry.molecules
         self.mol_2_idx = {d.name: i for i, d in enumerate(molecules)}
@@ -196,27 +168,27 @@ class Experiment:
         self.Y_I = self.mol_2_idx["Y"]
 
         self.point_mutations_by_gen = LinearGenerationDepedentMutationRate(
-            n_gens=1000, from_p=1e-4, to_p=1e-6
+            n_gens=n_adaption_gens, from_p=1e-4, to_p=1e-6
         )
         self.recombinations_by_gen = LinearGenerationDepedentMutationRate(
-            n_gens=1000, from_p=1e-5, to_p=1e-7
+            n_gens=n_adaption_gens, from_p=1e-5, to_p=1e-7
         )
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
-        self.replicate_by_mol = MoleculeDependentCellDivision(k=k_replicate)
-        self.kill_by_mol = MoleculeDependentCellDeath(k=k_kill)
-        self.kill_by_genome = GenomeSizeDependentCellDeath(k=k_genome_size)
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.25)  # [0.2;0.4]
+        self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_250.0)  # [2000;2500]
 
-        self.add_energy = IncrementWithLimit(val=energy_supply)
-        self.add_co2 = MapCenterSquareGradient(ratio=co2_size, map_size=world.map_size)
+        self.add_energy = IncrementWithLimit(val=1.0)
+        self.add_co2 = IncrementWithLimit(val=1.0)
         self.kill_for_split = KillCellsForSplit(
             ratio=split_ratio, thresh=split_thresh, n_pxls=self.n_pxls
         )
 
         self.medium_fact = LinearComplexToMinimalMedium(
-            n_gens=n_gen_adaption,
-            mol_init=mol_map_init,
+            n_gens=n_adaption_gens,
+            mol_init=10.0,
             molecules=molecules,
             essentials=ESSENTIAL_MOLS,
             size=self.world.molecule_map.size(),
@@ -224,8 +196,7 @@ class Experiment:
         )
 
         self._prepare_fresh_plate()
-        seqs = random.choices(init_genomes, k=self.n_init_cells)
-        self.world.add_cells(genomes=seqs)
+        self.world.add_cells(genomes=init_genomes)
 
     def step_10s(self):
         self._replicate_cells()
@@ -234,9 +205,11 @@ class Experiment:
         self._mutate_cells()
 
         self.world.increment_cell_survival()
-        self.gen_i = self.world.cell_divisions.float().mean().item()
+        avg = self.world.cell_divisions.float().mean().item()
+        self.gen_i = 0.0 if math.isnan(avg) else avg
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
+        self.score = max((self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0)
 
     def step_1s(self):
         self.add_energy(self.world.molecule_map[self.X_I])

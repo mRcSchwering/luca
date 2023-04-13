@@ -50,23 +50,21 @@ def _log_scalars(
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
     writer.add_scalar("Other/Split", exp.split_i, step)
-    writer.add_scalar("Other/Step", step, step)
+    writer.add_scalar("Other/Score", exp.score, step)
 
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
-# TODO: test params shown nicely
-# TODO: stop after 2000 generations (as hparam?)
-# TODO: unimportant hparams shouldnt be shown in table
-
-
 def trial(
     device: str,
     n_workers: int,
     name: str,
-    init_genomes: list[str],
+    init_genome: str,
+    init_cell_cover: float,
+    n_final_gens: int,
+    n_steps: int,
     trial_max_time_s: int,
     hparams: dict,
 ):
@@ -75,24 +73,26 @@ def trial(
 
     trial_dir = rundir / name
     writer = SummaryWriter(log_dir=trial_dir)
-    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Step": 0})
+    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Score": 0.0})
     writer.file_writer.add_summary(exp)
     writer.file_writer.add_summary(ssi)
     writer.file_writer.add_summary(sei)
 
+    n_init_cells = int(world.map_size**2 * init_cell_cover)
+    genomes = generate_genomes(
+        rundir=THIS_DIR / "runs",
+        name=init_genome,
+        genome_size=600,  # min=600 to accomodate proteomes
+        n_genomes=n_init_cells,
+    )
+
     exp = Experiment(
         world=world,
-        mol_map_init=hparams["mol_map_init"],
-        n_gen_adaption=hparams["n_gen_adaption"],
-        init_cell_cover=hparams["init_cell_cover"],
+        n_adaption_gens=hparams["n_adaption_gens"],
+        n_final_gens=n_final_gens,
         split_ratio=hparams["split_ratio"],
         split_thresh=hparams["split_thresh"],
-        k_replicate=hparams["k_replicate"],
-        k_kill=hparams["k_kill"],
-        k_genome_size=hparams["k_genome_size"],
-        energy_supply=hparams["energy_supply"],
-        co2_size=hparams["co2_size"],
-        init_genomes=init_genomes,
+        init_genomes=genomes,
     )
 
     assert exp.world.device == device
@@ -105,16 +105,15 @@ def trial(
     _log_scalars(exp=exp, writer=writer, step=0, dtime=0)
     _log_imgs(exp=exp, writer=writer, step=0)
 
-    for step_i in range(1, hparams["n_steps"] + 1):
+    for step_i in range(1, n_steps + 1):
         step_t0 = time.time()
 
         exp.step_1s()
 
         if step_i % 10 == 0:
             exp.step_10s()
-            _log_scalars(
-                exp=exp, writer=writer, step=step_i, dtime=time.time() - step_t0
-            )
+            dtime = time.time() - step_t0
+            _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime)
 
         if step_i % 100 == 0:
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
@@ -122,6 +121,10 @@ def trial(
 
         if exp.world.n_cells == 0:
             print(f"after {step_i} steps 0 cells left")
+            break
+
+        if exp.gen_i > exp.n_total_gens:
+            print(f"target generation {exp.n_total_gens} reached after {step_i} steps")
             break
 
         if (time.time() - trial_t0) > trial_max_time_s:
@@ -136,25 +139,24 @@ def trial(
 def trials(kwargs: dict):
     kwargs.pop("func")
     init_genome = kwargs.pop("init_genome")
+    init_cell_cover = kwargs.pop("init_cell_cover")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
     n_trials = kwargs.pop("n_trials")
+    n_final_gens = kwargs.pop("n_final_gens")
+    n_steps = kwargs.pop("n_steps")
     trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
-
-    genomes = generate_genomes(
-        rundir=THIS_DIR / "runs",
-        name=init_genome,
-        genome_size=kwargs["init_genome_size"],
-        n_genomes=1000,
-    )
-
     ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
+
     for trial_i in range(n_trials):
         trial(
             device=device,
             n_workers=n_workers,
             name=f"{ts}_{init_genome}_{trial_i}",
-            init_genomes=genomes,
+            init_genome=init_genome,
+            init_cell_cover=init_cell_cover,
+            n_final_gens=n_final_gens,
+            n_steps=n_steps,
             trial_max_time_s=trial_max_time_s,
             hparams=kwargs,
         )
@@ -177,104 +179,71 @@ if __name__ == "__main__":
         "--map_size",
         default=256,
         type=int,
-        help="Number of pixels of 2D map in each direction",
+        help="Number of pixels of 2D map in each direction (default %(default)s)",
     )
 
     trial_parser = subparsers.add_parser("trials", help="run trials")
     trial_parser.set_defaults(func=trials)
     trial_parser.add_argument("init_genome", choices=GENOMES, type=str)
     trial_parser.add_argument(
-        "--mol_map_init",
-        default=10.0,
+        "--n_final_gens",
+        default=100.0,
         type=float,
-        help="Initial concentration of complex medium",
+        help="For how many generatins to run the experiment after reaching minimal medium (default %(default)s)",
     )
     trial_parser.add_argument(
-        "--n_gen_adaption",
+        "--n_adaption_gens",
         default=1_000.0,
         type=float,
-        help="Over how many generations to reduce complex medium to minimal medium",
-    )
-    trial_parser.add_argument(
-        "--init_genome_size",
-        default=600,
-        type=int,
-        help="Size of initial genomes (min=600 to accomodate all proteomes, max=1k as they die quickly with large genomes)",
+        help="Over how many generations to reduce complex medium to minimal medium (default %(default)s)",
     )
     trial_parser.add_argument(
         "--init_cell_cover",
         default=0.2,
         type=float,
-        help="Ratio of map initially covered by cells",
+        help="Ratio of map initially covered by cells (default %(default)s)",
     )
     trial_parser.add_argument(
         "--split_ratio",
-        default=0.15,
+        default=0.2,
         type=float,
-        help="Ratio of cells carried over during passage (theoretically 0.13-0.2 is best)",
+        help="Ratio of cells carried over during passage (theoretically 0.13-0.2 is best, default %(default)s)",
     )
     trial_parser.add_argument(
         "--split_thresh",
         default=0.75,
         type=float,
-        help="Ratio of map covered in cells that will trigger passage (should be below 0.8)",
-    )
-    trial_parser.add_argument(
-        "--k_replicate",
-        default=20.0,
-        type=float,
-        help="Sensitivity to X for cell replication (low=rapid replication, from 15 to 30)",
-    )
-    trial_parser.add_argument(
-        "--k_kill",
-        default=0.25,
-        type=float,
-        help="Sensitivity to X for cell death (low=long survival, from 0.2 to 0.4)",
-    )
-    trial_parser.add_argument(
-        "--k_genome_size",
-        default=2_250.0,
-        type=float,
-        help="Sensitivity to genome size for cell death (small=short survival, from 2000 to 2500)",
-    )
-    trial_parser.add_argument(
-        "--energy_supply", default=1.0, type=float, help="Amount of Y added each second"
-    )
-    trial_parser.add_argument(
-        "--co2_size",
-        default=0.2,
-        type=float,
-        help="Relative size of CO2 island in center of map (maximum 0.6)",
+        help="Ratio of map covered in cells that will trigger passage (should be below 0.8, default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_trials",
         default=3,
         type=int,
-        help="How many times to run the full experiment (=trial)",
+        help="How many times to run the full experiment/trial (default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_steps",
         default=100_000,
         type=int,
-        help="For how many steps (=virtual seconds) to run each trial",
+        help="For how many steps (=virtual seconds) to run each trial (default %(default)s)",
     )
     trial_parser.add_argument(
         "--device",
         default="cpu",
         type=str,
-        help="Device for tensors ('cpu', 'cuda', ...)",
+        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_workers",
         default=4,
         type=int,
-        help="How many processes to use for transcription and translation",
+        help="How many processes to use for transcription and translation (default %(default)s)",
     )
     trial_parser.add_argument(
         "--trial_max_time_h",
-        default=12,
+        default=6,
         type=int,
-        help="Interrupt and stop trial after that many hours",
+        help="Interrupt and stop trial after that many hours (default %(default)s)",
     )
 
     args = parser.parse_args()

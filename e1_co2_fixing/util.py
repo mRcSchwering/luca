@@ -1,5 +1,6 @@
 from pathlib import Path
 import torch
+import multiprocessing as mp
 import magicsoup as ms
 from .chemistry import CHEMISTRY, get_proteome_fact
 
@@ -52,8 +53,10 @@ def generate_genomes(
     """Generate genomes of a certain size with defined proteomes"""
     world = load_world(rundir=rundir, device="cpu", n_workers=0)
     proteome_fact = get_proteome_fact(proteome_name=name)
+
     seqs = [
         world.generate_genome(proteome=proteome_fact, size=genome_size)
         for _ in range(n_genomes)
     ]
+
     return seqs
