@@ -42,6 +42,8 @@ def init_world(map_size: int, rundir: Path):
 def load_world(rundir: Path, device: str, n_workers: int) -> ms.World:
     """Load world with device and workers from rundir"""
     world = ms.World.from_file(rundir=rundir, device=device)
+    # TODO: rm when fixed
+    world.device = device
     world.workers = n_workers
     world.genetics.workers = n_workers
     return world
