@@ -193,6 +193,35 @@ class Experiment:
         )
 
         self._prepare_fresh_plate()
+
+        # TODO: rm
+        print(
+            "cell mols",
+            self.world.cell_molecules.device,
+            self.world.cell_molecules.dtype,
+        )
+        print(
+            "cell_divisions",
+            self.world.cell_divisions.device,
+            self.world.cell_divisions.dtype,
+        )
+        print("cell_map", self.world.cell_map.device, self.world.cell_map.dtype)
+        print(
+            "cell_positions",
+            self.world.cell_positions.device,
+            self.world.cell_positions.dtype,
+        )
+        print(
+            "cell_survival",
+            self.world.cell_survival.device,
+            self.world.cell_survival.dtype,
+        )
+        print(
+            "molecule_map",
+            self.world.molecule_map.device,
+            self.world.molecule_map.dtype,
+        )
+
         self.world.add_cells(genomes=init_genomes)
 
     def step_10s(self):
@@ -261,12 +290,8 @@ class Experiment:
         self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1)))
 
     def _prepare_fresh_plate(self):
-        # TODO: rm
-        print("before", self.world.molecule_map.device)
         self.world.molecule_map = self.medium_fact(self.gen_i)
-        print("after medium", self.world.molecule_map.device)
         self.add_energy(self.world.molecule_map[self.X_I])
-        print("after energy", self.world.molecule_map.device)
         for _ in range(100):
             self.add_co2(self.world.molecule_map[self.CO2_I])
             self.world.diffuse_molecules()

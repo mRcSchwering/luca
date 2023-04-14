@@ -70,7 +70,6 @@ def trial(
 ):
     rundir = THIS_DIR / "runs"
     world = load_world(rundir=rundir, device=device, n_workers=n_workers)
-    print(world.molecule_map.device, world.molecule_map.dtype)  # TODO: rm
 
     trial_dir = rundir / name
     writer = SummaryWriter(log_dir=trial_dir)
