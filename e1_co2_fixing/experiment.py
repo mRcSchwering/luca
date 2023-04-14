@@ -120,19 +120,17 @@ class LinearComplexToMinimalMedium:
         mol_init: float,
         molecules: list[ms.Molecule],
         essentials: list[ms.Molecule],
-        size: torch.Size,
-        device: str,
+        molmap: torch.Tensor,
     ):
         self.eps = 1e-5
         self.n_gens = n_gens
         self.mol_init = mol_init
         self.essentials = [i for i, d in enumerate(molecules) if d in essentials]
         self.others = [i for i, d in enumerate(molecules) if d not in essentials]
-        self.device = device
-        self.size = size
+        self.molmap = molmap
 
     def __call__(self, gen_i: float) -> torch.Tensor:
-        molmap = torch.zeros(self.size, device=self.device)
+        molmap = torch.zeros_like(self.molmap)
         molmap[self.essentials] = self.mol_init
         if gen_i >= self.n_gens:
             molmap[self.others] = self.eps
@@ -191,8 +189,7 @@ class Experiment:
             mol_init=10.0,
             molecules=molecules,
             essentials=ESSENTIAL_MOLS,
-            size=self.world.molecule_map.size(),
-            device=self.world.device,
+            molmap=self.world.molecule_map,
         )
 
         self._prepare_fresh_plate()
@@ -264,8 +261,12 @@ class Experiment:
         self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1)))
 
     def _prepare_fresh_plate(self):
+        # TODO: rm
+        print("before", self.world.molecule_map.device)
         self.world.molecule_map = self.medium_fact(self.gen_i)
+        print("after medium", self.world.molecule_map.device)
         self.add_energy(self.world.molecule_map[self.X_I])
+        print("after energy", self.world.molecule_map.device)
         for _ in range(100):
             self.add_co2(self.world.molecule_map[self.CO2_I])
             self.world.diffuse_molecules()
