@@ -17,7 +17,7 @@ conda env create -f environment.yml
 
 Use one of the [Deep Learning AMIs](https://aws.amazon.com/machine-learning/amis/) with an instance like
 `g4dn.xlarge`, `g4dn.2xlarge`, `g5.xlarge`, `g5.2xlarge` (see [G4 instances](https://aws.amazon.com/ec2/instance-types/g4/) and [G5 instances](https://aws.amazon.com/ec2/instance-types/g5/)).
-_E.g._ **Deep Learning AMI GPU PyTorch 1.12.1 (Ubuntu 20.04) 20221114** (ami-01e8ee929409916a3) has CUDA 11.6 and conda installed.
+_E.g._ **Deep Learning AMI GPU PyTorch 2.0.0 (Ubuntu 20.04) 20221114** (ami-01e8ee929409916a3) has CUDA 11.6 and conda installed.
 After starting the instance you can initialize conda and directly install the environment.
 
 ```bash
@@ -25,7 +25,7 @@ git clone https://github.com/mRcSchwering/luca  # get repo
 
 conda init && source ~/.bashrc  # init conda
 conda update -n base conda  # update conda
-conda env create -f environment_cuda11.6.yml  # install environment
+conda env create -f environment_gpu.yml  # install environment
 conda activate luca  # activate envrionment
 
 nvcc --version  # check CUDA version
