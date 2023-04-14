@@ -38,22 +38,11 @@ def init_world(map_size: int, rundir: Path):
     world.save(rundir=rundir)
 
 
-def load_world(rundir: Path, device: str, n_workers: int) -> ms.World:
-    """Load world with device and workers from rundir"""
-    world = ms.World.from_file(rundir=rundir, device=device)
-    # TODO: rm when fixed
-    world.device = device
-    world.kinetics.device = device
-    world.workers = n_workers
-    world.genetics.workers = n_workers
-    return world
-
-
 def generate_genomes(
     rundir: Path, name: str, genome_size: int, n_genomes: int
 ) -> list[str]:
     """Generate genomes of a certain size with defined proteomes"""
-    world = load_world(rundir=rundir, device="cpu", n_workers=0)
+    world = ms.World.from_file(rundir=rundir, device="cpu", workers=0)
     proteome_fact = get_proteome_fact(proteome_name=name)
 
     seqs = [

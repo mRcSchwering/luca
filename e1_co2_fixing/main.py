@@ -10,11 +10,20 @@ import datetime as dt
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
+import magicsoup as ms
 from .chemistry import GENOMES
-from .util import init_world, load_world, generate_genomes
+from .util import init_world, generate_genomes
 from .experiment import Experiment
 
 THIS_DIR = Path(__file__).parent
+
+# TODO: 30% split ratio? (mehr Zellen bleiben am leben)
+# TODO: Zellen werden vor der neuen Platte gekillt?
+# TODO: 1000 adaption generations?
+# TODO: Zellen Transporter für essentials, CO2, X geben
+# TODO: splits = immer 20% von Platte füllen, immer splitten wenn Energie low
+#       oder splitten wenn platte voll (zB 60%)
+# TODO: Energie wie Platte, wird immer mit zB 100 geliefert
 
 
 def _log_scalars(
@@ -76,7 +85,7 @@ def trial(
     hparams: dict,
 ):
     rundir = THIS_DIR / "runs"
-    world = load_world(rundir=rundir, device=device, n_workers=n_workers)
+    world = ms.World.from_file(rundir=rundir, device=device, workers=n_workers)
 
     trial_dir = rundir / name
     writer = SummaryWriter(log_dir=trial_dir)
