@@ -44,6 +44,7 @@ def load_world(rundir: Path, device: str, n_workers: int) -> ms.World:
     world = ms.World.from_file(rundir=rundir, device=device)
     # TODO: rm when fixed
     world.device = device
+    world.kinetics.device = device
     world.workers = n_workers
     world.genetics.workers = n_workers
     return world
