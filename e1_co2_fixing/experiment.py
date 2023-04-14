@@ -196,32 +196,18 @@ class Experiment:
 
         # TODO: rm
         print(
-            "cell mols",
-            self.world.cell_molecules.device,
-            self.world.cell_molecules.dtype,
-        )
-        print(
-            "cell_divisions",
-            self.world.cell_divisions.device,
-            self.world.cell_divisions.dtype,
-        )
-        print("cell_map", self.world.cell_map.device, self.world.cell_map.dtype)
-        print(
-            "cell_positions",
-            self.world.cell_positions.device,
-            self.world.cell_positions.dtype,
-        )
-        print(
             "cell_survival",
             self.world.cell_survival.device,
             self.world.cell_survival.dtype,
         )
-        print(
-            "molecule_map",
-            self.world.molecule_map.device,
-            self.world.molecule_map.dtype,
-        )
+        print("world device", self.world.device)
+        print("trying to expand by 10")
+        t = self.world.cell_survival
+        size = t.size()
+        zeros = torch.zeros(10, *size[1:], dtype=t.dtype).to(self.world.device)
+        t1 = torch.cat([t, zeros], dim=0)
 
+        print("trying world add cells")
         self.world.add_cells(genomes=init_genomes)
 
     def step_10s(self):
