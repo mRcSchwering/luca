@@ -73,19 +73,17 @@ class LinearGenerationDepedentMutationRate:
         return dn * self.from_p + (1 - dn) * self.to_p
 
 
-class IncrementWithLimit:
+class ConstantSetter:
     """
-    Increment molecule abundance by a constant value `val`
-    up to a maximum value `limit`.
+    Sets molecule abundance to a value across the whole map
+    each time it's called.
     """
 
-    def __init__(self, val: float, limit=10.0):
+    def __init__(self, val: float):
         self.val = val
-        self.limit = limit
 
     def __call__(self, molmap: torch.Tensor):
-        molmap += self.val
-        molmap -= (molmap - self.limit).clamp(min=0.0)
+        molmap[:] = self.val
 
 
 class KillCellsForSplit:
@@ -178,8 +176,8 @@ class Experiment:
         self.kill_by_mol = MoleculeDependentCellDeath(k=0.25)  # [0.2;0.4]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_250.0)  # [2000;2500]
 
-        self.add_energy = IncrementWithLimit(val=1.0)
-        self.add_co2 = IncrementWithLimit(val=1.0)
+        self.add_energy = ConstantSetter(val=10.0)
+        self.add_co2 = ConstantSetter(val=10.0)
         self.kill_for_split = KillCellsForSplit(
             ratio=split_ratio, thresh=split_thresh, n_pxls=self.n_pxls
         )
@@ -193,21 +191,6 @@ class Experiment:
         )
 
         self._prepare_fresh_plate()
-
-        # TODO: rm
-        print(
-            "cell_survival",
-            self.world.cell_survival.device,
-            self.world.cell_survival.dtype,
-        )
-        print("world device", self.world.device)
-        print("trying to expand by 10")
-        t = self.world.cell_survival
-        size = t.size()
-        zeros = torch.zeros(10, *size[1:], dtype=t.dtype).to(self.world.device)
-        t1 = torch.cat([t, zeros], dim=0)
-
-        print("trying world add cells")
         self.world.add_cells(genomes=init_genomes)
 
     def step_10s(self):

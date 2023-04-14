@@ -52,6 +52,13 @@ def _log_scalars(
     writer.add_scalar("Other/Split", exp.split_i, step)
     writer.add_scalar("Other/Score", exp.score, step)
 
+    co2_max = exp.n_pxls * exp.add_co2.val
+    co2_act = exp.world.molecule_map[exp.CO2_I].sum().item()
+    energy_max = exp.n_pxls * exp.add_energy.val
+    energy_act = exp.world.molecule_map[exp.X_I].sum().item()
+    writer.add_scalar("Other/dCO2", co2_max - co2_act, step)
+    writer.add_scalar("Other/dEnergy", energy_max - energy_act, step)
+
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")

@@ -1,6 +1,5 @@
 from pathlib import Path
 import torch
-import multiprocessing as mp
 import magicsoup as ms
 from .chemistry import CHEMISTRY, get_proteome_fact
 
