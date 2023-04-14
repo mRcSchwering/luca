@@ -199,7 +199,6 @@ class Experiment:
         self._passage_cells()
         self._mutate_cells()
 
-        self.world.increment_cell_survival()
         avg = self.world.cell_divisions.float().mean().item()
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
@@ -207,6 +206,7 @@ class Experiment:
         self.score = max((self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0)
 
     def step_1s(self):
+        self.world.increment_cell_survival()
         self.add_energy(self.world.molecule_map[self.X_I])
         self.add_co2(self.world.molecule_map[self.CO2_I])
         self.world.diffuse_molecules()

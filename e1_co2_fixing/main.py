@@ -126,8 +126,8 @@ def trial(
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
             _log_imgs(exp=exp, writer=writer, step=step_i)
 
-        if exp.world.n_cells == 0:
-            print(f"after {step_i} steps 0 cells left")
+        if exp.world.n_cells < 500:
+            print(f"after {step_i} stepsless than 500 cells left")
             break
 
         if exp.gen_i > exp.n_total_gens:
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     )
     trial_parser.add_argument(
         "--split_thresh",
-        default=0.75,
+        default=0.6,
         type=float,
         help="Ratio of map covered in cells that will trigger passage (should be below 0.8, default %(default)s)",
     )
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     )
     trial_parser.add_argument(
         "--n_steps",
-        default=100_000,
+        default=1_000_000,
         type=int,
         help="For how many steps (=virtual seconds) to run each trial (default %(default)s)",
     )
