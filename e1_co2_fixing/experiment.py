@@ -184,7 +184,7 @@ class Experiment:
 
     def _passage_cells(self):
         if (
-            self.world.molecule_map[self.X_I].sum().item() <= self.energy_thresh
+            self.world.molecule_map[self.Y_I].sum().item() <= self.energy_thresh
             or self.world.n_cells >= self.cell_thresh
         ):
             idxs = random.sample(range(self.world.n_cells), k=self.split_n)
@@ -232,6 +232,6 @@ class Experiment:
 
     def _prepare_fresh_plate(self):
         self.world.molecule_map = self.medium_fact(self.gen_i)
-        self.world.molecule_map[self.X_I] = self.energy_incr
+        self.world.molecule_map[self.Y_I] = self.energy_incr
         self.world.molecule_map[self.CO2_I] = self.co2_incr
         self.world.diffuse_molecules()

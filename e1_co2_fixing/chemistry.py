@@ -468,6 +468,6 @@ def get_proteome_fact(proteome_name: str) -> list[ProteinFact]:
     for mol in ESSENTIAL_MOLS:
         dom = TransporterDomainFact(molecule=mol)
         proteome.append(ProteinFact(domain_facts=[dom]))
-    dom = TransporterDomainFact(molecule=_X)
+    dom = TransporterDomainFact(molecule=_Y)
     proteome.append(ProteinFact(domain_facts=[dom]))
     return proteome
