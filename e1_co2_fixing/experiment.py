@@ -141,9 +141,9 @@ class Experiment:
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
-        self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]
-        self.kill_by_mol = MoleculeDependentCellDeath(k=0.25)  # [0.2;0.4]
-        self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_250.0)  # [2000;2500]
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=30.0)  # [15;30]
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.2)  # [0.2;0.4]
+        self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
         self.energy_incr = 100.0
         self.co2_incr = 10.0
@@ -184,7 +184,7 @@ class Experiment:
 
     def _passage_cells(self):
         if (
-            self.world.molecule_map[self.X_I] <= self.energy_thresh
+            self.world.molecule_map[self.X_I].sum().item() <= self.energy_thresh
             or self.world.n_cells >= self.cell_thresh
         ):
             idxs = random.sample(range(self.world.n_cells), k=self.split_n)

@@ -25,10 +25,9 @@ def _log_scalars(
     dtime: float,
 ):
     mol_name_idx_list = [
-        ("acetyl-CoA", exp.mol_2_idx["acetyl-CoA"]),
-        ("G3P", exp.mol_2_idx["G3P"]),
-        ("pyruvate", exp.mol_2_idx["pyruvate"]),
-        ("CO2", exp.mol_2_idx["CO2"]),
+        ("CO2", exp.CO2_I),
+        ("X", exp.X_I),
+        ("Y", exp.Y_I),
     ]
 
     n_cells = exp.world.n_cells
@@ -40,9 +39,9 @@ def _log_scalars(
         for scalar, idx in molecules.items():
             writer.add_scalar(scalar, molecule_map[idx].mean().item(), step)
     else:
-        writer.add_scalar("Cells/total[n]", n_cells, step)
+        writer.add_scalar("Cells/total", n_cells, step)
         mean_surv = exp.world.cell_survival.float().mean()
-        writer.add_scalar("Cells/Survival[avg]", mean_surv, step)
+        writer.add_scalar("Cells/Survival", mean_surv, step)
         writer.add_scalar("Cells/Generation", exp.gen_i, step)
         for scalar, idx in molecules.items():
             mm = molecule_map[idx].sum().item()
@@ -55,10 +54,7 @@ def _log_scalars(
 
     co2_max = exp.n_pxls * exp.co2_incr
     co2_act = exp.world.molecule_map[exp.CO2_I].sum().item()
-    energy_max = exp.n_pxls * exp.energy_incr
-    energy_act = exp.world.molecule_map[exp.X_I].sum().item()
     writer.add_scalar("Other/dCO2", co2_max - co2_act, step)
-    writer.add_scalar("Other/dEnergy", energy_max - energy_act, step)
 
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
@@ -215,11 +211,11 @@ if __name__ == "__main__":
         "--split_ratio",
         default=0.2,
         type=float,
-        help="Fraction of cells to map carried over during passage (theoretically 0.13-0.2 is best, default %(default)s)",
+        help="Fraction of cells (to fully covered map) carried over during passage (theoretically 0.13-0.2 is best, default %(default)s)",
     )
     trial_parser.add_argument(
         "--split_thresh_cells",
-        default=0.8,
+        default=0.6,
         type=float,
         help="Ratio of map covered in cells that will trigger passage (should be below 0.8, default %(default)s)",
     )
