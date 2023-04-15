@@ -55,54 +55,22 @@ class MoleculeDependentCellDivision:
         return sigm_sample(cellmols, self.k, self.n)
 
 
-class LinearGenerationDepedentMutationRate:
+class LinearChange:
     """
-    Linearly change mutation rate from `from_p` to `to_p`
-    over the course of `n_gens` generations
-    """
-
-    def __init__(self, n_gens: float, from_p: float, to_p: float):
-        self.n_gens = n_gens
-        self.from_p = from_p
-        self.to_p = to_p
-
-    def __call__(self, gen_i: float) -> float:
-        if gen_i >= self.n_gens:
-            return self.to_p
-        dn = (self.n_gens - gen_i) / self.n_gens
-        return dn * self.from_p + (1 - dn) * self.to_p
-
-
-class ConstantSetter:
-    """
-    Sets molecule abundance to a value across the whole map
-    each time it's called.
+    Linearly change from value `from_d` to value `to_d`
+    dependent on value `v` over the course of `n_steps`.
     """
 
-    def __init__(self, val: float):
-        self.val = val
+    def __init__(self, n_steps: float, from_d: float, to_d: float):
+        self.n_steps = n_steps
+        self.from_d = from_d
+        self.to_d = to_d
 
-    def __call__(self, molmap: torch.Tensor):
-        molmap[:] = self.val
-
-
-class KillCellsForSplit:
-    """
-    Sample cell indexes to be killed if the cell map is overgrown.
-    Cell map has `n_pxls` pixels and cells are split if more than `thresh`
-    of this map is overgrown with cells.
-    Afterwards `ratio` of cells will survive.
-    """
-
-    def __init__(self, ratio: float, thresh: float, n_pxls: int):
-        self.ratio = ratio
-        self.split_at_n = int(n_pxls * thresh)
-
-    def __call__(self, n_cells: int) -> list[int]:
-        if n_cells > self.split_at_n:
-            kill_n = n_cells - int(n_cells * self.ratio)
-            return random.sample(range(n_cells), k=kill_n)
-        return []
+    def __call__(self, v: float) -> float:
+        if v >= self.n_steps:
+            return self.to_d
+        dn = (self.n_steps - v) / self.n_steps
+        return dn * self.from_d + (1 - dn) * self.to_d
 
 
 class LinearComplexToMinimalMedium:
@@ -145,7 +113,8 @@ class Experiment:
         n_adaption_gens: float,
         n_final_gens: float,
         split_ratio: float,
-        split_thresh: float,
+        split_thresh_energy: float,
+        split_thresh_cells: float,
         init_genomes: list[str],
     ):
         self.world = world
@@ -163,11 +132,11 @@ class Experiment:
         self.X_I = self.mol_2_idx["X"]
         self.Y_I = self.mol_2_idx["Y"]
 
-        self.point_mutations_by_gen = LinearGenerationDepedentMutationRate(
-            n_gens=n_adaption_gens, from_p=1e-4, to_p=1e-6
+        self.point_mutations_by_gen = LinearChange(
+            n_steps=n_adaption_gens, from_d=1e-4, to_d=1e-6
         )
-        self.recombinations_by_gen = LinearGenerationDepedentMutationRate(
-            n_gens=n_adaption_gens, from_p=1e-5, to_p=1e-7
+        self.recombinations_by_gen = LinearChange(
+            n_steps=n_adaption_gens, from_d=1e-5, to_d=1e-7
         )
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
@@ -176,11 +145,11 @@ class Experiment:
         self.kill_by_mol = MoleculeDependentCellDeath(k=0.25)  # [0.2;0.4]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_250.0)  # [2000;2500]
 
-        self.add_energy = ConstantSetter(val=10.0)
-        self.add_co2 = ConstantSetter(val=10.0)
-        self.kill_for_split = KillCellsForSplit(
-            ratio=split_ratio, thresh=split_thresh, n_pxls=self.n_pxls
-        )
+        self.energy_incr = 100.0
+        self.co2_incr = 10.0
+        self.energy_thresh = self.energy_incr * self.n_pxls * split_thresh_energy
+        self.cell_thresh = int(self.n_pxls * split_thresh_cells)
+        self.split_n = int(split_ratio * self.n_pxls)
 
         self.medium_fact = LinearComplexToMinimalMedium(
             n_gens=n_adaption_gens,
@@ -193,7 +162,15 @@ class Experiment:
         self._prepare_fresh_plate()
         self.world.add_cells(genomes=init_genomes)
 
-    def step_10s(self):
+    def step_1s(self):
+        self.world.molecule_map[self.CO2_I] = self.co2_incr
+        self.world.increment_cell_survival()
+        self.world.diffuse_molecules()
+        self.world.degrade_molecules()
+
+        for _ in range(10):
+            self.world.enzymatic_activity()
+
         self._replicate_cells()
         self._kill_cells()
         self._passage_cells()
@@ -205,19 +182,13 @@ class Experiment:
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
         self.score = max((self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0)
 
-    def step_1s(self):
-        self.world.increment_cell_survival()
-        self.add_energy(self.world.molecule_map[self.X_I])
-        self.add_co2(self.world.molecule_map[self.CO2_I])
-        self.world.diffuse_molecules()
-        self.world.degrade_molecules()
-        for _ in range(10):
-            self.world.enzymatic_activity()
-
     def _passage_cells(self):
-        idxs = self.kill_for_split(self.world.n_cells)
-        if len(idxs) > 0:
-            self.world.kill_cells(cell_idxs=idxs)
+        if (
+            self.world.molecule_map[self.X_I] <= self.energy_thresh
+            or self.world.n_cells >= self.cell_thresh
+        ):
+            idxs = random.sample(range(self.world.n_cells), k=self.split_n)
+            self.world.kill_cells(cell_idxs=list(set(idxs)))
             self._prepare_fresh_plate()
             self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
             self.split_i += 1
@@ -231,9 +202,9 @@ class Experiment:
     def _replicate_cells(self):
         i = self.X_I
         idxs0 = self.replicate_by_mol(self.world.cell_molecules[:, i])
-
-        idxs1 = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
-        idxs = list(set(idxs0) & set(idxs1))
+        idxs1 = torch.argwhere(self.world.cell_survival >= 10).flatten().tolist()
+        idxs2 = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
+        idxs = list(set(idxs0) & set(idxs1) & set(idxs2))
 
         successes = self.world.divide_cells(cell_idxs=idxs)
         if len(successes) == 0:
@@ -256,11 +227,11 @@ class Experiment:
     def _kill_cells(self):
         idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.X_I])
         idxs1 = self.kill_by_genome(self.world.genomes)
-        self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1)))
+        idxs2 = torch.argwhere(self.world.cell_survival >= 3).flatten().tolist()
+        self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1) - set(idxs2)))
 
     def _prepare_fresh_plate(self):
         self.world.molecule_map = self.medium_fact(self.gen_i)
-        self.add_energy(self.world.molecule_map[self.X_I])
-        for _ in range(100):
-            self.add_co2(self.world.molecule_map[self.CO2_I])
-            self.world.diffuse_molecules()
+        self.world.molecule_map[self.X_I] = self.energy_incr
+        self.world.molecule_map[self.CO2_I] = self.co2_incr
+        self.world.diffuse_molecules()

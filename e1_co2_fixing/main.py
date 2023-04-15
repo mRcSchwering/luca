@@ -17,14 +17,6 @@ from .experiment import Experiment
 
 THIS_DIR = Path(__file__).parent
 
-# TODO: 30% split ratio? (mehr Zellen bleiben am leben)
-# TODO: Zellen werden vor der neuen Platte gekillt?
-# TODO: 1000 adaption generations?
-# TODO: Zellen Transporter für essentials, CO2, X geben
-# TODO: splits = immer 20% von Platte füllen, immer splitten wenn Energie low
-#       oder splitten wenn platte voll (zB 60%)
-# TODO: Energie wie Platte, wird immer mit zB 100 geliefert
-
 
 def _log_scalars(
     exp: Experiment,
@@ -61,9 +53,9 @@ def _log_scalars(
     writer.add_scalar("Other/Split", exp.split_i, step)
     writer.add_scalar("Other/Score", exp.score, step)
 
-    co2_max = exp.n_pxls * exp.add_co2.val
+    co2_max = exp.n_pxls * exp.co2_incr
     co2_act = exp.world.molecule_map[exp.CO2_I].sum().item()
-    energy_max = exp.n_pxls * exp.add_energy.val
+    energy_max = exp.n_pxls * exp.energy_incr
     energy_act = exp.world.molecule_map[exp.X_I].sum().item()
     writer.add_scalar("Other/dCO2", co2_max - co2_act, step)
     writer.add_scalar("Other/dEnergy", energy_max - energy_act, step)
@@ -98,7 +90,7 @@ def trial(
     genomes = generate_genomes(
         rundir=THIS_DIR / "runs",
         name=init_genome,
-        genome_size=600,  # min=600 to accomodate proteomes
+        genome_size=800,  # min=650 to accomodate proteomes
         n_genomes=n_init_cells,
     )
 
@@ -107,7 +99,8 @@ def trial(
         n_adaption_gens=hparams["n_adaption_gens"],
         n_final_gens=n_final_gens,
         split_ratio=hparams["split_ratio"],
-        split_thresh=hparams["split_thresh"],
+        split_thresh_energy=hparams["split_thresh_energy"],
+        split_thresh_cells=hparams["split_thresh_cells"],
         init_genomes=genomes,
     )
 
@@ -127,7 +120,6 @@ def trial(
         exp.step_1s()
 
         if step_i % 10 == 0:
-            exp.step_10s()
             dtime = time.time() - step_t0
             _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime)
 
@@ -193,7 +185,7 @@ if __name__ == "__main__":
     init_parser.set_defaults(func=init)
     init_parser.add_argument(
         "--map_size",
-        default=256,
+        default=128,
         type=int,
         help="Number of pixels of 2D map in each direction (default %(default)s)",
     )
@@ -223,13 +215,19 @@ if __name__ == "__main__":
         "--split_ratio",
         default=0.2,
         type=float,
-        help="Ratio of cells carried over during passage (theoretically 0.13-0.2 is best, default %(default)s)",
+        help="Fraction of cells to map carried over during passage (theoretically 0.13-0.2 is best, default %(default)s)",
     )
     trial_parser.add_argument(
-        "--split_thresh",
-        default=0.6,
+        "--split_thresh_cells",
+        default=0.8,
         type=float,
         help="Ratio of map covered in cells that will trigger passage (should be below 0.8, default %(default)s)",
+    )
+    trial_parser.add_argument(
+        "--split_thresh_energy",
+        default=0.2,
+        type=float,
+        help="Trigger passage if energy levels in medium go below this (default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_trials",

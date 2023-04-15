@@ -143,7 +143,13 @@ pathway but I don't know enough about this topic.
 E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
 from collections import Counter
-from magicsoup.containers import Molecule, Chemistry, ProteinFact, CatalyticDomainFact
+from magicsoup.containers import (
+    Molecule,
+    Chemistry,
+    ProteinFact,
+    CatalyticDomainFact,
+    TransporterDomainFact,
+)
 
 _co2 = Molecule("CO2", 10.0 * 1e3, diffusivity=1.0, permeability=1.0)
 _NADPH = Molecule("NADPH", 200.0 * 1e3)
@@ -459,4 +465,9 @@ def get_proteome_fact(proteome_name: str) -> list[ProteinFact]:
     for react in reacts + _common_reacts:
         dom = CatalyticDomainFact(reaction=react)
         proteome.append(ProteinFact(domain_facts=[dom]))
+    for mol in ESSENTIAL_MOLS:
+        dom = TransporterDomainFact(molecule=mol)
+        proteome.append(ProteinFact(domain_facts=[dom]))
+    dom = TransporterDomainFact(molecule=_X)
+    proteome.append(ProteinFact(domain_facts=[dom]))
     return proteome
