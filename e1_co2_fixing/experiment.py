@@ -141,7 +141,7 @@ class Experiment:
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
-        self.replicate_by_mol = MoleculeDependentCellDivision(k=30.0)  # [15;30]
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=15.0)  # [15;30]
         self.kill_by_mol = MoleculeDependentCellDeath(k=0.2)  # [0.2;0.4]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
