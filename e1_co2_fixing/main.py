@@ -115,7 +115,7 @@ def trial(
 
         exp.step_1s()
 
-        if step_i % 10 == 0:
+        if step_i % 5 == 0:
             dtime = time.time() - step_t0
             _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime)
 

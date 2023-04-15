@@ -141,16 +141,12 @@ class Experiment:
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
-        self.replicate_by_mol = MoleculeDependentCellDivision(k=15.0)  # [15;30]
-        self.kill_by_mol = MoleculeDependentCellDeath(k=0.2)  # [0.2;0.4]
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=30.0)  # [15;30]
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.4)  # [0.2;0.4]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
-        self.energy_incr = 100.0
+        self.energy_incr = 10.0
         self.co2_incr = 10.0
-        self.energy_thresh = self.energy_incr * self.n_pxls * split_thresh_energy
-        self.cell_thresh = int(self.n_pxls * split_thresh_cells)
-        self.split_n = int(split_ratio * self.n_pxls)
-
         self.medium_fact = LinearComplexToMinimalMedium(
             n_gens=n_adaption_gens,
             mol_init=10.0,
@@ -159,20 +155,24 @@ class Experiment:
             molmap=self.world.molecule_map,
         )
 
+        self.energy_thresh = self.energy_incr * self.n_pxls * split_thresh_energy
+        self.cell_thresh = int(self.n_pxls * split_thresh_cells)
+        self.split_n = int(split_ratio * self.n_pxls)
+
         self._prepare_fresh_plate()
         self.world.add_cells(genomes=init_genomes)
 
     def step_1s(self):
         self.world.molecule_map[self.CO2_I] = self.co2_incr
-        self.world.increment_cell_survival()
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
 
         for _ in range(10):
             self.world.enzymatic_activity()
 
-        self._replicate_cells()
         self._kill_cells()
+        self.world.increment_cell_survival()
+        self._replicate_cells()
         self._passage_cells()
         self._mutate_cells()
 
