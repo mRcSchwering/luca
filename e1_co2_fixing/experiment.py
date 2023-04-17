@@ -16,7 +16,7 @@ class MoleculeDependentCellDeath:
     `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
     """
 
-    def __init__(self, k: float, n=3):
+    def __init__(self, k: float, n=1):
         self.k = k
         self.n = n
 
@@ -136,13 +136,13 @@ class Experiment:
             n_steps=n_adaption_gens, from_d=1e-4, to_d=1e-6
         )
         self.recombinations_by_gen = LinearChange(
-            n_steps=n_adaption_gens, from_d=1e-5, to_d=1e-7
+            n_steps=n_adaption_gens, from_d=1e-4, to_d=1e-6
         )
         self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
         self.recombination_rate = self.recombinations_by_gen(self.gen_i)
 
         self.replicate_by_mol = MoleculeDependentCellDivision(k=30.0)  # [15;30]
-        self.kill_by_mol = MoleculeDependentCellDeath(k=0.4)  # [0.2;0.4]
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.02)  # [0.01;0.04]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
         self.energy_incr = 10.0
