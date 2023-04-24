@@ -79,7 +79,7 @@ def trial(
     n_init_cells = int(world.map_size**2 * init_cell_cover)
     genomes = generate_genomes(
         rundir=THIS_DIR / "runs",
-        genome_size=500,
+        genome_size=1000,
         n_genomes=n_init_cells,
     )
 
