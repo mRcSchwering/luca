@@ -1,7 +1,7 @@
 from pathlib import Path
 import torch
 import magicsoup as ms
-from .chemistry import CHEMISTRY, get_proteome_fact
+from .chemistry import CHEMISTRY, get_proteome_facts
 
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
@@ -41,11 +41,8 @@ def init_world(map_size: int, rundir: Path):
 def generate_genomes(rundir: Path, genome_size: int, n_genomes: int) -> list[str]:
     """Generate genomes of a certain size with defined proteomes"""
     world = ms.World.from_file(rundir=rundir, device="cpu", workers=0)
-    proteome_fact = get_proteome_fact()
+    proteomes = get_proteome_facts(n=n_genomes)
 
-    seqs = [
-        world.generate_genome(proteome=proteome_fact, size=genome_size)
-        for _ in range(n_genomes)
-    ]
+    seqs = [world.generate_genome(proteome=p, size=genome_size) for p in proteomes]
 
     return seqs

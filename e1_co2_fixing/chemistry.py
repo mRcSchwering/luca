@@ -142,6 +142,7 @@ I would like to add more transformations that are not described in these
 pathway but I don't know enough about this topic.
 E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
+from itertools import cycle
 from collections import Counter
 from magicsoup.containers import (
     Molecule,
@@ -458,16 +459,22 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-def get_proteome_fact() -> list[ProteinFact]:
-    """Get protein factories for proteome name"""
-    # reacts = GENOMES[proteome_name]
-    # for react in reacts + _common_reacts:
-    #     dom = CatalyticDomainFact(reaction=react)
-    #     proteome.append(ProteinFact(domain_facts=[dom]))
-    proteome: list[ProteinFact] = []
-    mols = [d for d in ESSENTIAL_MOLS if d is not _co2]
-    for mol in mols:
-        dom = TransporterDomainFact(molecule=mol)
-        proteome.append(ProteinFact(domain_facts=[dom]))
-    proteome.append(ProteinFact(domain_facts=[dom]))
-    return proteome
+def get_proteome_facts(n: int) -> list[list[ProteinFact]]:
+    """Get protein factories for `n` proteomes"""
+    proteomes: list[list[ProteinFact]] = []
+    for _, name in zip(range(n), cycle(GENOMES)):
+        proteome: list[ProteinFact] = []
+        
+        mols = [d for d in ESSENTIAL_MOLS if d is not _co2]
+        for mol in mols:
+            dom = TransporterDomainFact(molecule=mol)
+            proteome.append(ProteinFact(domain_facts=[dom]))
+        
+        reacts = GENOMES[name]
+        for react in reacts + _common_reacts:
+            dom = CatalyticDomainFact(reaction=react)
+            proteome.append(ProteinFact(domain_facts=[dom]))
+
+        proteomes.append(proteomes)
+
+    return proteomes
