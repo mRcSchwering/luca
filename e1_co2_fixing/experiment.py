@@ -152,7 +152,7 @@ class Experiment:
 
         self.mol_thresh = mol_init * n_pxls * split_thresh_mols
         self.cell_thresh = int(n_pxls * split_thresh_cells)
-        self.split_n = int(split_ratio * n_pxls)
+        self.split_n = int((1 - split_ratio) * n_pxls)
 
         self._prepare_fresh_plate()
         self.world.add_cells(genomes=init_genomes)
