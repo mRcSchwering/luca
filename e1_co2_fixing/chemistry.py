@@ -459,7 +459,7 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-def get_proteome_facts(n: int, add_enzymes=True) -> list[list[ProteinFact]]:
+def get_proteome_facts(n: int, add_enzymes=False) -> list[list[ProteinFact]]:
     """Get protein factories for `n` proteomes"""
     proteomes: list[list[ProteinFact]] = []
     for _, name in zip(range(n), cycle(GENOMES)):

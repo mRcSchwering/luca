@@ -138,7 +138,7 @@ class Experiment:
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
         self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]
-        self.kill_by_mol = MoleculeDependentCellDeath(k=0.01)  # [0.01;0.04]
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.04)  # [0.01;0.04]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
         mol_init = 10.0
