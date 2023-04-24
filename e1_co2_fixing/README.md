@@ -17,7 +17,7 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 
 ```
 # init world
-python -m e1_co2_fixing.main --init
+python -m e1_co2_fixing.main init
 
 # short test run:
 python -m e1_co2_fixing.main --n_steps=21 --n_trials=1
