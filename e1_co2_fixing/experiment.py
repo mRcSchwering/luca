@@ -113,13 +113,13 @@ class Experiment:
         n_adaption_gens: float,
         n_final_gens: float,
         split_ratio: float,
-        split_thresh_energy: float,
+        split_thresh_mols: float,
         split_thresh_cells: float,
         init_genomes: list[str],
     ):
         self.world = world
 
-        self.n_pxls = world.map_size**2
+        n_pxls = world.map_size**2
         self.n_adaption_gens = n_adaption_gens
         self.n_total_gens = n_adaption_gens + n_final_gens
         self.split_i = 0
@@ -130,40 +130,34 @@ class Experiment:
         self.mol_2_idx = {d.name: i for i, d in enumerate(molecules)}
         self.CO2_I = self.mol_2_idx["CO2"]
         self.X_I = self.mol_2_idx["X"]
-        self.Y_I = self.mol_2_idx["Y"]
+        self.E_I = self.mol_2_idx["E"]
 
-        self.point_mutations_by_gen = LinearChange(
+        self.mutation_rate_by_gen = LinearChange(
             n_steps=n_adaption_gens, from_d=1e-4, to_d=1e-6
         )
-        self.recombinations_by_gen = LinearChange(
-            n_steps=n_adaption_gens, from_d=1e-4, to_d=1e-6
-        )
-        self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
-        self.recombination_rate = self.recombinations_by_gen(self.gen_i)
+        self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
-        self.replicate_by_mol = MoleculeDependentCellDivision(k=30.0)  # [15;30]
-        self.kill_by_mol = MoleculeDependentCellDeath(k=0.02)  # [0.01;0.04]
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]
+        self.kill_by_mol = MoleculeDependentCellDeath(k=0.01)  # [0.01;0.04]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
-        self.energy_incr = 10.0
-        self.co2_incr = 10.0
+        mol_init = 10.0
         self.medium_fact = LinearComplexToMinimalMedium(
             n_gens=n_adaption_gens,
-            mol_init=10.0,
+            mol_init=mol_init,
             molecules=molecules,
             essentials=ESSENTIAL_MOLS,
             molmap=self.world.molecule_map,
         )
 
-        self.energy_thresh = self.energy_incr * self.n_pxls * split_thresh_energy
-        self.cell_thresh = int(self.n_pxls * split_thresh_cells)
-        self.split_n = int(split_ratio * self.n_pxls)
+        self.mol_thresh = mol_init * n_pxls * split_thresh_mols
+        self.cell_thresh = int(n_pxls * split_thresh_cells)
+        self.split_n = int(split_ratio * n_pxls)
 
         self._prepare_fresh_plate()
         self.world.add_cells(genomes=init_genomes)
 
     def step_1s(self):
-        self.world.molecule_map[self.CO2_I] = self.co2_incr
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
 
@@ -178,14 +172,16 @@ class Experiment:
 
         avg = self.world.cell_divisions.float().mean().item()
         self.gen_i = 0.0 if math.isnan(avg) else avg
-        self.point_mutation_rate = self.point_mutations_by_gen(self.gen_i)
-        self.recombination_rate = self.recombinations_by_gen(self.gen_i)
+        self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
         self.score = max((self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0)
 
     def _passage_cells(self):
-        if (
-            self.world.molecule_map[self.Y_I].sum().item() <= self.energy_thresh
-            or self.world.n_cells >= self.cell_thresh
+        if any(
+            [
+                self.world.molecule_map[self.E_I].sum().item() <= self.mol_thresh,
+                self.world.molecule_map[self.CO2_I].sum().item() <= self.mol_thresh,
+                self.world.n_cells >= self.cell_thresh,
+            ]
         ):
             idxs = random.sample(range(self.world.n_cells), k=self.split_n)
             self.world.kill_cells(cell_idxs=list(set(idxs)))
@@ -194,16 +190,14 @@ class Experiment:
             self.split_i += 1
 
     def _mutate_cells(self):
-        mutated = ms.point_mutations(
-            seqs=self.world.genomes, p=self.point_mutation_rate
-        )
+        mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         self.world.update_cells(genome_idx_pairs=mutated)
 
     def _replicate_cells(self):
         i = self.X_I
         idxs0 = self.replicate_by_mol(self.world.cell_molecules[:, i])
         idxs1 = torch.argwhere(self.world.cell_survival >= 10).flatten().tolist()
-        idxs2 = torch.argwhere(self.world.cell_molecules[:, i] > 2.2).flatten().tolist()
+        idxs2 = torch.argwhere(self.world.cell_molecules[:, i] > 4.1).flatten().tolist()
         idxs = list(set(idxs0) & set(idxs1) & set(idxs2))
 
         successes = self.world.divide_cells(cell_idxs=idxs)
@@ -211,11 +205,11 @@ class Experiment:
             return
 
         ps, cs = list(zip(*successes))
-        self.world.cell_molecules[ps, i] -= 1.0
-        self.world.cell_molecules[cs, i] -= 1.0
+        self.world.cell_molecules[ps, i] -= 2.0
+        self.world.cell_molecules[cs, i] -= 2.0
 
         pairs = [(self.world.genomes[p], self.world.genomes[c]) for p, c in successes]
-        mutated = ms.recombinations(seq_pairs=pairs, p=self.recombination_rate)
+        mutated = ms.recombinations(seq_pairs=pairs, p=self.mutation_rate)
 
         genome_idx_pairs = []
         for c0, c1, idx in mutated:
@@ -225,13 +219,11 @@ class Experiment:
         self.world.update_cells(genome_idx_pairs=genome_idx_pairs)
 
     def _kill_cells(self):
-        idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.X_I])
+        idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.E_I])
         idxs1 = self.kill_by_genome(self.world.genomes)
-        idxs2 = torch.argwhere(self.world.cell_survival >= 3).flatten().tolist()
+        idxs2 = torch.argwhere(self.world.cell_survival <= 3).flatten().tolist()
         self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1) - set(idxs2)))
 
     def _prepare_fresh_plate(self):
         self.world.molecule_map = self.medium_fact(self.gen_i)
-        self.world.molecule_map[self.Y_I] = self.energy_incr
-        self.world.molecule_map[self.CO2_I] = self.co2_incr
         self.world.diffuse_molecules()

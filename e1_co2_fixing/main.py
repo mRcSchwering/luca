@@ -11,7 +11,6 @@ from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
 import magicsoup as ms
-from .chemistry import GENOMES
 from .util import init_world, generate_genomes
 from .experiment import Experiment
 
@@ -27,7 +26,7 @@ def _log_scalars(
     mol_name_idx_list = [
         ("CO2", exp.CO2_I),
         ("X", exp.X_I),
-        ("Y", exp.Y_I),
+        ("E", exp.E_I),
     ]
 
     n_cells = exp.world.n_cells
@@ -35,26 +34,22 @@ def _log_scalars(
     cell_molecules = exp.world.cell_molecules
     molecules = {f"Molecules/{s}": i for s, i in mol_name_idx_list}
 
-    if n_cells == 0:
-        for scalar, idx in molecules.items():
-            writer.add_scalar(scalar, molecule_map[idx].mean().item(), step)
-    else:
+    for scalar, idx in molecules.items():
+        tag = f"{scalar}[ext]"
+        writer.add_scalar(tag, molecule_map[idx].mean().item(), step)
+
+    if n_cells > 0:
         writer.add_scalar("Cells/total", n_cells, step)
         mean_surv = exp.world.cell_survival.float().mean()
         writer.add_scalar("Cells/Survival", mean_surv, step)
         writer.add_scalar("Cells/Generation", exp.gen_i, step)
         for scalar, idx in molecules.items():
-            mm = molecule_map[idx].sum().item()
-            cm = cell_molecules[:, idx].sum().item()
-            writer.add_scalar(scalar, (mm + cm) / exp.n_pxls, step)
+            tag = f"{scalar}[int]"
+            writer.add_scalar(tag, cell_molecules[:, idx].mean().item(), step)
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
     writer.add_scalar("Other/Split", exp.split_i, step)
     writer.add_scalar("Other/Score", exp.score, step)
-
-    co2_max = exp.n_pxls * exp.co2_incr
-    co2_act = exp.world.molecule_map[exp.CO2_I].sum().item()
-    writer.add_scalar("Other/dCO2", co2_max - co2_act, step)
 
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
@@ -65,7 +60,6 @@ def trial(
     device: str,
     n_workers: int,
     name: str,
-    init_genome: str,
     init_cell_cover: float,
     n_final_gens: int,
     n_steps: int,
@@ -85,8 +79,7 @@ def trial(
     n_init_cells = int(world.map_size**2 * init_cell_cover)
     genomes = generate_genomes(
         rundir=THIS_DIR / "runs",
-        name=init_genome,
-        genome_size=800,  # min=650 to accomodate proteomes
+        genome_size=500,
         n_genomes=n_init_cells,
     )
 
@@ -95,7 +88,7 @@ def trial(
         n_adaption_gens=hparams["n_adaption_gens"],
         n_final_gens=n_final_gens,
         split_ratio=hparams["split_ratio"],
-        split_thresh_energy=hparams["split_thresh_energy"],
+        split_thresh_mols=hparams["split_thresh_mols"],
         split_thresh_cells=hparams["split_thresh_cells"],
         init_genomes=genomes,
     )
@@ -119,7 +112,7 @@ def trial(
             dtime = time.time() - step_t0
             _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime)
 
-        if step_i % 100 == 0:
+        if step_i % 50 == 0:
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
             _log_imgs(exp=exp, writer=writer, step=step_i)
 
@@ -142,7 +135,6 @@ def trial(
 
 def trials(kwargs: dict):
     kwargs.pop("func")
-    init_genome = kwargs.pop("init_genome")
     init_cell_cover = kwargs.pop("init_cell_cover")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
@@ -156,8 +148,7 @@ def trials(kwargs: dict):
         trial(
             device=device,
             n_workers=n_workers,
-            name=f"{ts}_{init_genome}_{trial_i}",
-            init_genome=init_genome,
+            name=f"{ts}_{trial_i}",
             init_cell_cover=init_cell_cover,
             n_final_gens=n_final_gens,
             n_steps=n_steps,
@@ -188,7 +179,6 @@ if __name__ == "__main__":
 
     trial_parser = subparsers.add_parser("trials", help="run trials")
     trial_parser.set_defaults(func=trials)
-    trial_parser.add_argument("init_genome", choices=GENOMES, type=str)
     trial_parser.add_argument(
         "--n_final_gens",
         default=100.0,
@@ -220,10 +210,10 @@ if __name__ == "__main__":
         help="Ratio of map covered in cells that will trigger passage (should be below 0.8, default %(default)s)",
     )
     trial_parser.add_argument(
-        "--split_thresh_energy",
+        "--split_thresh_mols",
         default=0.2,
         type=float,
-        help="Trigger passage if energy levels in medium go below this (default %(default)s)",
+        help="Trigger passage if relative CO2 or E levels in medium go below this (default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_trials",

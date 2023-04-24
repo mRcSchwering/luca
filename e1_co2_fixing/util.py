@@ -38,12 +38,10 @@ def init_world(map_size: int, rundir: Path):
     world.save(rundir=rundir)
 
 
-def generate_genomes(
-    rundir: Path, name: str, genome_size: int, n_genomes: int
-) -> list[str]:
+def generate_genomes(rundir: Path, genome_size: int, n_genomes: int) -> list[str]:
     """Generate genomes of a certain size with defined proteomes"""
     world = ms.World.from_file(rundir=rundir, device="cpu", workers=0)
-    proteome_fact = get_proteome_fact(proteome_name=name)
+    proteome_fact = get_proteome_fact()
 
     seqs = [
         world.generate_genome(proteome=proteome_fact, size=genome_size)

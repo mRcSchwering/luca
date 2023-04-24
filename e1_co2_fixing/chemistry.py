@@ -122,7 +122,7 @@ NADPH is the representative energy carrier and electron donor.
 E.g. no FADH2 or Fd-red is defined.
 
 Molecule X will be used to caputure biologically available carbon.
-Molecule Y will be used to replenish energy carriers.
+Molecule E will be used to replenish energy carriers.
 
 ## Finding Energies
 
@@ -135,7 +135,7 @@ Molecule Y will be used to replenish energy carriers.
    energies I found in publications (e.g. in WL and reductive TCA pathway)
 6. result is a tradeoff by iterative trial-and-error to come close to
    real reaction energies but also be consistent across all pathways
-7. derived energies and reactions for X and Y to be as fair as possible
+7. derived energies and reactions for X and E to be as fair as possible
    for any carrier molecule
 
 I would like to add more transformations that are not described in these
@@ -161,15 +161,15 @@ _acetylCoA = Molecule("acetyl-CoA", 475.0 * 1e3)  # 2C 8e
 _HSCoA = Molecule("HS-CoA", 190.0 * 1e3)
 _pyruvate = Molecule("pyruvate", 330.0 * 1e3)  # 3C 10e
 _X = Molecule("X", 50.0 * 1e3)
-_Y = Molecule("Y", 150.0 * 1e3)
+_E = Molecule("E", 150.0 * 1e3)
 
 _common_reacts = [
     # energy carriers with defined reaction energies
     ([_NADPH], [_NADP]),  # -70
     ([_ATP], [_ADP]),  # -35
     # restoring them should be practically irreversible
-    ([_ADP, _ADP, _Y], [_ATP, _ATP]),  # -80
-    ([_NADP, _Y], [_NADPH]),  # -80
+    ([_ADP, _ADP, _E], [_ATP, _ATP]),  # -80
+    ([_NADP, _E], [_NADPH]),  # -80
     # extracting carbon should be as fair as possible for all
     ([_G3P], [_X, _X, _X, _X, _X, _X, _X, _X]),  # -20
     ([_pyruvate], [_X, _X, _X, _X, _X, _X]),  # -30
@@ -187,7 +187,7 @@ _common_mols = [
     _pyruvate,
     _G3P,
     _X,
-    _Y,
+    _E,
 ]
 
 # Calvin
@@ -410,8 +410,8 @@ MOLECULES = (
     + _hprophbut_mols
 )
 
-# TODO: remove oxalacetate as essential?
-ESSENTIAL_MOLS = [_HSCoA, _FH4, _RuBP, _oxalacetate]
+# have to create oxalacetate on their own
+ESSENTIAL_MOLS = [_E, _co2, _HSCoA, _FH4, _RuBP]
 
 REACTIONS = (
     _common_reacts
@@ -458,16 +458,16 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-def get_proteome_fact(proteome_name: str) -> list[ProteinFact]:
+def get_proteome_fact() -> list[ProteinFact]:
     """Get protein factories for proteome name"""
-    reacts = GENOMES[proteome_name]
+    # reacts = GENOMES[proteome_name]
+    # for react in reacts + _common_reacts:
+    #     dom = CatalyticDomainFact(reaction=react)
+    #     proteome.append(ProteinFact(domain_facts=[dom]))
     proteome: list[ProteinFact] = []
-    for react in reacts + _common_reacts:
-        dom = CatalyticDomainFact(reaction=react)
-        proteome.append(ProteinFact(domain_facts=[dom]))
-    for mol in ESSENTIAL_MOLS:
+    mols = [d for d in ESSENTIAL_MOLS if d is not _co2]
+    for mol in mols:
         dom = TransporterDomainFact(molecule=mol)
         proteome.append(ProteinFact(domain_facts=[dom]))
-    dom = TransporterDomainFact(molecule=_Y)
     proteome.append(ProteinFact(domain_facts=[dom]))
     return proteome
