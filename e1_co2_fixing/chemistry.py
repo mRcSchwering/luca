@@ -476,6 +476,6 @@ def get_proteome_facts(n: int, add_enzymes=False) -> list[list[ProteinFact]]:
                 dom = CatalyticDomainFact(reaction=react)
                 proteome.append(ProteinFact(domain_facts=[dom]))
 
-        proteomes.append(proteomes)
+        proteomes.append(proteome)
 
     return proteomes
