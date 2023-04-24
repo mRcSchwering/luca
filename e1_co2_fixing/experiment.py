@@ -173,7 +173,6 @@ class Experiment:
         avg = self.world.cell_divisions.float().mean().item()
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
-        self.score = max((self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0)
 
     def _passage_cells(self):
         if any(
@@ -188,6 +187,10 @@ class Experiment:
             self._prepare_fresh_plate()
             self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
             self.split_i += 1
+
+            self.score = max(
+                (self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0
+            )
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)

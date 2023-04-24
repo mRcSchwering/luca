@@ -459,21 +459,22 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-def get_proteome_facts(n: int) -> list[list[ProteinFact]]:
+def get_proteome_facts(n: int, add_enzymes=False) -> list[list[ProteinFact]]:
     """Get protein factories for `n` proteomes"""
     proteomes: list[list[ProteinFact]] = []
     for _, name in zip(range(n), cycle(GENOMES)):
         proteome: list[ProteinFact] = []
-        
+
         mols = [d for d in ESSENTIAL_MOLS if d is not _co2]
         for mol in mols:
             dom = TransporterDomainFact(molecule=mol)
             proteome.append(ProteinFact(domain_facts=[dom]))
-        
-        reacts = GENOMES[name]
-        for react in reacts + _common_reacts:
-            dom = CatalyticDomainFact(reaction=react)
-            proteome.append(ProteinFact(domain_facts=[dom]))
+
+        if add_enzymes:
+            reacts = GENOMES[name]
+            for react in reacts + _common_reacts:
+                dom = CatalyticDomainFact(reaction=react)
+                proteome.append(ProteinFact(domain_facts=[dom]))
 
         proteomes.append(proteomes)
 
