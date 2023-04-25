@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable
 import random
 import math
 import torch
@@ -61,7 +62,7 @@ class LinearChange:
     starting after `lag` over a length of `n`.
     """
 
-    def __init__(self, lag: float, n: float, from_d: float, to_d: float):
+    def __init__(self, lag: float, n: float, from_d=1e-4, to_d=1e-6):
         self.start = lag
         self.stop = lag + n
         self.n = n
@@ -75,6 +76,28 @@ class LinearChange:
             return self.to_d
         dn = (self.stop - v) / self.n
         return dn * self.from_d + (1 - dn) * self.to_d
+
+
+class StepChange:
+    """
+    Change from value `from_d` to value `to_d` after `n`.
+    """
+
+    def __init__(self, n: float, from_d=1e-4, to_d=1e-6):
+        self.n = n
+        self.from_d = from_d
+        self.to_d = to_d
+
+    def __call__(self, v: float) -> float:
+        if v <= self.n:
+            return self.from_d
+        return self.to_d
+
+
+MUT_RATE_FACTS: dict[str, Callable[[float, float], LinearChange | StepChange]] = {
+    "linear": lambda init, adapt: LinearChange(lag=init, n=adapt),
+    "step": lambda init, adapt: StepChange(n=init + adapt),
+}
 
 
 class LinearComplexToMinimalMedium:
@@ -126,6 +149,7 @@ class Experiment:
         n_init_gens: float,
         n_adapt_gens: float,
         n_final_gens: float,
+        mut_sceme: str,
         split_ratio: float,
         split_thresh_mols: float,
         split_thresh_cells: float,
@@ -146,9 +170,8 @@ class Experiment:
         self.X_I = self.mol_2_idx["X"]
         self.E_I = self.mol_2_idx["E"]
 
-        self.mutation_rate_by_gen = LinearChange(
-            lag=n_init_gens, n=n_adapt_gens, from_d=1e-4, to_d=1e-6
-        )
+        mut_rate_fact = MUT_RATE_FACTS[mut_sceme]
+        self.mutation_rate_by_gen = mut_rate_fact(n_init_gens, n_adapt_gens)
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
         self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]

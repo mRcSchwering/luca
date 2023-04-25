@@ -99,6 +99,7 @@ def trial(
         n_init_gens=hparams["n_init_gens"],
         n_adapt_gens=hparams["n_adapt_gens"],
         n_final_gens=n_final_gens,
+        mut_sceme=hparams["mut_sceme"],
         split_ratio=hparams["split_ratio"],
         split_thresh_mols=hparams["split_thresh_mols"],
         split_thresh_cells=hparams["split_thresh_cells"],
@@ -214,6 +215,13 @@ if __name__ == "__main__":
         default=1_000.0,
         type=float,
         help="Over how many generations to reduce complex medium to minimal medium (default %(default)s)",
+    )
+    trial_parser.add_argument(
+        "--mut_sceme",
+        default="linear",
+        type=str,
+        choices=["linear", "step"],
+        help="Mutation rate scheme used during adaption phase (default %(default)s)",
     )
     trial_parser.add_argument(
         "--init_cell_cover",
