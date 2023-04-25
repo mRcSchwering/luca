@@ -6,6 +6,7 @@ Simulation to teach cells to fix CO2.
 """
 from argparse import ArgumentParser
 import time
+import json
 import datetime as dt
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
@@ -56,6 +57,19 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
+def _init_writer(logdir: Path, hparams: dict) -> SummaryWriter:
+    writer = SummaryWriter(log_dir=logdir)
+    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Score": 0.0})
+    writer.file_writer.add_summary(exp)
+    writer.file_writer.add_summary(ssi)
+    writer.file_writer.add_summary(sei)
+
+    with open(logdir / "hparams.json", "w", encoding="utf-8") as fh:
+        json.dump(hparams, fh)
+
+    return writer
+
+
 def trial(
     device: str,
     n_workers: int,
@@ -70,11 +84,7 @@ def trial(
     world = ms.World.from_file(rundir=rundir, device=device, workers=n_workers)
 
     trial_dir = rundir / name
-    writer = SummaryWriter(log_dir=trial_dir)
-    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Score": 0.0})
-    writer.file_writer.add_summary(exp)
-    writer.file_writer.add_summary(ssi)
-    writer.file_writer.add_summary(sei)
+    writer = _init_writer(logdir=trial_dir, hparams=hparams)
 
     n_init_cells = int(world.map_size**2 * init_cell_cover)
     genomes = generate_genomes(
