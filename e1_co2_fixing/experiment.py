@@ -203,7 +203,7 @@ class Experiment:
             idxs = random.sample(range(self.world.n_cells), k=kill_n)
             self.world.kill_cells(cell_idxs=list(set(idxs)))
             self._prepare_fresh_plate()
-            self.world.reposition_cells(cell_idxs=list(range(n_cells)))
+            self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
             self.split_i += 1
 
     def _mutate_cells(self):
