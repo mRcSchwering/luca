@@ -58,38 +58,46 @@ class MoleculeDependentCellDivision:
 class LinearChange:
     """
     Linearly change from value `from_d` to value `to_d`
-    dependent on value `v` over the course of `n_steps`.
+    starting after `lag` over a length of `n`.
     """
 
-    def __init__(self, n_steps: float, from_d: float, to_d: float):
-        self.n_steps = n_steps
+    def __init__(self, lag: float, n: float, from_d: float, to_d: float):
+        self.start = lag
+        self.stop = lag + n
+        self.n = n
         self.from_d = from_d
         self.to_d = to_d
 
     def __call__(self, v: float) -> float:
-        if v >= self.n_steps:
+        if v <= self.start:
+            return self.from_d
+        if v >= self.stop:
             return self.to_d
-        dn = (self.n_steps - v) / self.n_steps
+        dn = (self.stop - v) / self.n
         return dn * self.from_d + (1 - dn) * self.to_d
 
 
 class LinearComplexToMinimalMedium:
     """
-    Linearly move from complex medium to minimal medium over `n_gens` generations.
+    After a lag phase of `n_lag_gens` linearly move
+    from complex medium to minimal medium over `n_adapt_gens` generations.
     Non-essential molecule species will be reduced to zero, essential ones
     will stay at `mol_init`.
     """
 
     def __init__(
         self,
-        n_gens: float,
+        n_lag_gens: float,
+        n_adapt_gens: float,
         mol_init: float,
         molecules: list[ms.Molecule],
         essentials: list[ms.Molecule],
         molmap: torch.Tensor,
     ):
         self.eps = 1e-5
-        self.n_gens = n_gens
+        self.start = n_lag_gens
+        self.stop = n_lag_gens + n_adapt_gens
+        self.n = n_adapt_gens
         self.mol_init = mol_init
         self.essentials = [i for i, d in enumerate(molecules) if d in essentials]
         self.others = [i for i, d in enumerate(molecules) if d not in essentials]
@@ -97,11 +105,15 @@ class LinearComplexToMinimalMedium:
 
     def __call__(self, gen_i: float) -> torch.Tensor:
         molmap = torch.zeros_like(self.molmap)
-        molmap[self.essentials] = self.mol_init
-        if gen_i >= self.n_gens:
+        if gen_i <= self.start:
+            molmap[:] = self.mol_init
+            return molmap
+        if gen_i >= self.stop:
+            molmap[self.essentials] = self.mol_init
             molmap[self.others] = self.eps
             return molmap
-        dn = (self.n_gens - gen_i) / self.n_gens
+        molmap[self.essentials] = self.mol_init
+        dn = (self.stop - gen_i) / self.n
         molmap[self.others] = dn * self.mol_init + self.eps
         return molmap
 
@@ -110,7 +122,9 @@ class Experiment:
     def __init__(
         self,
         world: ms.World,
-        n_adaption_gens: float,
+        molmap_init: float,
+        n_init_gens: float,
+        n_adapt_gens: float,
         n_final_gens: float,
         split_ratio: float,
         split_thresh_mols: float,
@@ -120,8 +134,8 @@ class Experiment:
         self.world = world
 
         n_pxls = world.map_size**2
-        self.n_adaption_gens = n_adaption_gens
-        self.n_total_gens = n_adaption_gens + n_final_gens
+        self.test_gen = n_adapt_gens + n_init_gens
+        self.target_gen = self.test_gen + n_final_gens
         self.split_i = 0
         self.gen_i = 0.0
         self.score = 0.0
@@ -133,7 +147,7 @@ class Experiment:
         self.E_I = self.mol_2_idx["E"]
 
         self.mutation_rate_by_gen = LinearChange(
-            n_steps=n_adaption_gens, from_d=1e-4, to_d=1e-6
+            lag=n_init_gens, n=n_adapt_gens, from_d=1e-4, to_d=1e-6
         )
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
@@ -141,18 +155,18 @@ class Experiment:
         self.kill_by_mol = MoleculeDependentCellDeath(k=0.04)  # [0.01;0.04]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
-        mol_init = 10.0
         self.medium_fact = LinearComplexToMinimalMedium(
-            n_gens=n_adaption_gens,
-            mol_init=mol_init,
+            n_lag_gens=n_init_gens,
+            n_adapt_gens=n_adapt_gens,
+            mol_init=molmap_init,
             molecules=molecules,
             essentials=ESSENTIAL_MOLS,
             molmap=self.world.molecule_map,
         )
 
-        self.mol_thresh = mol_init * n_pxls * split_thresh_mols
+        self.mol_thresh = molmap_init * n_pxls * split_thresh_mols
         self.cell_thresh = int(n_pxls * split_thresh_cells)
-        self.split_n = int((1 - split_ratio) * n_pxls)
+        self.split_leftover = int(split_ratio * n_pxls)
 
         self._prepare_fresh_plate()
         self.world.add_cells(genomes=init_genomes)
@@ -174,23 +188,23 @@ class Experiment:
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
+        self.score = max((self.gen_i - self.test_gen) / self.target_gen, 0.0)
+
     def _passage_cells(self):
+        n_cells = self.world.n_cells
         if any(
             [
                 self.world.molecule_map[self.E_I].sum().item() <= self.mol_thresh,
                 self.world.molecule_map[self.CO2_I].sum().item() <= self.mol_thresh,
-                self.world.n_cells >= self.cell_thresh,
+                n_cells >= self.cell_thresh,
             ]
         ):
-            idxs = random.sample(range(self.world.n_cells), k=self.split_n)
+            kill_n = n_cells - self.split_leftover
+            idxs = random.sample(range(self.world.n_cells), k=kill_n)
             self.world.kill_cells(cell_idxs=list(set(idxs)))
             self._prepare_fresh_plate()
-            self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
+            self.world.reposition_cells(cell_idxs=list(range(n_cells)))
             self.split_i += 1
-
-            self.score = max(
-                (self.gen_i - self.n_adaption_gens) / self.n_total_gens, 0.0
-            )
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)

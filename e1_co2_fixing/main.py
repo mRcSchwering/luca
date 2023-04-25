@@ -85,7 +85,9 @@ def trial(
 
     exp = Experiment(
         world=world,
-        n_adaption_gens=hparams["n_adaption_gens"],
+        molmap_init=hparams["molmap_init"],
+        n_init_gens=hparams["n_init_gens"],
+        n_adapt_gens=hparams["n_adapt_gens"],
         n_final_gens=n_final_gens,
         split_ratio=hparams["split_ratio"],
         split_thresh_mols=hparams["split_thresh_mols"],
@@ -120,8 +122,8 @@ def trial(
             print(f"after {step_i} stepsless than 500 cells left")
             break
 
-        if exp.gen_i > exp.n_total_gens:
-            print(f"target generation {exp.n_total_gens} reached after {step_i} steps")
+        if exp.gen_i > exp.target_gen:
+            print(f"target generation {exp.target_gen} reached after {step_i} steps")
             break
 
         if (time.time() - trial_t0) > trial_max_time_s:
@@ -186,7 +188,19 @@ if __name__ == "__main__":
         help="For how many generatins to run the experiment after reaching minimal medium (default %(default)s)",
     )
     trial_parser.add_argument(
-        "--n_adaption_gens",
+        "--molmap_init",
+        default=10.0,
+        type=float,
+        help="Initial molecule concentrations on molecule map (default %(default)s)",
+    )
+    trial_parser.add_argument(
+        "--n_init_gens",
+        default=100.0,
+        type=float,
+        help="How many generations to wait before starting adaption (default %(default)s)",
+    )
+    trial_parser.add_argument(
+        "--n_adapt_gens",
         default=1_000.0,
         type=float,
         help="Over how many generations to reduce complex medium to minimal medium (default %(default)s)",
