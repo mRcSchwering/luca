@@ -149,7 +149,7 @@ class Experiment:
         n_init_gens: float,
         n_adapt_gens: float,
         n_final_gens: float,
-        mut_sceme: str,
+        mut_scheme: str,
         split_ratio: float,
         split_thresh_mols: float,
         split_thresh_cells: float,
@@ -170,7 +170,7 @@ class Experiment:
         self.X_I = self.mol_2_idx["X"]
         self.E_I = self.mol_2_idx["E"]
 
-        mut_rate_fact = MUT_RATE_FACTS[mut_sceme]
+        mut_rate_fact = MUT_RATE_FACTS[mut_scheme]
         self.mutation_rate_by_gen = mut_rate_fact(n_init_gens, n_adapt_gens)
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
