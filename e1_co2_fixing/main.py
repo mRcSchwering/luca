@@ -1,5 +1,5 @@
 """
-Simulation to teach cells to fix CO2.
+Entrypoint for simulation. Run with:
 
   python -m e1_co2_fixing.main --help
 
@@ -16,6 +16,19 @@ from .util import init_world, generate_genomes
 from .experiment import Experiment
 
 THIS_DIR = Path(__file__).parent
+
+
+def _init_writer(logdir: Path, hparams: dict) -> SummaryWriter:
+    writer = SummaryWriter(log_dir=logdir)
+    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Score": 0.0})
+    writer.file_writer.add_summary(exp)
+    writer.file_writer.add_summary(ssi)
+    writer.file_writer.add_summary(sei)
+
+    with open(logdir / "hparams.json", "w", encoding="utf-8") as fh:
+        json.dump(hparams, fh)
+
+    return writer
 
 
 def _log_scalars(
@@ -55,19 +68,6 @@ def _log_scalars(
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
-
-
-def _init_writer(logdir: Path, hparams: dict) -> SummaryWriter:
-    writer = SummaryWriter(log_dir=logdir)
-    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={"Other/Score": 0.0})
-    writer.file_writer.add_summary(exp)
-    writer.file_writer.add_summary(ssi)
-    writer.file_writer.add_summary(sei)
-
-    with open(logdir / "hparams.json", "w", encoding="utf-8") as fh:
-        json.dump(hparams, fh)
-
-    return writer
 
 
 def trial(
@@ -182,6 +182,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     subparsers = parser.add_subparsers()
 
+    # init
     init_parser = subparsers.add_parser("init", help="initialize world object")
     init_parser.set_defaults(func=init)
     init_parser.add_argument(
@@ -191,6 +192,7 @@ if __name__ == "__main__":
         help="Number of pixels of 2D map in each direction (default %(default)s)",
     )
 
+    # trials
     trial_parser = subparsers.add_parser("trials", help="run trials")
     trial_parser.set_defaults(func=trials)
     trial_parser.add_argument(
@@ -287,5 +289,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args.func(vars(args))
-
     print("done")
