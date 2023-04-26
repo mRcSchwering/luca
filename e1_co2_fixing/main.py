@@ -91,6 +91,7 @@ def trial(
         rundir=THIS_DIR / "runs",
         genome_size=1000,
         n_genomes=n_init_cells,
+        add_enzymes=hparams["init_enzymes"],
     )
 
     exp = Experiment(
@@ -252,6 +253,12 @@ if __name__ == "__main__":
         default=3,
         type=int,
         help="How many times to run the full experiment/trial (default %(default)s)",
+    )
+    trial_parser.add_argument(
+        "--init_enzymes",
+        default=False,
+        action="store_true",
+        help="Whether to initialize genomes with enzymes necessary for a pathway already (default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_steps",
