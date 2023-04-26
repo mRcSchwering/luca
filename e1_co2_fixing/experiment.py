@@ -192,7 +192,11 @@ class Experiment:
         self.split_leftover = int(split_ratio * n_pxls)
 
         self._prepare_fresh_plate()
-        self.world.add_cells(genomes=init_genomes)
+
+        # add in batches to avoid OOM
+        for a in range(0, len(init_genomes), 1000):
+            b = a + 1000
+            self.world.add_cells(genomes=init_genomes[a:b])
 
     def step_1s(self):
         self.world.diffuse_molecules()
