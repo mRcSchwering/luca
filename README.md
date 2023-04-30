@@ -1,13 +1,13 @@
 ## LUCA
 
 Using [MagicSoup](https://pypi.org/project/magicsoup/) to simulate cell evolution.
-I organized experiments in directories that each have preparation, simulation, and analysis in it.
+I organized experiments in more or less self-contained directories.
 
-- [e1_co2_fixing](./e1_co2_fixing) let cells develop their own CO2 fixing pathway
+- [e1_co2_fixing](./e1_co2_fixing) bring cells to fix CO2
 
 ### CPU-only Setup
 
-For CPU-only with [conda](https://docs.conda.io/en/latest/) it is:
+For CPU-only with [conda](https://docs.conda.io/en/latest/):
 
 ```
 conda env create -f environment.yml
@@ -17,7 +17,7 @@ conda env create -f environment.yml
 
 Use one of the [Deep Learning AMIs](https://aws.amazon.com/machine-learning/amis/) with an instance like
 `g4dn.xlarge`, `g4dn.2xlarge`, `g5.xlarge`, `g5.2xlarge` (see [G4 instances](https://aws.amazon.com/ec2/instance-types/g4/) and [G5 instances](https://aws.amazon.com/ec2/instance-types/g5/)).
-_E.g._ **Deep Learning AMI GPU PyTorch 2.0.0 (Ubuntu 20.04) 20221114** (ami-01e8ee929409916a3) has CUDA 11.6 and conda installed.
+_E.g._ **Deep Learning AMI GPU PyTorch 2.0.0 (Ubuntu 20.04)** has CUDA 12 and conda installed.
 After starting the instance you can initialize conda and directly install the environment.
 
 ```bash
@@ -32,6 +32,11 @@ nvcc --version  # check CUDA version
 python -c 'import torch; print(torch.cuda.is_available())'  # check torch was compiled for it
 nvidia-smi -l 1  # monitor GPU
 ```
+
+In [e1_co2_fixing/](./e1_co2_fixing/) on a **g4dn.xlarge** with a map size of 128 and around 2k cells
+of each 1k genome size
+I am seeing ~5.5GB (of 15GB) GPU memory usage, mostly >90% GPU utilisation with short 0% gaps (probably genome translation),
+~1s per step (CUDA 12, magicsoup 0.3).
 
 ### Screen
 
