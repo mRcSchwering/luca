@@ -109,6 +109,7 @@ def trial(
 
     assert exp.world.device == device
     assert exp.world.workers == n_workers
+    exp.world.save_state(statedir=trial_dir / "step=0")
 
     print(f"Starting trial {name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
