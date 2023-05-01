@@ -158,8 +158,9 @@ class Experiment:
         self.world = world
 
         n_pxls = world.map_size**2
-        self.test_gen = n_adapt_gens + n_init_gens
-        self.target_gen = self.test_gen + n_final_gens
+        self.done_init = n_init_gens
+        self.done_adapt = self.done_init + n_adapt_gens
+        self.done_exp = self.done_adapt + n_final_gens
         self.split_i = 0
         self.gen_i = 0.0
         self.score = 0.0
@@ -215,7 +216,7 @@ class Experiment:
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_by_gen(self.gen_i)
 
-        self.score = max((self.gen_i - self.test_gen) / self.target_gen, 0.0)
+        self.score = min(max((self.gen_i - self.done_init) / self.done_adapt, 0.0), 1.0)
 
     def _passage_cells(self):
         n_cells = self.world.n_cells

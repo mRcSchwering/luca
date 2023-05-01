@@ -135,8 +135,8 @@ def trial(
             print(f"after {step_i} stepsless than 500 cells left")
             break
 
-        if exp.gen_i > exp.target_gen:
-            print(f"target generation {exp.target_gen} reached after {step_i} steps")
+        if exp.gen_i > exp.done_exp:
+            print(f"target generation {exp.done_exp} reached after {step_i} steps")
             break
 
         if (time.time() - trial_t0) > trial_max_time_s:
