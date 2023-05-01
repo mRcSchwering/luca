@@ -89,9 +89,9 @@ def trial(
     n_init_cells = int(world.map_size**2 * init_cell_cover)
     genomes = generate_genomes(
         rundir=THIS_DIR / "runs",
-        genome_size=1000,
-        n_genomes=n_init_cells,
-        add_enzymes=hparams["init_enzymes"],
+        size=1000,
+        n=n_init_cells,
+        init=hparams["genome_init"],
     )
 
     exp = Experiment(
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         "--mut_scheme",
         default="linear",
         type=str,
-        choices=["linear", "step"],
+        choices=["linear", "step", "none"],
         help="Mutation rate scheme used during adaption phase (default %(default)s)",
     )
     trial_parser.add_argument(
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     )
     trial_parser.add_argument(
         "--split_thresh_cells",
-        default=0.6,
+        default=0.7,
         type=float,
         help="Ratio of map covered in cells that will trigger passage (should be below 0.8, default %(default)s)",
     )
@@ -258,10 +258,10 @@ if __name__ == "__main__":
         help="How many times to run the full experiment/trial (default %(default)s)",
     )
     trial_parser.add_argument(
-        "--init_enzymes",
-        default=False,
-        action="store_true",
-        help="Whether to initialize genomes with enzymes necessary for a pathway already (default %(default)s)",
+        "--genome_init",
+        default="transporter",
+        choices=["none", "transporter", "enzymes"],
+        help="Whether to initialize genomes randomly, with transporters for essentials, or also with enzymes necessary for a pathway already (default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_steps",

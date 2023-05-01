@@ -97,6 +97,7 @@ class StepChange:
 MUT_RATE_FACTS: dict[str, Callable[[float, float], LinearChange | StepChange]] = {
     "linear": lambda init, adapt: LinearChange(lag=init, n=adapt),
     "step": lambda init, adapt: StepChange(n=init + adapt),
+    "none": lambda init, adapt: StepChange(n=0),
 }
 
 
