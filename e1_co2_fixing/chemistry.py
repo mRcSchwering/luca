@@ -412,7 +412,8 @@ MOLECULES = (
 )
 
 # have to create oxalacetate on their own
-ESSENTIAL_MOLS = [_E, _co2, _HSCoA, _FH4, _RuBP]
+ESSENTIAL_MOLS = [_HSCoA, _FH4, _RuBP]
+SUBSTRATE_MOLS = [_E, _co2]
 
 REACTIONS = (
     _common_reacts

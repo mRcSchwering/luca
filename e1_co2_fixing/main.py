@@ -96,7 +96,6 @@ def trial(
 
     exp = Experiment(
         world=world,
-        molmap_init=hparams["molmap_init"],
         n_init_gens=hparams["n_init_gens"],
         n_adapt_gens=hparams["n_adapt_gens"],
         n_final_gens=n_final_gens,
@@ -201,12 +200,6 @@ if __name__ == "__main__":
         default=100.0,
         type=float,
         help="For how many generatins to run the experiment after reaching minimal medium (default %(default)s)",
-    )
-    trial_parser.add_argument(
-        "--molmap_init",
-        default=10.0,
-        type=float,
-        help="Initial molecule concentrations on molecule map (default %(default)s)",
     )
     trial_parser.add_argument(
         "--n_init_gens",

@@ -4,7 +4,7 @@ import random
 import math
 import torch
 import magicsoup as ms
-from .chemistry import ESSENTIAL_MOLS
+from .chemistry import ESSENTIAL_MOLS, SUBSTRATE_MOLS
 from .util import sigm_sample, rev_sigm_sample
 
 THIS_DIR = Path(__file__).parent
@@ -105,40 +105,43 @@ class LinearComplexToMinimalMedium:
     """
     After a lag phase of `n_lag_gens` linearly move
     from complex medium to minimal medium over `n_adapt_gens` generations.
-    Non-essential molecule species will be reduced to zero, essential ones
-    will stay at `mol_init`.
+    Non-essential molecule species will be reduced to zero.
     """
 
     def __init__(
         self,
         n_lag_gens: float,
         n_adapt_gens: float,
-        mol_init: float,
         molecules: list[ms.Molecule],
-        essentials: list[ms.Molecule],
         molmap: torch.Tensor,
+        mol_init=10.0,
+        subs_init=100.0,
     ):
         self.eps = 1e-5
+        self.subs_init = subs_init
         self.start = n_lag_gens
         self.stop = n_lag_gens + n_adapt_gens
         self.n = n_adapt_gens
         self.mol_init = mol_init
-        self.essentials = [i for i, d in enumerate(molecules) if d in essentials]
-        self.others = [i for i, d in enumerate(molecules) if d not in essentials]
+        self.substrates = [i for i, d in enumerate(molecules) if d in SUBSTRATE_MOLS]
+        self.essentials = [i for i, d in enumerate(molecules) if d in ESSENTIAL_MOLS]
         self.molmap = molmap
 
     def __call__(self, gen_i: float) -> torch.Tensor:
         molmap = torch.zeros_like(self.molmap)
         if gen_i <= self.start:
             molmap[:] = self.mol_init
+            molmap[self.substrates] = self.subs_init
             return molmap
         if gen_i >= self.stop:
+            molmap[:] = self.eps
             molmap[self.essentials] = self.mol_init
-            molmap[self.others] = self.eps
+            molmap[self.substrates] = self.subs_init
             return molmap
-        molmap[self.essentials] = self.mol_init
         dn = (self.stop - gen_i) / self.n
-        molmap[self.others] = dn * self.mol_init + self.eps
+        molmap[:] = dn * self.mol_init + self.eps
+        molmap[self.essentials] = self.mol_init
+        molmap[self.substrates] = self.subs_init
         return molmap
 
 
@@ -146,7 +149,6 @@ class Experiment:
     def __init__(
         self,
         world: ms.World,
-        molmap_init: float,
         n_init_gens: float,
         n_adapt_gens: float,
         n_final_gens: float,
@@ -183,13 +185,11 @@ class Experiment:
         self.medium_fact = LinearComplexToMinimalMedium(
             n_lag_gens=n_init_gens,
             n_adapt_gens=n_adapt_gens,
-            mol_init=molmap_init,
             molecules=molecules,
-            essentials=ESSENTIAL_MOLS,
             molmap=self.world.molecule_map,
         )
 
-        self.mol_thresh = molmap_init * n_pxls * split_thresh_mols
+        self.mol_thresh = self.medium_fact.subs_init * n_pxls * split_thresh_mols
         self.cell_thresh = int(n_pxls * split_thresh_cells)
         self.split_leftover = int(split_ratio * n_pxls)
 
@@ -228,8 +228,8 @@ class Experiment:
                 n_cells >= self.cell_thresh,
             ]
         ):
-            kill_n = n_cells - self.split_leftover
-            idxs = random.sample(range(self.world.n_cells), k=kill_n)
+            kill_n = max(n_cells - self.split_leftover, 0)
+            idxs = random.sample(range(n_cells), k=kill_n)
             self.world.kill_cells(cell_idxs=list(set(idxs)))
             self._prepare_fresh_plate()
             self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))

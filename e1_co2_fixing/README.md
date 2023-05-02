@@ -22,7 +22,7 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 python -m e1_co2_fixing.main init
 
 # short test run with default hyperparameters:
-python -m e1_co2_fixing.main --n_steps=21 --n_trials=1
+python -m e1_co2_fixing.main --n_steps=50 --n_trials=1
 ...
 # proper run on GPU with default hyperparameters:
 python -m e1_co2_fixing.main --device=cuda
