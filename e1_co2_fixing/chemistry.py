@@ -147,10 +147,13 @@ from collections import Counter
 from magicsoup.containers import (
     Molecule,
     Chemistry,
-    ProteinFact,
-    CatalyticDomainFact,
-    TransporterDomainFact,
+    ProteinFact as ProtF,
+    CatalyticDomainFact as CatalDF,
+    TransporterDomainFact as TrnspDF,
 )
+from magicsoup import World
+
+_TReact = tuple[list[Molecule], list[Molecule]]
 
 _co2 = Molecule("CO2", 10.0 * 1e3, diffusivity=1.0, permeability=1.0)
 _NADPH = Molecule("NADPH", 200.0 * 1e3)
@@ -164,7 +167,7 @@ _pyruvate = Molecule("pyruvate", 330.0 * 1e3)  # 3C 10e
 _X = Molecule("X", 50.0 * 1e3)
 _E = Molecule("E", 150.0 * 1e3)
 
-_common_reacts = [
+_common_reacts: list[_TReact] = [
     # energy carriers with defined reaction energies
     ([_NADPH], [_NADP]),  # -70
     ([_ATP], [_ADP]),  # -35
@@ -284,6 +287,51 @@ _wl_mols = [
     _FH4,
     _formate,
     _co,
+]
+
+# phase: (new proteins added, molecules removed from medium)
+_wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
+    (
+        [
+            ProtF([CatalDF(([_ADP, _ADP, _E], [_ATP, _ATP]))]),
+            ProtF([CatalDF(([_NADP, _E], [_NADPH]))]),
+            ProtF([TrnspDF(_X)]),
+            ProtF([TrnspDF(_E)]),
+        ],
+        [],
+    ),
+    (
+        [
+            ProtF([CatalDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))]),
+            ProtF([TrnspDF(_acetylCoA)]),
+        ],
+        [_X],
+    ),
+    (
+        [
+            ProtF([CatalDF(([_co2, _NADPH], [_co, _NADP]))]),
+            ProtF([CatalDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))]),
+            ProtF([TrnspDF(_HSCoA)]),
+            ProtF([TrnspDF(_methylFH4)]),
+        ],
+        [_acetylCoA],
+    ),
+    (
+        [
+            ProtF([CatalDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))]),
+            ProtF([CatalDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))]),
+            ProtF([TrnspDF(_formylFH4)]),
+        ],
+        [_methylFH4],
+    ),
+    (
+        [
+            ProtF([CatalDF(([_co2, _NADPH], [_formate, _NADP]))]),
+            ProtF([CatalDF(([_formate, _FH4], [_formylFH4]))]),
+            ProtF([TrnspDF(_FH4)]),
+        ],
+        [_formylFH4],
+    ),
 ]
 
 # Reductive TCA
@@ -460,23 +508,26 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-def get_proteome_facts(n: int, add_enzymes=False) -> list[list[ProteinFact]]:
+def get_proteome_facts(n: int, add_enzymes=False) -> list[list[ProtF]]:
     """Get protein factories for `n` proteomes"""
-    proteomes: list[list[ProteinFact]] = []
+    proteomes: list[list[ProtF]] = []
     for _, name in zip(range(n), cycle(GENOMES)):
-        proteome: list[ProteinFact] = []
+        proteome: list[ProtF] = []
 
         mols = [d for d in ESSENTIAL_MOLS if d is not _co2]
         for mol in mols:
-            dom = TransporterDomainFact(molecule=mol)
-            proteome.append(ProteinFact(domain_facts=[dom]))
+            dom = TrnspDF(molecule=mol)
+            proteome.append(ProtF(domain_facts=[dom]))
 
         if add_enzymes:
             reacts = GENOMES[name]
             for react in reacts + _common_reacts:
-                dom = CatalyticDomainFact(reaction=react)
-                proteome.append(ProteinFact(domain_facts=[dom]))
+                dom = CatalDF(reaction=react)
+                proteome.append(ProtF(domain_facts=[dom]))
 
         proteomes.append(proteome)
 
     return proteomes
+
+
+PATHWAY_PHASES_MAP = {"WL": _wl_phases}
