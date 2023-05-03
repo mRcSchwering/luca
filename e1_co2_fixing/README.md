@@ -3,7 +3,7 @@
 In this simulation cells are brought to fix CO2 from the environment.
 For this the world was defined with a [chemistry](#chemistry) resembling 6 major CO2-fixing metabolic pathways.
 Cells are grown in batches in media with high CO2 and energy content.
-[Evolutionary pressure](#experiment) is applied by killing cells with low energy levels
+Evolutionary pressure is applied by killing cells with low energy levels
 and replicating cells with high levels of fixed carbon.
 Fixed carbon is defined by molecule species such as acetyl-CoA.
 
@@ -12,7 +12,7 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 
 - [main.py](./main.py) entrypoint for the simulation
 - [chemistry.py](./chemistry.py) world's chemistry definition
-- [experiment.py](./experiment.py) experimental procedure
+- [train_pathway.py](./train_pathway.py) experimental procedure to train cells to fix CO2
 - [runs/](./runs/) saved runs (in gitignore)
 - [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
 - [analyze_2023-01-17_21-45.ipynb](./analyze_2023-01-17_21-45.ipynb) cells formed a stable colony, but they grew huge genomes
@@ -63,7 +63,7 @@ All molecule species recieved a moderate diffusivity and 0 permeability.
 Only CO2 was given a high diffusivity and high permeability.
 See [chemistry.py](./chemistry.py) for details.
 
-## Experiment
+## Training Experiment
 
 Cells are grows in batch culture.
 They are passaged if medium energy levels of CO2 levels are too low
@@ -85,4 +85,4 @@ are hyperparameters which are varied.
 In [prep.ipynb](./ipynb) useful ranges for these hyperparameters are estimated.
 Different hyperparameter sets are tested where each set of hyperparameters is a
 $run$ and replicates are $trials$.
-See [experiment.py](./experiment.py) for details.
+See [train_pathway.py](./train_pathway.py) for details.

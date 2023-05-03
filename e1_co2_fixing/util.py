@@ -1,7 +1,11 @@
 from pathlib import Path
 import torch
 import magicsoup as ms
-from .chemistry import CHEMISTRY, get_proteome_facts
+from .chemistry import CHEMISTRY
+
+
+class Finished(Exception):
+    """Raise to finish experiment"""
 
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
@@ -38,19 +42,17 @@ def init_world(map_size: int, rundir: Path):
     world.save(rundir=rundir)
 
 
-def generate_genomes(rundir: Path, size: int, n: int, init: str) -> list[str]:
-    """Generate genomes of a certain size with defined proteomes"""
-    if "transporter" in init.lower():
-        world = ms.World.from_file(rundir=rundir, device="cpu", workers=0)
-        proteomes = get_proteome_facts(n=n, add_enzymes=False)
-        return [world.generate_genome(proteome=p, size=size) for p in proteomes]
+def batch_add_cells(world: ms.World, genomes: list[str], d=1000):
+    """Add cells in batches of `d` to avoid OOM"""
+    for a in range(0, len(genomes), d):
+        b = a + d
+        world.add_cells(genomes=genomes[a:b])
 
-    if "enzymes" in init.lower():
-        world = ms.World.from_file(rundir=rundir, device="cpu", workers=0)
-        proteomes = get_proteome_facts(n=n, add_enzymes=True)
-        return [world.generate_genome(proteome=p, size=size) for p in proteomes]
 
-    if "none" in init.lower():
-        return [ms.random_genome(s=size) for _ in range(n)]
-
-    raise ValueError(f"Didnt recognize init='{init}'")
+def batch_update_cells(
+    world: ms.World, genome_idx_pairs: list[tuple[str, int]], d=1000
+):
+    """Update cells in batches of `d` to avoid OOM"""
+    for a in range(0, len(genome_idx_pairs), d):
+        b = a + d
+        world.update_cells(genome_idx_pairs=genome_idx_pairs[a:b])

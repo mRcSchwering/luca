@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Callable
-import datetime as dt
 import random
 import math
 import time
@@ -10,29 +9,15 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
 import magicsoup as ms
 from .chemistry import PATHWAY_PHASES_MAP
-from .util import sigm_sample, rev_sigm_sample
+from .util import (
+    Finished,
+    sigm_sample,
+    rev_sigm_sample,
+    batch_update_cells,
+    batch_add_cells,
+)
 
 THIS_DIR = Path(__file__).parent
-
-
-def _batch_add_cells(world: ms.World, genomes: list[str], d=1000):
-    # to avoid OOM
-    for a in range(0, len(genomes), d):
-        b = a + d
-        world.add_cells(genomes=genomes[a:b])
-
-
-def _batch_update_cells(
-    world: ms.World, genome_idx_pairs: list[tuple[str, int]], d=1000
-):
-    # to avoid OOM
-    for a in range(0, len(genome_idx_pairs), d):
-        b = a + d
-        world.update_cells(genome_idx_pairs=genome_idx_pairs[a:b])
-
-
-class Finished(Exception):
-    """Raise to finish experiment"""
 
 
 class MoleculeDependentCellDeath:
@@ -147,8 +132,8 @@ class GenomeFact:
 
 class MediumFact:
     """
-    Change medium from complex to minimal depending on the phase of the training process.
-    `substrates` will always be added with `substrates_init` to the medium,
+    Change medium from complex to minimal depending on the phase of the training
+    process. `substrates` will always be added with `substrates_init` to the medium,
     essential molecules as defined by `phases` always with `essentials_init`.
     """
 
@@ -195,7 +180,7 @@ class MediumFact:
         return t
 
 
-class _Experiment:
+class Experiment:
     """State and methods of the experiment"""
 
     def __init__(
@@ -257,7 +242,7 @@ class _Experiment:
 
         n_cells = int(init_cell_cover * n_pxls)
         init_genomes = [self.genome_fact(0) for _ in range(n_cells)]
-        _batch_add_cells(world=self.world, genomes=init_genomes)
+        batch_add_cells(world=self.world, genomes=init_genomes)
 
     def step_1s(self):
         self.world.diffuse_molecules()
@@ -308,14 +293,14 @@ class _Experiment:
                 for idx, old_genome in enumerate(self.world.genomes):
                     genes = self.genome_fact(self.phase_i)
                     genome_idx_pairs.append((old_genome + genes, idx))
-                _batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
+                batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
             self._prepare_fresh_plate()
             self.world.reposition_cells(cell_idxs=list(range(n_cells)))
             self.split_i += 1
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
-        _batch_update_cells(world=self.world, genome_idx_pairs=mutated)
+        batch_update_cells(world=self.world, genome_idx_pairs=mutated)
         # TODO: add HGT
 
     def _replicate_cells(self):
@@ -341,7 +326,7 @@ class _Experiment:
             c0_i, c1_i = successes[idx]
             genome_idx_pairs.append((c0, c0_i))
             genome_idx_pairs.append((c1, c1_i))
-        _batch_update_cells(world=self.world, genome_idx_pairs=mutated)
+        batch_update_cells(world=self.world, genome_idx_pairs=mutated)
 
     def _kill_cells(self):
         idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.E_I])
@@ -368,7 +353,7 @@ def _init_writer(logdir: Path, hparams: dict) -> SummaryWriter:
 
 
 def _log_scalars(
-    exp: _Experiment,
+    exp: Experiment,
     writer: SummaryWriter,
     step: int,
     dtime: float,
@@ -402,11 +387,11 @@ def _log_scalars(
     writer.add_scalar("Other/Score", exp.score, step)
 
 
-def _log_imgs(exp: _Experiment, writer: SummaryWriter, step: int):
+def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
-def _run_trial(
+def run_trial(
     device: str,
     n_workers: int,
     name: str,
@@ -421,7 +406,7 @@ def _run_trial(
     trial_dir = rundir / name
     writer = _init_writer(logdir=trial_dir, hparams=hparams)
 
-    exp = _Experiment(
+    exp = Experiment(
         world=world,
         pathway=pathway,
         n_adapt_gens=hparams["n_adapt_gens"],
@@ -472,25 +457,3 @@ def _run_trial(
     print(f"Finishing trial {name}")
     exp.world.save_state(statedir=trial_dir / f"step={step_i}")
     writer.close()
-
-
-def run_trials(kwargs: dict):
-    kwargs.pop("func")
-    pathway = kwargs.pop("pathway")
-    device = kwargs.pop("device")
-    n_workers = kwargs.pop("n_workers")
-    n_trials = kwargs.pop("n_trials")
-    n_steps = kwargs.pop("n_steps")
-    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
-    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
-
-    for trial_i in range(n_trials):
-        _run_trial(
-            pathway=pathway,
-            device=device,
-            n_workers=n_workers,
-            name=f"{pathway}_{ts}_{trial_i}",
-            n_steps=n_steps,
-            trial_max_time_s=trial_max_time_s,
-            hparams=kwargs,
-        )
