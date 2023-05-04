@@ -7,8 +7,8 @@ Entrypoint for simulation. Run with:
 import datetime as dt
 from argparse import ArgumentParser
 from pathlib import Path
-from .chemistry import PATHWAY_PHASES_MAP
-from .util import init_world
+import magicsoup as ms
+from .chemistry import CHEMISTRY, PATHWAY_PHASES_MAP
 from .train_pathway import run_trial
 
 THIS_DIR = Path(__file__).parent
@@ -18,7 +18,12 @@ def init_world_cmd(kwargs: dict):
     rundir = THIS_DIR / "runs"
     map_size = kwargs["map_size"]
     print(f"Initialing world with map_size={map_size}")
-    init_world(rundir=rundir, map_size=map_size)
+    world = ms.World(
+        chemistry=CHEMISTRY,
+        map_size=map_size,
+        mol_map_init="zeros",
+    )
+    world.save(rundir=rundir)
 
 
 def train_pathway_cmd(kwargs: dict):

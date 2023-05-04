@@ -293,42 +293,42 @@ _wl_mols = [
 _wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
     (
         [
-            ProtF([CatalDF(([_ADP, _ADP, _E], [_ATP, _ATP]))]),
-            ProtF([CatalDF(([_NADP, _E], [_NADPH]))]),
-            ProtF([TrnspDF(_X)]),
-            ProtF([TrnspDF(_E)]),
+            ProtF(CatalDF(([_ADP, _ADP, _E], [_ATP, _ATP]))),
+            ProtF(CatalDF(([_NADP, _E], [_NADPH]))),
+            ProtF(TrnspDF(_X)),
+            ProtF(TrnspDF(_E)),
         ],
         [],
     ),
     (
         [
-            ProtF([CatalDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))]),
-            ProtF([TrnspDF(_acetylCoA)]),
+            ProtF(CatalDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
+            ProtF(TrnspDF(_acetylCoA)),
         ],
         [_X],
     ),
     (
         [
-            ProtF([CatalDF(([_co2, _NADPH], [_co, _NADP]))]),
-            ProtF([CatalDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))]),
-            ProtF([TrnspDF(_HSCoA)]),
-            ProtF([TrnspDF(_methylFH4)]),
+            ProtF(CatalDF(([_co2, _NADPH], [_co, _NADP]))),
+            ProtF(CatalDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
+            ProtF(TrnspDF(_HSCoA)),
+            ProtF(TrnspDF(_methylFH4)),
         ],
         [_acetylCoA],
     ),
     (
         [
-            ProtF([CatalDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))]),
-            ProtF([CatalDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))]),
-            ProtF([TrnspDF(_formylFH4)]),
+            ProtF(CatalDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))),
+            ProtF(CatalDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
+            ProtF(TrnspDF(_formylFH4)),
         ],
         [_methylFH4],
     ),
     (
         [
-            ProtF([CatalDF(([_co2, _NADPH], [_formate, _NADP]))]),
-            ProtF([CatalDF(([_formate, _FH4], [_formylFH4]))]),
-            ProtF([TrnspDF(_FH4)]),
+            ProtF(CatalDF(([_co2, _NADPH], [_formate, _NADP]))),
+            ProtF(CatalDF(([_formate, _FH4], [_formylFH4]))),
+            ProtF(TrnspDF(_FH4)),
         ],
         [_formylFH4],
     ),
@@ -506,28 +506,6 @@ def print_mathjax(chem: Chemistry):
             + r" \\"
         )
     print(r"\end{align*}")
-
-
-def get_proteome_facts(n: int, add_enzymes=False) -> list[list[ProtF]]:
-    """Get protein factories for `n` proteomes"""
-    proteomes: list[list[ProtF]] = []
-    for _, name in zip(range(n), cycle(GENOMES)):
-        proteome: list[ProtF] = []
-
-        mols = [d for d in ESSENTIAL_MOLS if d is not _co2]
-        for mol in mols:
-            dom = TrnspDF(molecule=mol)
-            proteome.append(ProtF(domain_facts=[dom]))
-
-        if add_enzymes:
-            reacts = GENOMES[name]
-            for react in reacts + _common_reacts:
-                dom = CatalDF(reaction=react)
-                proteome.append(ProtF(domain_facts=[dom]))
-
-        proteomes.append(proteome)
-
-    return proteomes
 
 
 PATHWAY_PHASES_MAP = {"WL": _wl_phases}

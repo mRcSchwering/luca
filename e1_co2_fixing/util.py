@@ -1,7 +1,5 @@
-from pathlib import Path
 import torch
 import magicsoup as ms
-from .chemistry import CHEMISTRY
 
 
 class Finished(Exception):
@@ -30,16 +28,6 @@ def rev_sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     p = rev_sigm(t=t, k=k, n=n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
-
-
-def init_world(map_size: int, rundir: Path):
-    """Initialize world and save it to rundir"""
-    world = ms.World(
-        chemistry=CHEMISTRY,
-        map_size=map_size,
-        mol_map_init="zeros",
-    )
-    world.save(rundir=rundir)
 
 
 def batch_add_cells(world: ms.World, genomes: list[str], d=1000):

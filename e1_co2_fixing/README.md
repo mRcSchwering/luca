@@ -19,13 +19,13 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 
 ```
 # init world
-python -m e1_co2_fixing.main init
+python -m e1_co2_fixing.main init_world
 
 # short test run with default hyperparameters:
-python -m e1_co2_fixing.main trials --n_steps=50 --n_trials=1
+python -m e1_co2_fixing.main train_pathway --pathway WL --n_steps=50 --n_trials=1
 ...
 # proper run on GPU with default hyperparameters:
-python -m e1_co2_fixing.main trials --device=cuda
+python -m e1_co2_fixing.main train_pathway --pathway WL --device=cuda
 ...
 # watch progress on tensorboard
 tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs

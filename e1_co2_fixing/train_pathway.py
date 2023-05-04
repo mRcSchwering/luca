@@ -124,7 +124,7 @@ class GenomeFact:
             _ = genfun(prot_facts)
 
         n_genes = len([dd for d in self.prot_facts_phases for dd in d])
-        print(f"In total {n_genes} will be added in {len(phases)} phases")
+        print(f"In total {n_genes} genes will be added in {len(phases)} phases")
 
     def __call__(self, phase: int) -> str:
         return self.genfun(self.prot_facts_phases[phase])
@@ -146,31 +146,34 @@ class MediumFact:
         molmap: torch.Tensor,
         substrates: tuple[str, ...] = ("CO2", "E"),
     ):
+        self.molmap = molmap
         self.essentials_init = essentials_init
         self.substrates_init = substrates_init
-        self.molmap = molmap
         self.subs_idxs = [mol_2_idx[d] for d in substrates]
 
-        ess_mols: list[str] = []
+        ess_molnames: list[str] = []
         for prot_facts, rm_mols in phases:
             for prot in prot_facts:
                 for dom in prot.domain_facts:
                     if isinstance(dom, ms.TransporterDomainFact):
-                        ess_mols.append(dom.molecule.name)
-            ess_mols.extend([d.name for d in rm_mols])
+                        ess_molnames.append(dom.molecule.name)
+            ess_molnames.extend([d.name for d in rm_mols])
 
-        init_mols = list(set(ess_mols) - set(substrates))
-        phase_mols: list[list[str]] = [init_mols]
+        init_molnames = list(set(ess_molnames) - set(substrates))
+        phase_molnames: list[list[str]] = [init_molnames]
         for _, rm_mols in phases:
-            mols = list(set(phase_mols[-1]) - set(rm_mols))
-            phase_mols.append(mols.copy())
+            prev_names = set(phase_molnames[-1])
+            rm_names = set(d.name for d in rm_mols)
+            phase_molnames.append(list(prev_names - rm_names))
 
         print(f"Medium will change from complex to minimal in {len(phases)} phases")
-        print(f"  complex: {', '.join(phase_mols[0])}")
-        print(f"  minimal: {', '.join(phase_mols[-1])}")
+        print(f"  complex: {', '.join(phase_molnames[0])}")
+        print(f"  minimal: {', '.join(phase_molnames[-1])}")
         print(f"  (disregarding {', '.join(substrates)})")
+        self.essentials = phase_molnames[0]
+        self.substrates = substrates
 
-        self.phase_idxs = [[mol_2_idx[dd] for dd in d] for d in phase_mols]
+        self.phase_idxs = [[mol_2_idx[dd] for dd in d] for d in phase_molnames]
 
     def __call__(self, phase_i: int) -> torch.Tensor:
         idxs = self.phase_idxs[phase_i]
@@ -216,6 +219,7 @@ class Experiment:
         mut_rate_fact = MUT_RATE_FACTS[mut_scheme]
         self.mutation_rate_fact = mut_rate_fact(n_adapt_gens, n_static_gens)
         self.mutation_rate = self.mutation_rate_fact(self.gen_i)
+        self.lgt_rate = 1e-3
 
         self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]
         self.kill_by_mol = MoleculeDependentCellDeath(k=0.04)  # [0.01;0.04]
@@ -231,7 +235,7 @@ class Experiment:
 
         self.genome_fact = GenomeFact(
             phases=pathway_phases,
-            genfun=lambda d: self.world.generate_genome(d, size=100),
+            genfun=lambda d: self.world.generate_genome(d, size=200),
         )
 
         self.mol_thresh = self.medium_fact.substrates_init * n_pxls * split_thresh_mols
@@ -247,9 +251,7 @@ class Experiment:
     def step_1s(self):
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
-
-        for _ in range(10):
-            self.world.enzymatic_activity()
+        self.world.enzymatic_activity()
 
         self._kill_cells()
         self.world.increment_cell_survival()
@@ -286,7 +288,7 @@ class Experiment:
         ):
             kill_n = max(n_cells - self.split_leftover, 0)
             idxs = random.sample(range(n_cells), k=kill_n)
-            self.world.kill_cells(cell_idxs=list(set(idxs)))
+            self.world.kill_cells(cell_idxs=idxs)
             n_cells = self.world.n_cells
             if self._next_phase():
                 genome_idx_pairs: list[tuple[str, int]] = []
@@ -301,7 +303,21 @@ class Experiment:
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         batch_update_cells(world=self.world, genome_idx_pairs=mutated)
-        # TODO: add HGT
+
+        idxs = torch.argwhere(self.world.cell_survival >= 7).flatten().tolist()
+        nghbrs = self.world.get_neighbors(cell_idxs=idxs)
+
+        pairs = [(self.world.genomes[a], self.world.genomes[b]) for a, b in nghbrs]
+        mutated = ms.recombinations(
+            seq_pairs=pairs, p=self.mutation_rate * self.lgt_rate
+        )
+
+        genome_idx_pairs = []
+        for c0, c1, idx in mutated:
+            c0_i, c1_i = nghbrs[idx]
+            genome_idx_pairs.append((c0, c0_i))
+            genome_idx_pairs.append((c1, c1_i))
+        batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
 
     def _replicate_cells(self):
         i = self.X_I
@@ -326,7 +342,7 @@ class Experiment:
             c0_i, c1_i = successes[idx]
             genome_idx_pairs.append((c0, c0_i))
             genome_idx_pairs.append((c1, c1_i))
-        batch_update_cells(world=self.world, genome_idx_pairs=mutated)
+        batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
 
     def _kill_cells(self):
         idxs0 = self.kill_by_mol(self.world.cell_molecules[:, self.E_I])
@@ -357,17 +373,12 @@ def _log_scalars(
     writer: SummaryWriter,
     step: int,
     dtime: float,
+    mols: list[tuple[str, int]],
 ):
-    mol_name_idx_list = [
-        ("CO2", exp.CO2_I),
-        ("X", exp.X_I),
-        ("E", exp.E_I),
-    ]
-
     n_cells = exp.world.n_cells
     molecule_map = exp.world.molecule_map
     cell_molecules = exp.world.cell_molecules
-    molecules = {f"Molecules/{s}": i for s, i in mol_name_idx_list}
+    molecules = {f"Molecules/{s}": i for s, i in mols}
 
     for scalar, idx in molecules.items():
         tag = f"{scalar}[ext]"
@@ -384,6 +395,7 @@ def _log_scalars(
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
     writer.add_scalar("Other/Split", exp.split_i, step)
+    writer.add_scalar("Other/Phase", exp.phase_i, step)
     writer.add_scalar("Other/Score", exp.score, step)
 
 
@@ -422,13 +434,16 @@ def run_trial(
     assert exp.world.workers == n_workers
     exp.world.save_state(statedir=trial_dir / "step=0")
 
+    trial_t0 = time.time()
+    watch_substrates = [(d, exp.mol_2_idx[d]) for d in exp.medium_fact.substrates]
+    watch_essentials = [(d, exp.mol_2_idx[d]) for d in exp.medium_fact.essentials]
+    watch = watch_substrates + watch_essentials
     print(f"Starting trial {name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
-    trial_t0 = time.time()
-
-    _log_scalars(exp=exp, writer=writer, step=0, dtime=0)
+    _log_scalars(exp=exp, writer=writer, step=0, dtime=0, mols=watch)
     _log_imgs(exp=exp, writer=writer, step=0)
 
+    min_cells = int(exp.world.map_size**2 * 0.01)
     for step_i in range(1, n_steps + 1):
         step_t0 = time.time()
 
@@ -440,14 +455,14 @@ def run_trial(
 
         if step_i % 5 == 0:
             dtime = time.time() - step_t0
-            _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime)
+            _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime, mols=watch)
 
         if step_i % 50 == 0:
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
             _log_imgs(exp=exp, writer=writer, step=step_i)
 
-        if exp.world.n_cells < 500:
-            print(f"after {step_i} stepsless than 500 cells left")
+        if exp.world.n_cells < min_cells:
+            print(f"after {step_i} stepsless than {min_cells} cells left")
             break
 
         if (time.time() - trial_t0) > trial_max_time_s:
