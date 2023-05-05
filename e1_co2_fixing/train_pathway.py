@@ -258,6 +258,7 @@ class Experiment:
         self._replicate_cells()
         self._passage_cells()
         self._mutate_cells()
+        self._lateral_gene_transfer()
 
         avg = self.world.cell_divisions.float().mean().item()
         self.gen_i = 0.0 if math.isnan(avg) else avg
@@ -265,9 +266,6 @@ class Experiment:
 
         true_gen = self.phase_i * self.n_gens_per_phase + self.gen_i
         self.score = min(max(true_gen / self.total_gens, 0.0), 1.0)
-
-    def step_10s(self):
-        self._lateral_gene_transfer()
 
     def _next_phase(self) -> bool:
         if self.gen_i >= self.n_gens_per_phase:
@@ -307,13 +305,15 @@ class Experiment:
 
     def _lateral_gene_transfer(self):
         # if cell can't replicate for a while it is open to LGT
-        idxs = torch.argwhere(self.world.cell_survival >= 20).flatten().tolist()
-        nghbrs = self.world.get_neighbors(cell_idxs=idxs, nghbr_idxs=idxs)
+        p = torch.full((self.world.n_cells,), self.lgt_rate)
+        sample = torch.bernoulli(p).to(self.world.device).bool()
+        old_cells = self.world.cell_survival >= 20
+        idxs = torch.argwhere(old_cells & sample).flatten().tolist()
+        nghbr_idxs = torch.argwhere(old_cells).flatten().tolist()
 
+        nghbrs = self.world.get_neighbors(cell_idxs=idxs, nghbr_idxs=nghbr_idxs)
         pairs = [(self.world.genomes[a], self.world.genomes[b]) for a, b in nghbrs]
-        mutated = ms.recombinations(
-            seq_pairs=pairs, p=self.mutation_rate * self.lgt_rate
-        )
+        mutated = ms.recombinations(seq_pairs=pairs, p=self.mutation_rate)
 
         genome_idx_pairs = []
         for c0, c1, idx in mutated:
@@ -458,9 +458,6 @@ def run_trial(
         except Finished:
             print(f"target phase {exp.n_phases} reached after {step_i} steps")
             break
-
-        if step_i % 10 == 0:
-            exp.step_10s()
 
         if step_i % 5 == 0:
             dtime = time.time() - step_t0
