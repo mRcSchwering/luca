@@ -265,7 +265,7 @@ _methylenFH4 = Molecule("methylen-FH4", 355.0 * 1e3)  # 1C 4e !
 _formylFH4 = Molecule("formyl-FH4", 295.0 * 1e3)  # 1C 2e !
 _FH4 = Molecule("FH4", 200.0 * 1e3)  # !
 _formate = Molecule("formate", 70.0 * 1e3)  # 1C 2e !
-_co = Molecule("CO", 75 * 1e3)  # 1C 2e !
+_co = Molecule("CO", 75 * 1e3, diffusivity=1.0, permeability=1.0)  # 1C 2e !
 _acetylCoA = Molecule("acetyl-CoA", 475.0 * 1e3)  # 2C 8e !
 _HSCoA = Molecule("HS-CoA", 190.0 * 1e3)
 
@@ -308,7 +308,7 @@ _wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
             ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
             ProtF(TrnDF(_HSCoA)),
             ProtF(TrnDF(_methylFH4)),
-            ProtF(TrnDF(_co)),
+            ProtF(TrnDF(_co)),  # shouldnt need a transporter
         ],
         [_acetylCoA],
     ),
