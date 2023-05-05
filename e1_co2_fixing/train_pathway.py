@@ -303,8 +303,10 @@ class Experiment:
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         batch_update_cells(world=self.world, genome_idx_pairs=mutated)
 
-        idxs = torch.argwhere(self.world.cell_survival >= 7).flatten().tolist()
+        # if cell can't replicate for a while it is open to LGT
+        idxs = torch.argwhere(self.world.cell_survival >= 20).flatten().tolist()
         nghbrs = self.world.get_neighbors(cell_idxs=idxs)
+        nghbrs = [(a, b) for a, b in nghbrs if a in idxs and b in idxs]
 
         pairs = [(self.world.genomes[a], self.world.genomes[b]) for a, b in nghbrs]
         mutated = ms.recombinations(
@@ -320,6 +322,8 @@ class Experiment:
 
     def _replicate_cells(self):
         i = self.X_I
+
+        # max mu will be every 10 steps, consumes 4X
         idxs0 = self.replicate_by_mol(self.world.cell_molecules[:, i])
         idxs1 = torch.argwhere(self.world.cell_survival >= 10).flatten().tolist()
         idxs2 = torch.argwhere(self.world.cell_molecules[:, i] > 4.1).flatten().tolist()
