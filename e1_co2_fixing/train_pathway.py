@@ -267,6 +267,9 @@ class Experiment:
             max(self.gen_i * (self.phase_i + 1) / self.total_gens, 0.0), 1.0
         )
 
+    def step_10s(self):
+        self._lateral_gene_transfer()
+
     def _next_phase(self) -> bool:
         if self.gen_i >= self.n_gens_per_phase:
             self.gen_i = 0.0
@@ -303,6 +306,7 @@ class Experiment:
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         batch_update_cells(world=self.world, genome_idx_pairs=mutated)
 
+    def _lateral_gene_transfer(self):
         # if cell can't replicate for a while it is open to LGT
         idxs = torch.argwhere(self.world.cell_survival >= 20).flatten().tolist()
         nghbrs = self.world.get_neighbors(cell_idxs=idxs)
@@ -456,6 +460,9 @@ def run_trial(
         except Finished:
             print(f"target phase {exp.n_phases} reached after {step_i} steps")
             break
+
+        if step_i % 10 == 0:
+            exp.step_10s()
 
         if step_i % 5 == 0:
             dtime = time.time() - step_t0
