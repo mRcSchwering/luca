@@ -142,16 +142,14 @@ I would like to add more transformations that are not described in these
 pathway but I don't know enough about this topic.
 E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
-from itertools import cycle
 from collections import Counter
 from magicsoup.containers import (
     Molecule,
     Chemistry,
     ProteinFact as ProtF,
-    CatalyticDomainFact as CatalDF,
-    TransporterDomainFact as TrnspDF,
+    CatalyticDomainFact as CatDF,
+    TransporterDomainFact as TrnDF,
 )
-from magicsoup import World
 
 _TReact = tuple[list[Molecule], list[Molecule]]
 
@@ -293,42 +291,44 @@ _wl_mols = [
 _wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
     (
         [
-            ProtF(CatalDF(([_ADP, _ADP, _E], [_ATP, _ATP]))),
-            ProtF(CatalDF(([_NADP, _E], [_NADPH]))),
-            ProtF(TrnspDF(_X)),
-            ProtF(TrnspDF(_E)),
+            ProtF(TrnDF(_X)),
+            ProtF(TrnDF(_E)),
         ],
         [],
     ),
     (
         [
-            ProtF(CatalDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
-            ProtF(TrnspDF(_acetylCoA)),
+            ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
+            ProtF(TrnDF(_acetylCoA)),
         ],
         [_X],
     ),
     (
         [
-            ProtF(CatalDF(([_co2, _NADPH], [_co, _NADP]))),
-            ProtF(CatalDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
-            ProtF(TrnspDF(_HSCoA)),
-            ProtF(TrnspDF(_methylFH4)),
+            ProtF(CatDF(([_NADP, _E], [_NADPH]))),
+            ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
+            ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
+            ProtF(TrnDF(_HSCoA)),
+            ProtF(TrnDF(_methylFH4)),
+            ProtF(TrnDF(_NADP)),
         ],
         [_acetylCoA],
     ),
     (
         [
-            ProtF(CatalDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))),
-            ProtF(CatalDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
-            ProtF(TrnspDF(_formylFH4)),
+            ProtF(CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))),
+            ProtF(CatDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
+            ProtF(TrnDF(_formylFH4)),
         ],
         [_methylFH4],
     ),
     (
         [
-            ProtF(CatalDF(([_co2, _NADPH], [_formate, _NADP]))),
-            ProtF(CatalDF(([_formate, _FH4], [_formylFH4]))),
-            ProtF(TrnspDF(_FH4)),
+            ProtF(CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))),
+            ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
+            ProtF([CatDF(([_formate, _FH4], [_formylFH4])), CatDF(([_ATP], [_ADP]))]),
+            ProtF(TrnDF(_FH4)),
+            ProtF(TrnDF(_ADP)),
         ],
         [_formylFH4],
     ),
