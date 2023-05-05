@@ -396,6 +396,7 @@ def _log_scalars(
     writer.add_scalar("Other/Split", exp.split_i, step)
     writer.add_scalar("Other/Phase", exp.phase_i, step)
     writer.add_scalar("Other/Score", exp.score, step)
+    writer.add_scalar("Other/MutationRate", exp.mutation_rate, step)
 
 
 def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
