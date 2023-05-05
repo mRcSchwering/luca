@@ -221,7 +221,7 @@ class Experiment:
         self.mutation_rate = self.mutation_rate_fact(self.gen_i)
         self.lgt_rate = 1e-3
 
-        self.replicate_by_mol = MoleculeDependentCellDivision(k=20.0)  # [15;30]
+        self.replicate_by_mol = MoleculeDependentCellDivision(k=30.0)  # [15;30]
         self.kill_by_mol = MoleculeDependentCellDeath(k=0.04)  # [0.01;0.04]
         self.kill_by_genome = GenomeSizeDependentCellDeath(k=2_000.0)  # [2000;2500]
 
@@ -263,9 +263,8 @@ class Experiment:
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_fact(self.gen_i)
 
-        self.score = min(
-            max(self.gen_i * (self.phase_i + 1) / self.total_gens, 0.0), 1.0
-        )
+        true_gen = self.phase_i * self.n_gens_per_phase + self.gen_i
+        self.score = min(max(true_gen / self.total_gens, 0.0), 1.0)
 
     def step_10s(self):
         self._lateral_gene_transfer()
@@ -309,8 +308,7 @@ class Experiment:
     def _lateral_gene_transfer(self):
         # if cell can't replicate for a while it is open to LGT
         idxs = torch.argwhere(self.world.cell_survival >= 20).flatten().tolist()
-        nghbrs = self.world.get_neighbors2(cell_idxs=idxs)
-        nghbrs = [(a, b) for a, b in nghbrs if a in idxs and b in idxs]
+        nghbrs = self.world.get_neighbors(cell_idxs=idxs, nghbr_idxs=idxs)
 
         pairs = [(self.world.genomes[a], self.world.genomes[b]) for a, b in nghbrs]
         mutated = ms.recombinations(
