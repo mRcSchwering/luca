@@ -305,14 +305,20 @@ _wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
     ),
     (
         [
-            ProtF(CatDF(([_NADP, _E], [_NADPH]))),
-            ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
             ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
             ProtF(TrnDF(_HSCoA)),
             ProtF(TrnDF(_methylFH4)),
-            ProtF(TrnDF(_NADP)),
+            ProtF(TrnDF(_co)),
         ],
         [_acetylCoA],
+    ),
+    (
+        [
+            ProtF(CatDF(([_NADP, _E], [_NADPH]))),
+            ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
+            ProtF(TrnDF(_NADP)),
+        ],
+        [_co],
     ),
     (
         [
@@ -324,13 +330,19 @@ _wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
     ),
     (
         [
-            ProtF(CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))),
-            ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
             ProtF([CatDF(([_formate, _FH4], [_formylFH4])), CatDF(([_ATP], [_ADP]))]),
             ProtF(TrnDF(_FH4)),
-            ProtF(TrnDF(_ADP)),
+            ProtF(TrnDF(_formate)),
         ],
         [_formylFH4],
+    ),
+    (
+        [
+            ProtF(CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))),
+            ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
+            ProtF(TrnDF(_ADP)),
+        ],
+        [_formate],
     ),
 ]
 
