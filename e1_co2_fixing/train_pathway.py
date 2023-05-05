@@ -309,7 +309,7 @@ class Experiment:
     def _lateral_gene_transfer(self):
         # if cell can't replicate for a while it is open to LGT
         idxs = torch.argwhere(self.world.cell_survival >= 20).flatten().tolist()
-        nghbrs = self.world.get_neighbors(cell_idxs=idxs)
+        nghbrs = self.world.get_neighbors2(cell_idxs=idxs)
         nghbrs = [(a, b) for a, b in nghbrs if a in idxs and b in idxs]
 
         pairs = [(self.world.genomes[a], self.world.genomes[b]) for a, b in nghbrs]
