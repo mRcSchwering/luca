@@ -227,7 +227,7 @@ class Experiment:
 
         self.medium_fact = MediumFact(
             phases=pathway_phases,
-            essentials_init=10.0,
+            essentials_init=20.0,
             substrates_init=100.0,
             mol_2_idx=self.mol_2_idx,
             molmap=self.world.molecule_map,
