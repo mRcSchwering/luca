@@ -161,7 +161,7 @@ class MediumFact:
 
         init_molnames = list(set(ess_molnames) - set(substrates))
         phase_molnames: list[list[str]] = [init_molnames]
-        for _, rm_mols in phases:
+        for _, rm_mols in phases[1:]:
             prev_names = set(phase_molnames[-1])
             rm_names = set(d.name for d in rm_mols)
             phase_molnames.append(list(prev_names - rm_names))
@@ -289,15 +289,14 @@ class Experiment:
             kill_n = max(n_cells - self.split_leftover, 0)
             idxs = random.sample(range(n_cells), k=kill_n)
             self.world.kill_cells(cell_idxs=idxs)
-            n_cells = self.world.n_cells
             if self._next_phase():
-                genome_idx_pairs: list[tuple[str, int]] = []
+                genome_idx_pairs = []
                 for idx, old_genome in enumerate(self.world.genomes):
                     genes = self.genome_fact(self.phase_i)
                     genome_idx_pairs.append((old_genome + genes, idx))
                 batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
             self._prepare_fresh_plate()
-            self.world.reposition_cells(cell_idxs=list(range(n_cells)))
+            self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
             self.split_i += 1
 
     def _mutate_cells(self):
