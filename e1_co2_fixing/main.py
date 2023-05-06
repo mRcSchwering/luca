@@ -28,7 +28,6 @@ def init_world_cmd(kwargs: dict):
 
 def train_pathway_cmd(kwargs: dict):
     kwargs.pop("func")
-    pathway = kwargs.pop("pathway")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
     n_trials = kwargs.pop("n_trials")
@@ -38,10 +37,9 @@ def train_pathway_cmd(kwargs: dict):
 
     for trial_i in range(n_trials):
         run_trial(
-            pathway=pathway,
             device=device,
             n_workers=n_workers,
-            name=f"{pathway}_{ts}_{trial_i}",
+            name=f"{ts}_{trial_i}",
             n_steps=n_steps,
             trial_max_time_s=trial_max_time_s,
             hparams=kwargs,
@@ -109,6 +107,31 @@ if __name__ == "__main__":
         help="Ratio of map initially covered by cells (default %(default)s)",
     )
     train_parser.add_argument(
+        "--mol_divide_k",
+        default=30.0,
+        type=float,
+        help="Affinity k for X-dependent cell division ([15;30], default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--mol_kill_k",
+        default=0.04,
+        type=float,
+        help="Affinity k for E-dependent cell death ([0.01;0.04], default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--genome_kill_k",
+        default=2_000.0,
+        type=float,
+        help="Affinity k for genome-size-dependent cell death"
+        " ([2000;2500], default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--lgt_rate",
+        default=1e-3,
+        type=float,
+        help="Lateral gene transfer rate (default %(default)s)",
+    )
+    train_parser.add_argument(
         "--split_ratio",
         default=0.2,
         type=float,
@@ -123,7 +146,7 @@ if __name__ == "__main__":
         " (should be below 0.8, default %(default)s)",
     )
     train_parser.add_argument(
-        "--split_thresh_mols",
+        "--split_thresh_subs",
         default=0.2,
         type=float,
         help="Trigger passage if CO2 or E levels (relative to initial levels)"

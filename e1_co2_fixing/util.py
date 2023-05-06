@@ -1,4 +1,8 @@
+import json
+from pathlib import Path
 import torch
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard.summary import hparams as get_summary
 import magicsoup as ms
 
 
@@ -44,3 +48,17 @@ def batch_update_cells(
     for a in range(0, len(genome_idx_pairs), d):
         b = a + d
         world.update_cells(genome_idx_pairs=genome_idx_pairs[a:b])
+
+
+def init_writer(logdir: Path, hparams: dict, score="Other/Score") -> SummaryWriter:
+    """Write initial hparams to tensorboard and as JSON"""
+    writer = SummaryWriter(log_dir=logdir)
+    exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict={score: 0.0})
+    writer.file_writer.add_summary(exp)
+    writer.file_writer.add_summary(ssi)
+    writer.file_writer.add_summary(sei)
+
+    with open(logdir / "hparams.json", "w", encoding="utf-8") as fh:
+        json.dump(hparams, fh)
+
+    return writer
