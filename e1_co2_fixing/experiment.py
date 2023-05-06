@@ -8,11 +8,9 @@ from .util import (
     sigm_sample,
     rev_sigm_sample,
     batch_update_cells,
-    batch_add_cells,
 )
 
 THIS_DIR = Path(__file__).parent
-
 
 
 class MutationRateFact:
@@ -30,9 +28,8 @@ class MutationRateFact:
 
 class GenomeFact:
     """
-    Factory for generating genes or genomes that will be added to the
-    currently surviving cells.
-    Will first be called during init for initial genomes.
+    Factory for generating genes that will be added every phase
+    to the surviving cells
     """
 
     def __call__(self, exp: "Experiment") -> str:
@@ -139,15 +136,14 @@ class Experiment:
         world: Initialized and loaded world object on device
         n_phases: Number of experimental phases
         n_phase_gens: Number of generations cells grow to finish a phase
-        init_cell_cover: Relative cell coverage at the start of the experiment
         mol_divide_k: k for X-dependent cell division (should be [15;30])
         mol_kill_k: k for E-dependent cell death (should be [0.01;0.04])
         genome_kill_k: k for genome-size-dependent cell death (should be [2000;2500])
         lgt_rate: lateral gene transfer rate
         passage: scheme defining how and when to passage cells
         mutation_rate_fact: factory defining mutation rates
-        genome_fact: factory for generating genes or genomes
         medium_fact: factory for generating media
+        genome_fact: factory for editing genomes every phase
     """
 
     def __init__(
@@ -155,15 +151,14 @@ class Experiment:
         world: ms.World,
         n_phases: int,
         n_phase_gens: float,
-        init_cell_cover: float,
         mol_divide_k: float,
         mol_kill_k: float,
         genome_kill_k: float,
         lgt_rate: float,
         passage: Passage,
         mutation_rate_fact: MutationRateFact,
-        genome_fact: GenomeFact,
         medium_fact: MediumFact,
+        genome_fact: GenomeFact | None = None,
     ):
         self.world = world
         self.n_phases = n_phases
@@ -192,10 +187,6 @@ class Experiment:
         self.passage = passage
 
         self._prepare_fresh_plate()
-
-        n_cells = int(world.map_size**2 * init_cell_cover)
-        init_genomes = [self.genome_fact(self) for _ in range(n_cells)]
-        batch_add_cells(world=self.world, genomes=init_genomes)
 
     def step_1s(self):
         self.world.diffuse_molecules()
@@ -233,11 +224,7 @@ class Experiment:
             idxs = random.sample(range(n_cells), k=kill_n)
             self.world.kill_cells(cell_idxs=idxs)
             if self._next_phase():
-                genome_idx_pairs = []
-                for idx, old_genome in enumerate(self.world.genomes):
-                    genes = self.genome_fact(self)
-                    genome_idx_pairs.append((old_genome + genes, idx))
-                batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
+                self._edit_genomes()
             self._prepare_fresh_plate()
             self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
             self.split_i += 1
@@ -245,6 +232,14 @@ class Experiment:
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         batch_update_cells(world=self.world, genome_idx_pairs=mutated)
+
+    def _edit_genomes(self):
+        if self.genome_fact is not None:
+            genome_idx_pairs = []
+            for idx, old_genome in enumerate(self.world.genomes):
+                genes = self.genome_fact(self)
+                genome_idx_pairs.append((old_genome + genes, idx))
+            batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
 
     def _lateral_gene_transfer(self):
         # if cell can't replicate for a while it is open to LGT

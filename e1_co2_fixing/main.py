@@ -66,8 +66,7 @@ if __name__ == "__main__":
     )
     train_parser.set_defaults(func=train_pathway_cmd)
     train_parser.add_argument(
-        "--pathway",
-        default="WL",
+        "pathway",
         type=str,
         choices=PATHWAY_PHASES_MAP,
         help="Which pathway to train. Each training will occur in adaption phases"

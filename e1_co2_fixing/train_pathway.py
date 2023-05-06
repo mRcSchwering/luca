@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 import magicsoup as ms
 from .chemistry import PATHWAY_PHASES_MAP
 from .experiment import Experiment, Passage, MutationRateFact, MediumFact, GenomeFact
-from .util import Finished, init_writer
+from .util import Finished, init_writer, batch_add_cells
 
 THIS_DIR = Path(__file__).parent
 
@@ -52,7 +52,7 @@ class StepAdapt(MediumFact):
         print(f"  minimal: {', '.join(phase_molnames[-1])}")
         print(f"  (disregarding {', '.join(substrates)})")
         self.essentials = phase_molnames[0]
-        self.substrates = substrates
+        self.substrates = list(substrates)
 
         self.phase_idxs = [[mol_2_idx[dd] for dd in d] for d in phase_molnames]
 
@@ -72,7 +72,7 @@ class StepAdapt(MediumFact):
 
 class GainPathway(GenomeFact):
     """
-    Generate genomes for each phase according to `phases`.
+    Generate genes for each phase according to `phases`.
     """
 
     def __init__(
@@ -93,8 +93,8 @@ class GainPathway(GenomeFact):
         print(f"In total {n_genes} genes will be added in {len(phases)} phases")
         print(f" Inital genome size is {size:,}, final will be {size * len(phases):,}")
 
-    def __call__(self, phase: int) -> str:
-        return self.genfun(self.prot_facts_phases[phase], self.size)
+    def __call__(self, exp: "Experiment") -> str:
+        return self.genfun(self.prot_facts_phases[exp.phase_i], self.size)
 
     def hparams(self) -> dict[str, str | float]:
         return {"genome_sizes": self.size}
@@ -152,8 +152,8 @@ class LinearChange(MutationRateFact):
 
     def hparams(self) -> dict[str, str | float]:
         return {
-            "mut_scheme": f"linear-{self.n}-gens",
-            "mut_rates": f"{self.from_d:0e}-{self.to_d:0e}",
+            "mut_scheme": "linear-decreasing",
+            "mut_rates": f"{self.from_d:.0e}-{self.to_d:.0e}",
         }
 
 
@@ -237,16 +237,20 @@ def run_trial(
         world=world,
         n_phases=len(pathway_phases),
         n_phase_gens=hparams["n_adapt_gens"] + hparams["n_static_gens"],
-        init_cell_cover=hparams["init_cell_cover"],
         mol_divide_k=hparams["mol_divide_k"],
         mol_kill_k=hparams["mol_kill_k"],
         genome_kill_k=hparams["genome_kill_k"],
-        lgt_rate=hparams["hparams"],
+        lgt_rate=hparams["lgt_rate"],
         passage=passage,
         medium_fact=medium_fact,
         mutation_rate_fact=mutation_rate_fact,
         genome_fact=genome_fact,
     )
+
+    # initial cells
+    n_cells = int(n_pxls * hparams["init_cell_cover"])
+    init_genomes = [genome_fact(exp) for _ in range(n_cells)]
+    batch_add_cells(world=exp.world, genomes=init_genomes)
 
     writer = init_writer(
         logdir=trial_dir,
@@ -288,7 +292,7 @@ def run_trial(
             _log_imgs(exp=exp, writer=writer, step=step_i)
 
         if exp.world.n_cells < min_cells:
-            print(f"after {step_i} stepsless than {min_cells} cells left")
+            print(f"after {step_i} steps less than {min_cells} cells left")
             break
 
         if (time.time() - trial_t0) > trial_max_time_s:
