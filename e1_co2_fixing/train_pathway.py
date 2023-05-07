@@ -146,11 +146,9 @@ class StepWiseRateAdaption(MutationRateFact):
         self.to_p = to_p
 
     def __call__(self, exp: Experiment) -> float:
-        v = exp.gen_i
-        if v >= self.n:
+        if exp.gen_i >= self.n:
             return self.to_p
-        dn = (self.n - v) / self.n
-        return dn * self.from_p + (1 - dn) * self.to_p
+        return self.from_p
 
 
 def _log_scalars(

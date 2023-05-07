@@ -98,13 +98,6 @@ if __name__ == "__main__":
         " before starting the next adaption phase (default %(default)s)",
     )
     train_parser.add_argument(
-        "--mut_scheme",
-        default="linear",
-        type=str,
-        choices=["linear", "step", "none"],
-        help="Mutation rate scheme used during adaption phase (default %(default)s)",
-    )
-    train_parser.add_argument(
         "--init_cell_cover",
         default=0.2,
         type=float,
