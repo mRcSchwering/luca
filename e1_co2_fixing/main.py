@@ -69,8 +69,13 @@ if __name__ == "__main__":
         "pathway",
         type=str,
         choices=PATHWAY_PHASES_MAP,
-        help="Which pathway to train. Each training will occur in adaption phases"
-        " (default %(default)s)",
+        help="Which pathway to train. Each training will occur in adaption phases",
+    )
+    train_parser.add_argument(
+        "--genome_size",
+        type=int,
+        default=1000,
+        help="Final genome size after all phases were applied (default %(default)s).",
     )
     train_parser.add_argument(
         "--n_trials",
@@ -119,10 +124,10 @@ if __name__ == "__main__":
     )
     train_parser.add_argument(
         "--genome_kill_k",
-        default=2_000.0,
+        default=3_000.0,
         type=float,
         help="Affinity k for genome-size-dependent cell death"
-        " ([2000;2500], default %(default)s)",
+        " ([2000;4000], default %(default)s)",
     )
     train_parser.add_argument(
         "--lgt_rate",

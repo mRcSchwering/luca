@@ -20,10 +20,7 @@ class MutationRateFact:
 
     def __call__(self, exp: "Experiment") -> float:
         """Returns current mutation rates"""
-        raise NotImplementedError()
-
-    def hparams(self) -> dict[str, str | float]:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class GenomeFact:
@@ -34,10 +31,7 @@ class GenomeFact:
 
     def __call__(self, exp: "Experiment") -> str:
         """Returns a new gene/genome for each cell"""
-        raise NotImplementedError()
-
-    def hparams(self) -> dict[str, str | float]:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class MediumFact:
@@ -52,10 +46,7 @@ class MediumFact:
 
     def __call__(self, exp: "Experiment") -> torch.Tensor:
         """Returns a new molecule map"""
-        raise NotImplementedError()
-
-    def hparams(self) -> dict[str, str | float]:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class Passage:
@@ -67,10 +58,7 @@ class Passage:
 
     def __call__(self, exp: "Experiment") -> bool:
         """Returns whether to passage cells now"""
-        raise NotImplementedError()
-
-    def hparams(self) -> dict[str, str | float]:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class MoleculeDependentCellDeath:
@@ -86,9 +74,6 @@ class MoleculeDependentCellDeath:
 
     def __call__(self, cellmols: torch.Tensor) -> list[int]:
         return rev_sigm_sample(cellmols, self.k, self.n)
-
-    def hparams(self) -> dict[str, str | float]:
-        return {"molKill_k": self.k}
 
 
 class GenomeSizeDependentCellDeath:
@@ -106,9 +91,6 @@ class GenomeSizeDependentCellDeath:
         sizes = torch.tensor([float(len(d)) for d in genomes])
         return sigm_sample(sizes, self.k, self.n)
 
-    def hparams(self) -> dict[str, str | float]:
-        return {"genomeKill_k": self.k}
-
 
 class MoleculeDependentCellDivision:
     """
@@ -123,9 +105,6 @@ class MoleculeDependentCellDivision:
 
     def __call__(self, cellmols: torch.Tensor) -> list[int]:
         return sigm_sample(cellmols, self.k, self.n)
-
-    def hparams(self) -> dict[str, str | float]:
-        return {"molDivide_k": self.k}
 
 
 class Experiment:
@@ -168,6 +147,7 @@ class Experiment:
         self.phase_i = 0
         self.split_i = 0
         self.gen_i = 0.0
+        self.growth_rate = 0.0
 
         molecules = [d.name for d in self.world.chemistry.molecules]
         self.CO2_I = molecules.index("CO2")
@@ -189,6 +169,8 @@ class Experiment:
         self._prepare_fresh_plate()
 
     def step_1s(self):
+        n0 = self.world.n_cells
+
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
         self.world.enzymatic_activity()
@@ -196,6 +178,10 @@ class Experiment:
         self._kill_cells()
         self.world.increment_cell_survival()
         self._replicate_cells()
+
+        n1 = self.world.n_cells
+        self.growth_rate = math.log(n1 / n0) if n0 > 0 else float("nan")
+
         self._passage_cells()
         self._mutate_cells()
         self._lateral_gene_transfer()
@@ -204,8 +190,10 @@ class Experiment:
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_fact(self)
 
-        true_gen = self.phase_i * self.n_phase_gens + self.gen_i
-        self.score = min(max(true_gen / self.total_gens, 0.0), 1.0)
+        # note, in any phase cells might grow for many generations, eventually dying,
+        # advancing generations without split
+        gen = self.phase_i * self.n_phase_gens + min(self.gen_i, self.n_phase_gens)
+        self.score = min(max(gen / self.total_gens, 0.0), 1.0)
 
     def _next_phase(self) -> bool:
         if self.gen_i >= self.n_phase_gens:
@@ -213,7 +201,7 @@ class Experiment:
             self.world.cell_divisions[:] = 0
             self.phase_i += 1
             if self.phase_i > self.n_phases:
-                raise Finished()
+                raise Finished
             return True
         return False
 

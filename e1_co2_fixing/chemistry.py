@@ -287,62 +287,6 @@ _wl_mols = [
     _co,
 ]
 
-# phase: (new proteins added, molecules removed from medium)
-_wl_phases: list[tuple[list[ProtF], list[Molecule]]] = [
-    (
-        [
-            ProtF(TrnDF(_X)),
-            ProtF(TrnDF(_E)),
-        ],
-        [],
-    ),
-    (
-        [
-            ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
-            ProtF(TrnDF(_acetylCoA)),
-        ],
-        [_X],
-    ),
-    (
-        [
-            ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
-            ProtF(TrnDF(_HSCoA)),
-            ProtF(TrnDF(_methylFH4)),
-        ],
-        [_acetylCoA],
-    ),
-    (
-        [
-            ProtF(CatDF(([_NADP, _E], [_NADPH]))),
-            ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
-            ProtF(TrnDF(_NADP)),
-        ],
-        [_co],
-    ),
-    (
-        [
-            ProtF(CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))),
-            ProtF(CatDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
-            ProtF(TrnDF(_formylFH4)),
-        ],
-        [_methylFH4],
-    ),
-    (
-        [
-            ProtF(CatDF(([_formate, _FH4], [_formylFH4]))),
-            ProtF(TrnDF(_FH4)),
-            ProtF(TrnDF(_formate)),
-        ],
-        [_formylFH4],
-    ),
-    (
-        [
-            ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
-        ],
-        [_formate],
-    ),
-]
-
 # Reductive TCA
 _acetylCoA = Molecule("acetyl-CoA", 475.0 * 1e3)  # 2C 8e !
 _HSCoA = Molecule("HS-CoA", 190.0 * 1e3)
@@ -517,4 +461,63 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-PATHWAY_PHASES_MAP = {"WL": _wl_phases}
+# phase: (new proteins added, molecules removed from medium)
+_wl6_phases: list[tuple[list[ProtF], list[Molecule]]] = [
+    (
+        [
+            ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
+            ProtF(TrnDF(_acetylCoA)),
+            ProtF(TrnDF(_E)),
+            ProtF(TrnDF(_X)),
+        ],
+        [_X],
+    ),
+    (
+        [
+            ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
+            ProtF(TrnDF(_HSCoA)),
+            ProtF(TrnDF(_methylFH4)),
+        ],
+        [_acetylCoA],
+    ),
+    (
+        [
+            ProtF(CatDF(([_NADP, _E], [_NADPH]))),
+            ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
+            ProtF(TrnDF(_NADP)),
+        ],
+        [_co],
+    ),
+    (
+        [
+            ProtF(CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))),
+            ProtF(CatDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
+            ProtF(TrnDF(_formylFH4)),
+        ],
+        [_methylFH4],
+    ),
+    (
+        [
+            ProtF(CatDF(([_formate, _FH4], [_formylFH4]))),
+            ProtF(TrnDF(_FH4)),
+            ProtF(TrnDF(_formate)),
+        ],
+        [_formylFH4],
+    ),
+    (
+        [
+            ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
+        ],
+        [_formate],
+    ),
+]
+
+_wl1_phases: list[tuple[list[ProtF], list[Molecule]]] = [
+    (
+        [ProtF(TrnDF(_X)), ProtF(TrnDF(_E))],
+        [_X],
+    ),
+]
+
+
+PATHWAY_PHASES_MAP = {"WL6": _wl6_phases, "WL1": _wl1_phases}

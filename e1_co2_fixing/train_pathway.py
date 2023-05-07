@@ -11,16 +11,18 @@ from .util import Finished, init_writer, batch_add_cells
 THIS_DIR = Path(__file__).parent
 
 
-class StepAdapt(MediumFact):
+class LinearMediumAdaption(MediumFact):
     """
-    Change medium from complex to minimal depending on the phase of the training
-    process. `substrates` will always be added with `substrates_init` to the medium,
-    essential molecules as defined by `phases` always with `essentials_init`.
+    Change medium linearly from ``essentials_max` to zero over `n_gens`
+    from complex to minimal for each phase.
+    Which molecules are essential in each phase is derived from `phases`.
+    `substrates` will always be added with `substrates_max` to the medium.
     """
 
     def __init__(
         self,
         phases: list[tuple[list[ms.ProteinFact], list[ms.Molecule]]],
+        n_gens: int,
         essentials_max: float,
         substrates_max: float,
         mol_2_idx: dict[str, int],
@@ -28,51 +30,56 @@ class StepAdapt(MediumFact):
         substrates: tuple[str, ...] = ("CO2", "E"),
     ):
         self.molmap = molmap
+        self.n_gens = n_gens
         self.essentials_max = essentials_max
         self.substrates_max = substrates_max
         self.subs_idxs = [mol_2_idx[d] for d in substrates]
 
-        ess_molnames: list[str] = []
+        essentials: list[str] = []
         for prot_facts, rm_mols in phases:
             for prot in prot_facts:
                 for dom in prot.domain_facts:
                     if isinstance(dom, ms.TransporterDomainFact):
-                        ess_molnames.append(dom.molecule.name)
-            ess_molnames.extend([d.name for d in rm_mols])
+                        essentials.append(dom.molecule.name)
+            essentials.extend([d.name for d in rm_mols])
 
-        init_molnames = list(set(ess_molnames) - set(substrates))
-        phase_molnames: list[list[str]] = [init_molnames]
-        for _, rm_mols in phases[1:]:
-            prev_names = set(phase_molnames[-1])
-            rm_names = set(d.name for d in rm_mols)
-            phase_molnames.append(list(prev_names - rm_names))
-
-        print(f"Medium will change from complex to minimal in {len(phases)} phases")
-        print(f"  complex: {', '.join(phase_molnames[0])}")
-        print(f"  minimal: {', '.join(phase_molnames[-1])}")
-        print(f"  (disregarding {', '.join(substrates)})")
-        self.essentials = phase_molnames[0]
+        self.essentials = list(set(essentials) - set(substrates))
         self.substrates = list(substrates)
 
-        self.phase_idxs = [[mol_2_idx[dd] for dd in d] for d in phase_molnames]
+        rng_essentials = set(self.essentials)
+        phase_essentials: list[list[str]] = []
+        phase_removals: list[list[str]] = []
+        for _, rm_mols in phases:
+            rm_names = set(d.name for d in rm_mols)
+            rng_essentials = rng_essentials - rm_names
+            phase_essentials.append(list(rng_essentials))
+            phase_removals.append(list(rm_names))
+
+        print(f"Medium will change from complex to minimal in {len(phases)} phases")
+        print(f"  complex: {', '.join(self.essentials)}")
+        for phase_i, essentials in enumerate(phase_essentials):
+            print(f"  phase {phase_i}: {', '.join(essentials)}")
+        print(f"  (disregarding {', '.join(self.substrates)})")
+
+        self.phase_essentials = [[mol_2_idx[dd] for dd in d] for d in phase_essentials]
+        self.phase_removals = [[mol_2_idx[dd] for dd in d] for d in phase_removals]
 
     def __call__(self, exp: Experiment) -> torch.Tensor:
-        idxs = self.phase_idxs[exp.phase_i]
+        i = exp.gen_i
+        n = self.n_gens
+        ess_idxs = self.phase_essentials[exp.phase_i]
+        rm_idxs = self.phase_removals[exp.phase_i]
         t = torch.zeros_like(self.molmap)
-        t[idxs] = self.essentials_max
+        t[rm_idxs] = self.essentials_max * max((n - i) / n, 0.0)
+        t[ess_idxs] = self.essentials_max
         t[self.subs_idxs] = self.substrates_max
         return t
-
-    def hparams(self) -> dict[str, str | float]:
-        return {
-            "essentials_max": self.essentials_max,
-            "substrates_max": self.substrates_max,
-        }
 
 
 class GainPathway(GenomeFact):
     """
     Generate genes for each phase according to `phases`.
+    The generator for the first phase is used as initial genomes.
     """
 
     def __init__(
@@ -90,17 +97,19 @@ class GainPathway(GenomeFact):
             _ = genfun(prot_facts, size)
 
         n_genes = len([dd for d in self.prot_facts_phases for dd in d])
-        print(f"In total {n_genes} genes will be added in {len(phases)} phases")
-        print(f" Inital genome size is {size:,}, final will be {size * len(phases):,}")
+        n_phases = len(phases)
+        print(f"In total {n_genes} genes will be added in {n_phases} phases")
+        print(f"   Inital genome size is {size:,}, final will be {size * n_phases:,}")
 
     def __call__(self, exp: "Experiment") -> str:
         return self.genfun(self.prot_facts_phases[exp.phase_i], self.size)
 
-    def hparams(self) -> dict[str, str | float]:
-        return {"genome_sizes": self.size}
 
+class PassageByCellAndSubstrates(Passage):
+    """
+    Passage cells if world too full or if substrates run low.
+    """
 
-class PassageByCellEnergy(Passage):
     def __init__(
         self,
         split_ratio: float,
@@ -125,36 +134,23 @@ class PassageByCellEnergy(Passage):
             ]
         )
 
-    def hparams(self) -> dict[str, str | float]:
-        return {
-            "cell_split": f"{self.split_ratio:.1f}-{self.split_thresh_cells:.1f}",
-            "min_subs": self.split_thresh_subs,
-        }
 
-
-class LinearChange(MutationRateFact):
+class StepWiseRateAdaption(MutationRateFact):
     """
-    Linearly change from value `from_d` to value `to_d` over
-    `n` generations starting from 0.
+    Switch rate from from one probability to another after n generations
     """
 
-    def __init__(self, n: float, from_d=1e-4, to_d=1e-6):
+    def __init__(self, n: float, from_p: float, to_p: float):
         self.n = n
-        self.from_d = from_d
-        self.to_d = to_d
+        self.from_p = from_p
+        self.to_p = to_p
 
     def __call__(self, exp: Experiment) -> float:
         v = exp.gen_i
         if v >= self.n:
-            return self.to_d
+            return self.to_p
         dn = (self.n - v) / self.n
-        return dn * self.from_d + (1 - dn) * self.to_d
-
-    def hparams(self) -> dict[str, str | float]:
-        return {
-            "mut_scheme": "linear-decreasing",
-            "mut_rates": f"{self.from_d:.0e}-{self.to_d:.0e}",
-        }
+        return dn * self.from_p + (1 - dn) * self.to_p
 
 
 def _log_scalars(
@@ -178,6 +174,7 @@ def _log_scalars(
         mean_surv = exp.world.cell_survival.float().mean()
         writer.add_scalar("Cells/Survival", mean_surv, step)
         writer.add_scalar("Cells/Generation", exp.gen_i, step)
+        writer.add_scalar("Cells/GrowhRate", exp.growth_rate, step)
         for scalar, idx in molecules.items():
             tag = f"{scalar}[int]"
             writer.add_scalar(tag, cell_molecules[:, idx].mean().item(), step)
@@ -211,19 +208,20 @@ def run_trial(
 
     genome_fact = GainPathway(
         phases=pathway_phases,
-        size=200,
+        size=int(hparams["genome_size"] / len(pathway_phases)),
         genfun=lambda p, s: world.generate_genome(p, size=s),
     )
 
-    medium_fact = StepAdapt(
+    medium_fact = LinearMediumAdaption(
         phases=pathway_phases,
+        n_gens=hparams["n_adapt_gens"],
         essentials_max=20.0,
         substrates_max=100.0,
         mol_2_idx=mol_2_idx,
         molmap=world.molecule_map,
     )
 
-    passage = PassageByCellEnergy(
+    passage = PassageByCellAndSubstrates(
         split_ratio=hparams["split_ratio"],
         split_thresh_subs=hparams["split_thresh_subs"],
         split_thresh_cells=hparams["split_thresh_cells"],
@@ -231,7 +229,9 @@ def run_trial(
         max_cells=n_pxls,
     )
 
-    mutation_rate_fact = LinearChange(n=hparams["n_adapt_gens"])
+    mutation_rate_fact = StepWiseRateAdaption(
+        n=hparams["n_adapt_gens"], from_p=1e-4, to_p=1e-6
+    )
 
     exp = Experiment(
         world=world,
@@ -256,10 +256,12 @@ def run_trial(
         logdir=trial_dir,
         hparams={
             **hparams,
-            **passage.hparams(),
-            **medium_fact.hparams(),
-            **mutation_rate_fact.hparams(),
-            **genome_fact.hparams(),
+            "mut_scheme": "linear-decreasing",
+            "mut_rates": f"{mutation_rate_fact.from_p:.0e}-{mutation_rate_fact.to_p:.0e}",
+            "cell_split": f"{passage.split_ratio:.1f}-{passage.split_thresh_cells:.1f}",
+            "substrates_min": passage.split_thresh_subs,
+            "substrates_max": medium_fact.substrates_max,
+            "essentials_max": medium_fact.essentials_max,
         },
     )
     exp.world.save_state(statedir=trial_dir / "step=0")
@@ -274,13 +276,13 @@ def run_trial(
     _log_imgs(exp=exp, writer=writer, step=0)
 
     min_cells = int(exp.world.map_size**2 * 0.01)
-    for step_i in range(1, n_steps + 1):
+    for step_i in range(n_steps):
         step_t0 = time.time()
 
         try:
             exp.step_1s()
         except Finished:
-            print(f"target phase {exp.n_phases} reached after {step_i} steps")
+            print(f"target phase {exp.n_phases} finished after {step_i} steps")
             break
 
         if step_i % 5 == 0:
@@ -300,5 +302,4 @@ def run_trial(
             break
 
     print(f"Finishing trial {name}")
-    exp.world.save_state(statedir=trial_dir / f"step={step_i}")
     writer.close()
