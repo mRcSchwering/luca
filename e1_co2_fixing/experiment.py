@@ -5,8 +5,6 @@ import torch
 import magicsoup as ms
 from .util import (
     Finished,
-    sigm_sample,
-    rev_sigm_sample,
     batch_update_cells,
 )
 
@@ -61,50 +59,13 @@ class Passage:
         raise NotImplementedError
 
 
-class MoleculeDependentCellDeath:
+class CellSampler:
     """
-    Sample cell indexes based on molecule abundance.
-    Lower abundance leads to higher probability of being sampled.
-    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    Class for sampling cell idxs.
     """
 
-    def __init__(self, k: float, n=1):
-        self.k = k
-        self.n = n
-
-    def __call__(self, cellmols: torch.Tensor) -> list[int]:
-        return rev_sigm_sample(cellmols, self.k, self.n)
-
-
-class GenomeSizeDependentCellDeath:
-    """
-    Sample cell indexes based on genome size.
-    Larger genomes lead to higher probability of being sampled.
-    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
-    """
-
-    def __init__(self, k: float, n=7):
-        self.k = k
-        self.n = n
-
-    def __call__(self, genomes: list[str]) -> list[int]:
-        sizes = torch.tensor([float(len(d)) for d in genomes])
-        return sigm_sample(sizes, self.k, self.n)
-
-
-class MoleculeDependentCellDivision:
-    """
-    Sample cell indexes based on molecule abundance.
-    Higher abundance leads to higher probability of being sampled.
-    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
-    """
-
-    def __init__(self, k: float, n=3):
-        self.k = k
-        self.n = n
-
-    def __call__(self, cellmols: torch.Tensor) -> list[int]:
-        return sigm_sample(cellmols, self.k, self.n)
+    def __call__(self, exp: "Experiment") -> list[int]:
+        raise NotImplementedError
 
 
 class Experiment:
@@ -130,13 +91,13 @@ class Experiment:
         world: ms.World,
         n_phases: int,
         n_phase_gens: float,
-        mol_divide_k: float,
-        mol_kill_k: float,
-        genome_kill_k: float,
         lgt_rate: float,
         passage: Passage,
         mutation_rate_fact: MutationRateFact,
         medium_fact: MediumFact,
+        division_by_x_fact: CellSampler,
+        death_by_e_fact: CellSampler,
+        death_by_genome_fact: CellSampler,
         genome_fact: GenomeFact | None = None,
     ):
         self.world = world
@@ -158,9 +119,9 @@ class Experiment:
         self.mutation_rate = self.mutation_rate_fact(self)
         self.lgt_rate = lgt_rate
 
-        self.division_by_x = MoleculeDependentCellDivision(k=mol_divide_k)
-        self.death_by_e = MoleculeDependentCellDeath(k=mol_kill_k)
-        self.death_by_genome = GenomeSizeDependentCellDeath(k=genome_kill_k)
+        self.division_by_x = division_by_x_fact
+        self.death_by_e = death_by_e_fact
+        self.death_by_genome = death_by_genome_fact
 
         self.genome_fact = genome_fact
         self.medium_fact = medium_fact
@@ -200,7 +161,7 @@ class Experiment:
             self.gen_i = 0.0
             self.world.cell_divisions[:] = 0
             self.phase_i += 1
-            if self.phase_i > self.n_phases:
+            if self.phase_i >= self.n_phases:
                 raise Finished
             return True
         return False
@@ -252,7 +213,7 @@ class Experiment:
         i = self.X_I
 
         # max mu will be every 10 steps, consumes 4X
-        idxs0 = self.division_by_x(self.world.cell_molecules[:, i])
+        idxs0 = self.division_by_x(self)
         idxs1 = torch.argwhere(self.world.cell_survival >= 10).flatten().tolist()
         idxs2 = torch.argwhere(self.world.cell_molecules[:, i] > 4.1).flatten().tolist()
         idxs = list(set(idxs0) & set(idxs1) & set(idxs2))
@@ -276,8 +237,8 @@ class Experiment:
         batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
 
     def _kill_cells(self):
-        idxs0 = self.death_by_e(self.world.cell_molecules[:, self.E_I])
-        idxs1 = self.death_by_genome(self.world.genomes)
+        idxs0 = self.death_by_e(self)
+        idxs1 = self.death_by_genome(self)
         idxs2 = torch.argwhere(self.world.cell_survival <= 3).flatten().tolist()
         self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1) - set(idxs2)))
 

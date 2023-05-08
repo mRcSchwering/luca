@@ -5,10 +5,68 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import magicsoup as ms
 from .chemistry import PATHWAY_PHASES_MAP
-from .experiment import Experiment, Passage, MutationRateFact, MediumFact, GenomeFact
-from .util import Finished, init_writer, batch_add_cells
+from .experiment import (
+    Experiment,
+    Passage,
+    MutationRateFact,
+    MediumFact,
+    GenomeFact,
+    CellSampler,
+)
+from .util import Finished, init_writer, batch_add_cells, sigm_sample, rev_sigm_sample
 
 THIS_DIR = Path(__file__).parent
+
+
+class MoleculeDependentCellDeath(CellSampler):
+    """
+    Sample cell indexes based on molecule abundance.
+    Lower abundance leads to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, mol_i: int, k: float, n: int):
+        self.k = k
+        self.n = n
+        self.mol_i = mol_i
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        mols = exp.world.cell_molecules[:, self.mol_i]
+        return rev_sigm_sample(mols, self.k, self.n)
+
+
+class GenomeSizeDependentCellDeath(CellSampler):
+    """
+    Sample cell indexes based on genome size.
+    Larger genomes lead to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, k: float, n: int):
+        self.k = k
+        self.n = n
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        genome_lens = [len(d) for d in exp.world.genomes]
+        sizes = torch.tensor(genome_lens)
+        return sigm_sample(sizes, self.k, self.n)
+
+
+class MoleculeDependentCellDivision(CellSampler):
+    """
+    Sample cell indexes based on molecule abundance.
+    Higher abundance leads to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, mol_i: int, k: float, n: int):
+        self.k = k
+        self.n = n
+        self.mol_i = mol_i
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        mols = exp.world.cell_molecules[:, self.mol_i]
+        return sigm_sample(mols, self.k, self.n)
 
 
 class LinearMediumAdaption(MediumFact):
@@ -231,18 +289,26 @@ def run_trial(
         n=hparams["n_adapt_gens"], from_p=1e-4, to_p=1e-6
     )
 
+    division_by_x_fact = MoleculeDependentCellDivision(
+        mol_i=mol_2_idx["X"], k=hparams["mol_divide_k"], n=3
+    )
+    death_by_e_fact = MoleculeDependentCellDeath(
+        mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
+    )
+    death_by_genome_fact = GenomeSizeDependentCellDeath(k=hparams["genome_kill_k"], n=7)
+
     exp = Experiment(
         world=world,
         n_phases=len(pathway_phases),
         n_phase_gens=hparams["n_adapt_gens"] + hparams["n_static_gens"],
-        mol_divide_k=hparams["mol_divide_k"],
-        mol_kill_k=hparams["mol_kill_k"],
-        genome_kill_k=hparams["genome_kill_k"],
         lgt_rate=hparams["lgt_rate"],
         passage=passage,
         medium_fact=medium_fact,
         mutation_rate_fact=mutation_rate_fact,
         genome_fact=genome_fact,
+        division_by_x_fact=division_by_x_fact,
+        death_by_e_fact=death_by_e_fact,
+        death_by_genome_fact=death_by_genome_fact,
     )
 
     # initial cells
