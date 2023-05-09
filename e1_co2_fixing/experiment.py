@@ -107,6 +107,7 @@ class Experiment:
         self.score = 0.0
         self.phase_i = 0
         self.split_i = 0
+        self.step_i = 0
         self.gen_i = 0.0
         self.growth_rate = 0.0
 
@@ -245,3 +246,8 @@ class Experiment:
     def _prepare_fresh_plate(self):
         self.world.molecule_map = self.medium_fact(self)
         self.world.diffuse_molecules()
+
+    def run(self, max_steps: int):
+        for step_i in range(max_steps):
+            self.step_i = step_i
+            yield step_i

@@ -67,11 +67,9 @@ class GenomeSizeController(CellSampler):
         self,
         k: float,
         n: int,
-        genome_size: int,
         n_phases: int,
     ):
-        init_size = genome_size / n_phases
-        self.ks = [(i + 1) * init_size / genome_size * k for i in range(n_phases)]
+        self.ks = [(i + 1) / n_phases * k for i in range(n_phases)]
         self.n = n
 
     def __call__(self, exp: "Experiment") -> list[int]:
@@ -187,6 +185,7 @@ class PassageByCellAndSubstrates(Passage):
         split_thresh_cells: float,
         max_subs: float,
         max_cells: int,
+        max_steps: int,
     ):
         self.split_thresh_subs = split_thresh_subs
         self.split_thresh_cells = split_thresh_cells
@@ -194,15 +193,23 @@ class PassageByCellAndSubstrates(Passage):
         self.max_cells = int(max_cells * split_thresh_cells)
         self.split_ratio = split_ratio
         self.split_leftover = int(split_ratio * max_cells)
+        self.max_steps = max_steps
+        self.prev_split_step = 0
+        self.next_split_step = max_steps
 
     def __call__(self, exp: "Experiment") -> bool:
-        return any(
+        if any(
             [
                 exp.world.molecule_map[exp.E_I].sum().item() <= self.min_subs,
                 exp.world.molecule_map[exp.CO2_I].sum().item() <= self.min_subs,
                 exp.world.n_cells >= self.max_cells,
+                exp.step_i > self.next_split_step,
             ]
-        )
+        ):
+            self.prev_split_step = exp.step_i
+            self.next_split_step = exp.step_i + self.max_steps
+            return True
+        return False
 
 
 class StepWiseRateAdaption(MutationRateFact):
@@ -298,6 +305,7 @@ def run_trial(
         split_thresh_cells=hparams["split_thresh_cells"],
         max_subs=medium_fact.substrates_max * n_pxls,
         max_cells=n_pxls,
+        max_steps=1000,
     )
 
     mutation_rate_fact = StepWiseRateAdaption(
@@ -315,7 +323,6 @@ def run_trial(
     death_by_genome_fact = GenomeSizeController(
         k=hparams["genome_kill_k"],
         n=7,
-        genome_size=hparams["genome_size"],
         n_phases=len(pathway_phases),
     )
 
@@ -361,13 +368,14 @@ def run_trial(
     _log_imgs(exp=exp, writer=writer, step=0)
 
     min_cells = int(exp.world.map_size**2 * 0.01)
-    for step_i in range(n_steps):
+    for step_i in exp.run(max_steps=n_steps):
         step_t0 = time.time()
 
         try:
             exp.step_1s()
         except Finished:
             print(f"target phase {exp.n_phases} finished after {step_i} steps")
+            exp.world.save_state(statedir=trial_dir / f"step={step_i}")
             break
 
         if step_i % 5 == 0:
@@ -386,6 +394,5 @@ def run_trial(
             print(f"{trial_max_time_s} hours have passed")
             break
 
-    exp.world.save_state(statedir=trial_dir / f"step={step_i}")
     print(f"Finishing trial {name}")
     writer.close()
