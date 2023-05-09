@@ -34,14 +34,14 @@ def rev_sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     return idxs.flatten().tolist()
 
 
-def batch_add_cells(world: ms.World, genomes: list[str], d=500):
+def batch_add_cells(world: ms.World, genomes: list[str], d=200):
     """Add cells in batches of `d` to avoid OOM"""
     for a in range(0, len(genomes), d):
         b = a + d
         world.add_cells(genomes=genomes[a:b])
 
 
-def batch_update_cells(world: ms.World, genome_idx_pairs: list[tuple[str, int]], d=500):
+def batch_update_cells(world: ms.World, genome_idx_pairs: list[tuple[str, int]], d=200):
     """Update cells in batches of `d` to avoid OOM"""
     for a in range(0, len(genome_idx_pairs), d):
         b = a + d
