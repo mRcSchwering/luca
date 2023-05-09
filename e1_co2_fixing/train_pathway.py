@@ -246,7 +246,6 @@ def _log_scalars(
         writer.add_scalar(
             "Cells/GenomeSize", sum(len(d) for d in exp.world.genomes) / n_cells, step
         )
-        writer.add_scalar("Cells/AvgProteins", exp.world.kinetics.Km.size(1))
         for scalar, idx in molecules.items():
             tag = f"{scalar}[int]"
             writer.add_scalar(tag, cell_molecules[:, idx].mean().item(), step)
@@ -369,9 +368,6 @@ def run_trial(
             exp.step_1s()
         except Finished:
             print(f"target phase {exp.n_phases} finished after {step_i} steps")
-            break
-        except RuntimeError:
-            print("OOM")
             break
 
         if step_i % 5 == 0:
