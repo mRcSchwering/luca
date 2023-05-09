@@ -246,6 +246,7 @@ def _log_scalars(
         writer.add_scalar(
             "Cells/GenomeSize", sum(len(d) for d in exp.world.genomes) / n_cells, step
         )
+        writer.add_scalar("Cells/AvgProteins", exp.world.kinetics.Km.size(1))
         for scalar, idx in molecules.items():
             tag = f"{scalar}[int]"
             writer.add_scalar(tag, cell_molecules[:, idx].mean().item(), step)
