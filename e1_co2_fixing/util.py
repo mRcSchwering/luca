@@ -12,24 +12,24 @@ class Finished(Exception):
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     """$t^n / (t^n + k^n)$"""
-    return (t**n / (t**n + k**n)).clamp(0.0, 1.0)
+    return t**n / (t**n + k**n)
 
 
 def rev_sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     """$k^n / (t^n + k^n)$"""
-    return (k**n / (t**n + k**n)).clamp(0.0, 1.0)
+    return k**n / (t**n + k**n)
 
 
 def sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     """Sample with probability $t^n / (t^n + k^n)$"""
-    p = sigm(t=t, k=k, n=n)
+    p = sigm(t=t.float(), k=k, n=n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
 
 def rev_sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
     """Sample with probability $k^n / (t^n + k^n)$"""
-    p = rev_sigm(t=t, k=k, n=n)
+    p = rev_sigm(t=t.float(), k=k, n=n)
     idxs = torch.argwhere(torch.bernoulli(p))
     return idxs.flatten().tolist()
 
