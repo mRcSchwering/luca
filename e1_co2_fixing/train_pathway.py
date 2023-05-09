@@ -203,7 +203,8 @@ class PassageByCellAndSubstrates(Passage):
                 exp.world.molecule_map[exp.E_I].sum().item() <= self.min_subs,
                 exp.world.molecule_map[exp.CO2_I].sum().item() <= self.min_subs,
                 exp.world.n_cells >= self.max_cells,
-                exp.step_i > self.next_split_step,
+                (exp.step_i > self.next_split_step)
+                and (exp.world.n_cells < self.split_leftover),
             ]
         ):
             self.prev_split_step = exp.step_i
