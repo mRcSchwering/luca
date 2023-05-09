@@ -109,7 +109,6 @@ class Experiment:
         self.split_i = 0
         self.step_i = 0
         self.gen_i = 0.0
-        self.growth_rate = 0.0
 
         molecules = [d.name for d in self.world.chemistry.molecules]
         self.CO2_I = molecules.index("CO2")
@@ -131,8 +130,6 @@ class Experiment:
         self._prepare_fresh_plate()
 
     def step_1s(self):
-        n0 = self.world.n_cells
-
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
         self.world.enzymatic_activity()
@@ -140,9 +137,6 @@ class Experiment:
         self._kill_cells()
         self.world.increment_cell_survival()
         self._replicate_cells()
-
-        n1 = self.world.n_cells
-        self.growth_rate = math.log(n1 / n0) if n0 > 0 else float("nan")
 
         self._passage_cells()
         self._mutate_cells()

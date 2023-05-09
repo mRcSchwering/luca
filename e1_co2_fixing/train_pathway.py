@@ -250,7 +250,6 @@ def _log_scalars(
         mean_surv = exp.world.cell_survival.float().mean()
         writer.add_scalar("Cells/Survival", mean_surv, step)
         writer.add_scalar("Cells/Generation", exp.gen_i, step)
-        writer.add_scalar("Cells/GrowhRate", exp.growth_rate, step)
         writer.add_scalar(
             "Cells/GenomeSize", sum(len(d) for d in exp.world.genomes) / n_cells, step
         )
