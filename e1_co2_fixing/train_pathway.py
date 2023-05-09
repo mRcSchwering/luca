@@ -35,23 +35,6 @@ class MoleculeDependentCellDeath(CellSampler):
         return rev_sigm_sample(mols, self.k, self.n)
 
 
-class GenomeSizeDependentCellDeath(CellSampler):
-    """
-    Sample cell indexes based on genome size.
-    Larger genomes lead to higher probability of being sampled.
-    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
-    """
-
-    def __init__(self, k: float, n: int):
-        self.k = k
-        self.n = n
-
-    def __call__(self, exp: "Experiment") -> list[int]:
-        genome_lens = [len(d) for d in exp.world.genomes]
-        sizes = torch.tensor(genome_lens)
-        return sigm_sample(sizes, self.k, self.n)
-
-
 class MoleculeDependentCellDivision(CellSampler):
     """
     Sample cell indexes based on molecule abundance.
@@ -67,6 +50,35 @@ class MoleculeDependentCellDivision(CellSampler):
     def __call__(self, exp: "Experiment") -> list[int]:
         mols = exp.world.cell_molecules[:, self.mol_i]
         return sigm_sample(mols, self.k, self.n)
+
+
+class GenomeSizeController(CellSampler):
+    """
+    Sample cell indexes based on genome size.
+    Larger genomes lead to higher probability of being sampled.
+    `k` and `n` define the final parameters that are used during the
+    last phase. But in earlier phases the genomes are much smaller
+    so `k` is reduced accordingly during these phases.
+    Otherwise cells grow huge genomes in early phases,
+    then fail in later phases when they reach `k`.
+    """
+
+    def __init__(
+        self,
+        k: float,
+        n: int,
+        genome_size: int,
+        n_phases: int,
+    ):
+        init_size = genome_size / n_phases
+        self.ks = [(i + 1) * init_size / genome_size * k for i in range(n_phases)]
+        self.n = n
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        k = self.ks[exp.phase_i]
+        genome_lens = [len(d) for d in exp.world.genomes]
+        sizes = torch.tensor(genome_lens)
+        return sigm_sample(sizes, k, self.n)
 
 
 class LinearMediumAdaption(MediumFact):
@@ -143,21 +155,21 @@ class GainPathway(GenomeFact):
     def __init__(
         self,
         phases: list[tuple[list[ms.ProteinFact], list[ms.Molecule]]],
-        size: int,
+        genome_size: int,
         genfun: Callable[[list[ms.ProteinFact], int], str],
     ):
         self.prot_facts_phases: list[list[ms.ProteinFact]] = [d[0] for d in phases]
         self.genfun = genfun
-        self.size = size
+        self.size = int(genome_size / len(phases))
 
         # test protein facts are all valid
         for prot_facts in self.prot_facts_phases:
-            _ = genfun(prot_facts, size)
+            _ = genfun(prot_facts, self.size)
 
         n_genes = len([dd for d in self.prot_facts_phases for dd in d])
         n_phases = len(phases)
         print(f"In total {n_genes} genes will be added in {n_phases} phases")
-        print(f"   Inital genome size is {size:,}, final will be {size * n_phases:,}")
+        print(f"   Inital genome size is {self.size:,}, final will be {genome_size:,}")
 
     def __call__(self, exp: "Experiment") -> str:
         return self.genfun(self.prot_facts_phases[exp.phase_i], self.size)
@@ -231,6 +243,9 @@ def _log_scalars(
         writer.add_scalar("Cells/Survival", mean_surv, step)
         writer.add_scalar("Cells/Generation", exp.gen_i, step)
         writer.add_scalar("Cells/GrowhRate", exp.growth_rate, step)
+        writer.add_scalar(
+            "Cells/GenomeSize", sum(len(d) for d in exp.world.genomes) / n_cells, step
+        )
         for scalar, idx in molecules.items():
             tag = f"{scalar}[int]"
             writer.add_scalar(tag, cell_molecules[:, idx].mean().item(), step)
@@ -264,7 +279,7 @@ def run_trial(
 
     genome_fact = GainPathway(
         phases=pathway_phases,
-        size=int(hparams["genome_size"] / len(pathway_phases)),
+        genome_size=hparams["genome_size"],
         genfun=lambda p, s: world.generate_genome(p, size=s),
     )
 
@@ -286,7 +301,9 @@ def run_trial(
     )
 
     mutation_rate_fact = StepWiseRateAdaption(
-        n=hparams["n_adapt_gens"], from_p=1e-4, to_p=1e-6
+        n=hparams["n_adapt_gens"],
+        from_p=1e-4,
+        to_p=1e-6,
     )
 
     division_by_x_fact = MoleculeDependentCellDivision(
@@ -295,7 +312,12 @@ def run_trial(
     death_by_e_fact = MoleculeDependentCellDeath(
         mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
     )
-    death_by_genome_fact = GenomeSizeDependentCellDeath(k=hparams["genome_kill_k"], n=7)
+    death_by_genome_fact = GenomeSizeController(
+        k=hparams["genome_kill_k"],
+        n=7,
+        genome_size=hparams["genome_size"],
+        n_phases=len(pathway_phases),
+    )
 
     exp = Experiment(
         world=world,
@@ -320,7 +342,6 @@ def run_trial(
         logdir=trial_dir,
         hparams={
             **hparams,
-            "mut_scheme": "linear-decreasing",
             "mut_rates": f"{mutation_rate_fact.from_p:.0e}-{mutation_rate_fact.to_p:.0e}",
             "cell_split": f"{passage.split_ratio:.1f}-{passage.split_thresh_cells:.1f}",
             "substrates_min": passage.split_thresh_subs,

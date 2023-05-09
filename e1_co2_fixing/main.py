@@ -87,14 +87,14 @@ if __name__ == "__main__":
         "--n_adapt_gens",
         default=100.0,
         type=float,
-        help="For how many generations to let cells adapt in a new phase"
+        help="How many generations to let cells adapt to new medium at start of phase"
         " (default %(default)s)",
     )
     train_parser.add_argument(
         "--n_static_gens",
         default=100.0,
         type=float,
-        help="For how many generations to let cells continue growing"
+        help="How many generations to grow cells at low mutation rates"
         " before starting the next adaption phase (default %(default)s)",
     )
     train_parser.add_argument(

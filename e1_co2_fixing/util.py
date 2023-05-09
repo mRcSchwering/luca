@@ -12,12 +12,12 @@ class Finished(Exception):
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     """$t^n / (t^n + k^n)$"""
-    return t**n / (t**n + k**n)
+    return (t**n / (t**n + k**n)).clamp(0.0, 1.0)
 
 
 def rev_sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     """$k^n / (t^n + k^n)$"""
-    return k**n / (t**n + k**n)
+    return (k**n / (t**n + k**n)).clamp(0.0, 1.0)
 
 
 def sigm_sample(t: torch.Tensor, k: float, n: int) -> list[int]:
