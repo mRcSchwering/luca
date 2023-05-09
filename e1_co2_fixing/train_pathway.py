@@ -369,6 +369,9 @@ def run_trial(
         except Finished:
             print(f"target phase {exp.n_phases} finished after {step_i} steps")
             break
+        except RuntimeError:
+            print("OOM")
+            break
 
         if step_i % 5 == 0:
             dtime = time.time() - step_t0
@@ -386,5 +389,6 @@ def run_trial(
             print(f"{trial_max_time_s} hours have passed")
             break
 
+    exp.world.save_state(statedir=trial_dir / f"step={step_i}")
     print(f"Finishing trial {name}")
     writer.close()
