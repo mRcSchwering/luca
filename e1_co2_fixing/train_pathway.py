@@ -292,7 +292,7 @@ def run_trial(
 
     medium_fact = LinearMediumAdaption(
         phases=pathway_phases,
-        n_gens=hparams["n_adapt_gens"],
+        n_gens=hparams["n_adapt_gens"] * 0.8,
         essentials_max=20.0,
         substrates_max=100.0,
         mol_2_idx=mol_2_idx,
