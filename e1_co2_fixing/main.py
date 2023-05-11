@@ -8,7 +8,7 @@ import datetime as dt
 from argparse import ArgumentParser
 from pathlib import Path
 import magicsoup as ms
-from .chemistry import CHEMISTRY, PATHWAY_PHASES_MAP
+from .chemistry import CHEMISTRY, TRAIN_WL_MOL_MAP
 from .train_pathway import run_trial
 
 THIS_DIR = Path(__file__).parent
@@ -39,7 +39,7 @@ def train_pathway_cmd(kwargs: dict):
         run_trial(
             device=device,
             n_workers=n_workers,
-            name=f"{ts}_{trial_i}",
+            run_name=f"{ts}_{trial_i}",
             n_steps=n_steps,
             trial_max_time_s=trial_max_time_s,
             hparams=kwargs,
@@ -66,16 +66,36 @@ if __name__ == "__main__":
     )
     train_parser.set_defaults(func=train_pathway_cmd)
     train_parser.add_argument(
-        "pathway",
+        "train_label",
         type=str,
-        choices=PATHWAY_PHASES_MAP,
-        help="Which pathway to train. Each training will occur in adaption phases",
+        choices=TRAIN_WL_MOL_MAP,
+        help="Which part of which pathway to train",
+    )
+    train_parser.add_argument(
+        "init_label",
+        type=str,
+        help="Describes from where initial genomes are loaded. E.g. "
+        "`2023-05-09_14-08_0:-1` to load genomes from run '2023-05-09_14-08_0' last "
+        "saved state, or `2023-05-09_14-08_0/step=150` to load step 150. `random`"
+        " to initialize random genomes (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--init_cell_cover",
+        default=0.2,
+        type=float,
+        help="Ratio of map initially covered by cells (default %(default)s)",
     )
     train_parser.add_argument(
         "--genome_size",
         type=int,
         default=1000,
-        help="Final genome size after all phases were applied (default %(default)s).",
+        help="Genome size if random genomes are initialized (default %(default)s).",
+    )
+    train_parser.add_argument(
+        "--gene_size",
+        type=int,
+        default=200,
+        help="Sequence size in which genes will be added (default %(default)s).",
     )
     train_parser.add_argument(
         "--n_trials",
@@ -87,21 +107,15 @@ if __name__ == "__main__":
         "--n_adapt_gens",
         default=100.0,
         type=float,
-        help="How many generations to let cells adapt to new medium at start of phase"
+        help="How many generations to let cells adapt to new medium"
         " (default %(default)s)",
     )
     train_parser.add_argument(
-        "--n_static_gens",
+        "--n_final_gens",
         default=100.0,
         type=float,
         help="How many generations to grow cells at low mutation rates"
-        " before starting the next adaption phase (default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--init_cell_cover",
-        default=0.2,
-        type=float,
-        help="Ratio of map initially covered by cells (default %(default)s)",
+        " in minimal medium (default %(default)s)",
     )
     train_parser.add_argument(
         "--mol_divide_k",

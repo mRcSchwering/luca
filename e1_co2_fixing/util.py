@@ -60,3 +60,29 @@ def init_writer(logdir: Path, hparams: dict, score="Other/Score") -> SummaryWrit
         json.dump(hparams, fh)
 
     return writer
+
+
+def find_steps(rundir: Path) -> list[int]:
+    """Get all sorted steps of rundir"""
+    names = [d.name for d in rundir.glob("step=*")]
+    return sorted(int(d.split("step=")[-1]) for d in names)
+
+
+def load_genomes(world: ms.World, label: str, runsdir: Path) -> list[str]:
+    """
+    Use label to load a world's state:
+        - "<rundir>/step=<i>" to load step <i> of <rundir>
+          e.g. "2023-05-09_14-32/step=100" to load step 100
+        - "<rundir>:<i>" to load the <i>th step of <rundir>
+          e.g. "2023-05-09_14-32:-1" to load the last step of <rundir>
+    """
+    if "/" in label:
+        world.load_state(statedir=runsdir / label)
+        return list(world.genomes)
+    if ":" in label:
+        runname, step_i = label.split(":")
+        steps = find_steps(rundir=runsdir / runname)
+        statedir = runsdir / runname / f"step={steps[int(step_i)]}"
+        world.load_state(statedir=statedir)
+        return list(world.genomes)
+    raise ValueError(f"{label} not recognized")

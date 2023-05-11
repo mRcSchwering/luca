@@ -3,10 +3,7 @@ import random
 import math
 import torch
 import magicsoup as ms
-from .util import (
-    Finished,
-    batch_update_cells,
-)
+from .util import batch_update_cells, batch_add_cells, sigm_sample, rev_sigm_sample
 
 THIS_DIR = Path(__file__).parent
 
@@ -18,17 +15,6 @@ class MutationRateFact:
 
     def __call__(self, exp: "Experiment") -> float:
         """Returns current mutation rates"""
-        raise NotImplementedError
-
-
-class GenomeFact:
-    """
-    Factory for generating genes that will be added every phase
-    to the surviving cells
-    """
-
-    def __call__(self, exp: "Experiment") -> str:
-        """Returns a new gene/genome for each cell"""
         raise NotImplementedError
 
 
@@ -47,7 +33,7 @@ class MediumFact:
         raise NotImplementedError
 
 
-class Passage:
+class Passager:
     """
     Class defining when and how passages are done.
     """
@@ -68,47 +54,122 @@ class CellSampler:
         raise NotImplementedError
 
 
+class MoleculeDependentCellDeath(CellSampler):
+    """
+    Sample cell indexes based on molecule abundance.
+    Lower abundance leads to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, mol_i: int, k: float, n: int):
+        self.k = k
+        self.n = n
+        self.mol_i = mol_i
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        mols = exp.world.cell_molecules[:, self.mol_i]
+        return rev_sigm_sample(mols, self.k, self.n)
+
+
+class MoleculeDependentCellDivision(CellSampler):
+    """
+    Sample cell indexes based on molecule abundance.
+    Higher abundance leads to higher probability of being sampled.
+    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
+    """
+
+    def __init__(self, mol_i: int, k: float, n: int):
+        self.k = k
+        self.n = n
+        self.mol_i = mol_i
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        mols = exp.world.cell_molecules[:, self.mol_i]
+        return sigm_sample(mols, self.k, self.n)
+
+
+class GenomeSizeController(CellSampler):
+    """
+    Sample cell indexes based on genome size.
+    Larger genomes lead to higher probability of being sampled.
+    """
+
+    def __init__(
+        self,
+        k: float,
+        n: int,
+    ):
+        self.k = k
+        self.n = n
+
+    def __call__(self, exp: "Experiment") -> list[int]:
+        genome_lens = [len(d) for d in exp.world.genomes]
+        sizes = torch.tensor(genome_lens)
+        return sigm_sample(sizes, self.k, self.n)
+
+
+class PassageByCellAndSubstrates(Passager):
+    """
+    Passage cells if world too full or if substrates run low.
+    """
+
+    def __init__(
+        self,
+        split_ratio: float,
+        split_thresh_subs: float,
+        split_thresh_cells: float,
+        max_subs: float,
+        max_cells: int,
+    ):
+        self.split_thresh_subs = split_thresh_subs
+        self.split_thresh_cells = split_thresh_cells
+        self.min_subs = max_subs * split_thresh_subs
+        self.max_cells = int(max_cells * split_thresh_cells)
+        self.split_ratio = split_ratio
+        self.split_leftover = int(split_ratio * max_cells)
+
+    def __call__(self, exp: "Experiment") -> bool:
+        return any(
+            [
+                exp.world.molecule_map[exp.E_I].sum().item() <= self.min_subs,
+                exp.world.molecule_map[exp.CO2_I].sum().item() <= self.min_subs,
+                exp.world.n_cells >= self.max_cells,
+            ]
+        )
+
+
 class Experiment:
     """
     Common experimental procedure.
 
     Parameters:
         world: Initialized and loaded world object on device
-        n_phases: Number of experimental phases
-        n_phase_gens: Number of generations cells grow to finish a phase
-        mol_divide_k: k for X-dependent cell division (should be [15;30])
-        mol_kill_k: k for E-dependent cell death (should be [0.01;0.04])
-        genome_kill_k: k for genome-size-dependent cell death (should be [2000;2500])
         lgt_rate: lateral gene transfer rate
         passage: scheme defining how and when to passage cells
         mutation_rate_fact: factory defining mutation rates
         medium_fact: factory for generating media
-        genome_fact: factory for editing genomes every phase
     """
 
     def __init__(
         self,
         world: ms.World,
-        n_phases: int,
-        n_phase_gens: float,
         lgt_rate: float,
-        passage: Passage,
+        passager: Passager,
         mutation_rate_fact: MutationRateFact,
         medium_fact: MediumFact,
-        division_by_x_fact: CellSampler,
-        death_by_e_fact: CellSampler,
-        death_by_genome_fact: CellSampler,
-        genome_fact: GenomeFact | None = None,
+        division_by_x: CellSampler,
+        death_by_e: CellSampler,
+        genome_size_controller: CellSampler,
     ):
         self.world = world
-        self.n_phases = n_phases
-        self.n_phase_gens = n_phase_gens
-        self.total_gens = self.n_phases * self.n_phase_gens
         self.score = 0.0
-        self.phase_i = 0
         self.split_i = 0
         self.step_i = 0
         self.gen_i = 0.0
+        self._n0 = 0
+        self._s0 = 0
+        self.growth_rate = 0.0
+        self.progress = 0.0
 
         molecules = [d.name for d in self.world.chemistry.molecules]
         self.CO2_I = molecules.index("CO2")
@@ -119,15 +180,26 @@ class Experiment:
         self.mutation_rate = self.mutation_rate_fact(self)
         self.lgt_rate = lgt_rate
 
-        self.division_by_x = division_by_x_fact
-        self.death_by_e = death_by_e_fact
-        self.death_by_genome = death_by_genome_fact
+        self.division_by_x = division_by_x
+        self.death_by_e = death_by_e
+        self.genome_size_controller = genome_size_controller
 
-        self.genome_fact = genome_fact
         self.medium_fact = medium_fact
-        self.passage = passage
+        self.passager = passager
 
         self._prepare_fresh_plate()
+        self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
+
+    def init_cells(self, genomes: list[str]):
+        self.world.kill_cells(cell_idxs=list(range(self.world.n_cells)))
+        batch_add_cells(world=self.world, genomes=genomes)
+        self._s0 = self.step_i
+        self._n0 = self.world.n_cells
+
+    def run(self, max_steps: int):
+        for step_i in range(max_steps):
+            self.step_i = step_i
+            yield step_i
 
     def step_1s(self):
         self.world.diffuse_molecules()
@@ -138,7 +210,9 @@ class Experiment:
         self.world.increment_cell_survival()
         self._replicate_cells()
 
-        self._passage_cells()
+        if self.passager(self):
+            self._passage_cells()
+
         self._mutate_cells()
         self._lateral_gene_transfer()
 
@@ -146,49 +220,37 @@ class Experiment:
         self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_fact(self)
 
-        # note, in any phase cells might grow for many generations, eventually dying,
-        # advancing generations without split
-        gen = self.phase_i * self.n_phase_gens + min(self.gen_i, self.n_phase_gens)
-        self.score = min(max(gen / self.total_gens, 0.0), 1.0)
-
-    def _next_phase(self) -> bool:
-        if self.gen_i >= self.n_phase_gens:
-            self.gen_i = 0.0
-            self.world.cell_divisions[:] = 0
-            self.phase_i += 1
-            if self.phase_i >= self.n_phases:
-                raise Finished
-            return True
-        return False
-
     def _passage_cells(self):
-        n_cells = self.world.n_cells
-        if self.passage(self):
-            kill_n = max(n_cells - self.passage.split_leftover, 0)
-            idxs = random.sample(range(n_cells), k=kill_n)
-            self.world.kill_cells(cell_idxs=idxs)
-            if self._next_phase():
-                self._edit_genomes()
-            self._prepare_fresh_plate()
-            self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
-            self.split_i += 1
+        n_old = self.world.n_cells
+
+        # calculate prev split growth rate
+        n_steps = self.step_i - self._s0
+        if n_steps > 0 and self._n0 > 0:
+            self.growth_rate = math.log(n_old / self._n0) / n_steps
+
+        # split cells
+        kill_n = max(n_old - self.passager.split_leftover, 0)
+        idxs = random.sample(range(n_old), k=kill_n)
+        self.world.kill_cells(cell_idxs=idxs)
+        self._prepare_fresh_plate()
+        n_new = self.world.n_cells
+        self.world.reposition_cells(cell_idxs=list(range(n_new)))
+        self.split_i += 1
+
+        # set for next growth rate calculation
+        self._n0 = n_new
+        self._s0 = self.step_i
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
         batch_update_cells(world=self.world, genome_idx_pairs=mutated)
 
-    def _edit_genomes(self):
-        if self.genome_fact is not None:
-            genome_idx_pairs = []
-            for idx, old_genome in enumerate(self.world.genomes):
-                genes = self.genome_fact(self)
-                genome_idx_pairs.append((old_genome + genes, idx))
-            batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
-
     def _lateral_gene_transfer(self):
-        # if cell can't replicate for a while it is open to LGT
+        # sample cells according to LGT rate
         p = torch.full((self.world.n_cells,), self.lgt_rate)
         sample = torch.bernoulli(p).to(self.world.device).bool()
+
+        # cells that havent replicated in a while are open to LGT
         old_cells = self.world.cell_survival >= 20
         idxs = torch.argwhere(old_cells & sample).flatten().tolist()
         nghbr_idxs = torch.argwhere(old_cells).flatten().tolist()
@@ -233,15 +295,10 @@ class Experiment:
 
     def _kill_cells(self):
         idxs0 = self.death_by_e(self)
-        idxs1 = self.death_by_genome(self)
+        idxs1 = self.genome_size_controller(self)
         idxs2 = torch.argwhere(self.world.cell_survival <= 3).flatten().tolist()
         self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1) - set(idxs2)))
 
     def _prepare_fresh_plate(self):
         self.world.molecule_map = self.medium_fact(self)
         self.world.diffuse_molecules()
-
-    def run(self, max_steps: int):
-        for step_i in range(max_steps):
-            self.step_i = step_i
-            yield step_i

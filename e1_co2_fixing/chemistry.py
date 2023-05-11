@@ -461,8 +461,10 @@ def print_mathjax(chem: Chemistry):
     print(r"\end{align*}")
 
 
-# phase: (new proteins added, molecules removed from medium)
-_wl6_phases: list[tuple[list[ProtF], list[Molecule]]] = [
+# building up pathway from end towards beginning
+# transporters and removed molecules are used to determine essentials
+# stage: (new proteins added, molecules removed from medium)
+_wl_stages: list[tuple[list[ProtF], list[Molecule]]] = [
     (
         [
             ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
@@ -512,12 +514,35 @@ _wl6_phases: list[tuple[list[ProtF], list[Molecule]]] = [
     ),
 ]
 
-_wl1_phases: list[tuple[list[ProtF], list[Molecule]]] = [
-    (
-        [ProtF(TrnDF(_X)), ProtF(TrnDF(_E))],
-        [_X],
-    ),
-]
+
+def _get_stage_molecules(
+    stage_i: int, stages: list[tuple[list[ProtF], list[Molecule]]]
+) -> tuple[list[str], list[str]]:
+    essentials: list[str] = []
+    for prot_facts, rm_mols in stages:
+        for prot in prot_facts:
+            for dom in prot.domain_facts:
+                if isinstance(dom, TrnDF):
+                    essentials.append(dom.molecule.name)
+        essentials.extend([d.name for d in rm_mols])
+
+    essentials = list(set(essentials) - set(SUBSTRATE_MOLS))
+
+    rng_essentials = set(essentials)
+    stage_essentials: list[list[str]] = []
+    stage_removals: list[list[str]] = []
+    for _, rm_mols in stages:
+        rm_names = set(d.name for d in rm_mols)
+        stage_essentials.append(list(rng_essentials))
+        rng_essentials = rng_essentials - rm_names
+        stage_removals.append(list(rm_names))
+
+    return sorted(stage_essentials[stage_i]), sorted(stage_removals[stage_i])
 
 
-PATHWAY_PHASES_MAP = {"WL6": _wl6_phases, "WL1": _wl1_phases}
+TRAIN_WL_MOL_MAP = {
+    f"WL-{i}": _get_stage_molecules(stage_i=i, stages=_wl_stages)
+    for i in range(len(_wl_stages))
+}
+
+TRAIN_WL_GENE_MAP = {f"WL-{i}": d[0] for i, d in enumerate(_wl_stages)}

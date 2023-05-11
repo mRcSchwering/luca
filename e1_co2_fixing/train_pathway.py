@@ -1,232 +1,24 @@
 from pathlib import Path
-from typing import Callable
 import time
+import math
+import random
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import magicsoup as ms
-from .chemistry import PATHWAY_PHASES_MAP
+from .chemistry import SUBSTRATE_MOLS, TRAIN_WL_GENE_MAP, TRAIN_WL_MOL_MAP
+from .util import init_writer, load_genomes
 from .experiment import (
     Experiment,
-    Passage,
+    PassageByCellAndSubstrates,
     MutationRateFact,
     MediumFact,
-    GenomeFact,
-    CellSampler,
+    GenomeSizeController,
+    MoleculeDependentCellDivision,
+    MoleculeDependentCellDeath,
 )
-from .util import Finished, init_writer, batch_add_cells, sigm_sample, rev_sigm_sample
+
 
 THIS_DIR = Path(__file__).parent
-
-
-class MoleculeDependentCellDeath(CellSampler):
-    """
-    Sample cell indexes based on molecule abundance.
-    Lower abundance leads to higher probability of being sampled.
-    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
-    """
-
-    def __init__(self, mol_i: int, k: float, n: int):
-        self.k = k
-        self.n = n
-        self.mol_i = mol_i
-
-    def __call__(self, exp: "Experiment") -> list[int]:
-        mols = exp.world.cell_molecules[:, self.mol_i]
-        return rev_sigm_sample(mols, self.k, self.n)
-
-
-class MoleculeDependentCellDivision(CellSampler):
-    """
-    Sample cell indexes based on molecule abundance.
-    Higher abundance leads to higher probability of being sampled.
-    `k` defines sensitivity, `n` cooperativity (M.M.: `n=1`, sigmoid: `n>1`).
-    """
-
-    def __init__(self, mol_i: int, k: float, n: int):
-        self.k = k
-        self.n = n
-        self.mol_i = mol_i
-
-    def __call__(self, exp: "Experiment") -> list[int]:
-        mols = exp.world.cell_molecules[:, self.mol_i]
-        return sigm_sample(mols, self.k, self.n)
-
-
-class GenomeSizeController(CellSampler):
-    """
-    Sample cell indexes based on genome size.
-    Larger genomes lead to higher probability of being sampled.
-    `k` and `n` define the final parameters that are used during the
-    last phase. But in earlier phases the genomes are much smaller
-    so `k` is reduced accordingly during these phases.
-    Otherwise cells grow huge genomes in early phases,
-    then fail in later phases when they reach `k`.
-    """
-
-    def __init__(
-        self,
-        k: float,
-        n: int,
-        n_phases: int,
-    ):
-        self.ks = [(i + 1) / n_phases * k for i in range(n_phases)]
-        self.n = n
-
-    def __call__(self, exp: "Experiment") -> list[int]:
-        k = self.ks[exp.phase_i]
-        genome_lens = [len(d) for d in exp.world.genomes]
-        sizes = torch.tensor(genome_lens)
-        return sigm_sample(sizes, k, self.n)
-
-
-class LinearMediumAdaption(MediumFact):
-    """
-    Change medium linearly from ``essentials_max` to zero over `n_gens`
-    from complex to minimal for each phase.
-    Which molecules are essential in each phase is derived from `phases`.
-    `substrates` will always be added with `substrates_max` to the medium.
-    """
-
-    def __init__(
-        self,
-        phases: list[tuple[list[ms.ProteinFact], list[ms.Molecule]]],
-        n_gens: int,
-        essentials_max: float,
-        substrates_max: float,
-        mol_2_idx: dict[str, int],
-        molmap: torch.Tensor,
-        substrates: tuple[str, ...] = ("CO2", "E"),
-    ):
-        self.molmap = molmap
-        self.n_gens = n_gens
-        self.essentials_max = essentials_max
-        self.substrates_max = substrates_max
-        self.subs_idxs = [mol_2_idx[d] for d in substrates]
-
-        essentials: list[str] = []
-        for prot_facts, rm_mols in phases:
-            for prot in prot_facts:
-                for dom in prot.domain_facts:
-                    if isinstance(dom, ms.TransporterDomainFact):
-                        essentials.append(dom.molecule.name)
-            essentials.extend([d.name for d in rm_mols])
-
-        self.essentials = list(set(essentials) - set(substrates))
-        self.substrates = list(substrates)
-
-        rng_essentials = set(self.essentials)
-        phase_essentials: list[list[str]] = []
-        phase_removals: list[list[str]] = []
-        for _, rm_mols in phases:
-            rm_names = set(d.name for d in rm_mols)
-            rng_essentials = rng_essentials - rm_names
-            phase_essentials.append(list(rng_essentials))
-            phase_removals.append(list(rm_names))
-
-        print(f"Medium will change from complex to minimal in {len(phases)} phases")
-        print(f"  complex: {', '.join(self.essentials)}")
-        for phase_i, essentials in enumerate(phase_essentials):
-            print(f"  phase {phase_i}: {', '.join(essentials)}")
-        print(f"  (disregarding {', '.join(self.substrates)})")
-
-        self.phase_essentials = [[mol_2_idx[dd] for dd in d] for d in phase_essentials]
-        self.phase_removals = [[mol_2_idx[dd] for dd in d] for d in phase_removals]
-
-    def __call__(self, exp: Experiment) -> torch.Tensor:
-        i = exp.gen_i
-        n = self.n_gens
-        ess_idxs = self.phase_essentials[exp.phase_i]
-        rm_idxs = self.phase_removals[exp.phase_i]
-        t = torch.zeros_like(self.molmap)
-        t[rm_idxs] = self.essentials_max * max((n - i) / n, 0.0)
-        t[ess_idxs] = self.essentials_max
-        t[self.subs_idxs] = self.substrates_max
-        return t
-
-
-class GainPathway(GenomeFact):
-    """
-    Generate genes for each phase according to `phases`.
-    The generator for the first phase is used as initial genomes.
-    """
-
-    def __init__(
-        self,
-        phases: list[tuple[list[ms.ProteinFact], list[ms.Molecule]]],
-        genome_size: int,
-        genfun: Callable[[list[ms.ProteinFact], int], str],
-    ):
-        self.prot_facts_phases: list[list[ms.ProteinFact]] = [d[0] for d in phases]
-        self.genfun = genfun
-        self.size = int(genome_size / len(phases))
-
-        # test protein facts are all valid
-        for prot_facts in self.prot_facts_phases:
-            _ = genfun(prot_facts, self.size)
-
-        n_genes = len([dd for d in self.prot_facts_phases for dd in d])
-        n_phases = len(phases)
-        print(f"In total {n_genes} genes will be added in {n_phases} phases")
-        print(f"   Inital genome size is {self.size:,}, final will be {genome_size:,}")
-
-    def __call__(self, exp: "Experiment") -> str:
-        return self.genfun(self.prot_facts_phases[exp.phase_i], self.size)
-
-
-class PassageByCellAndSubstrates(Passage):
-    """
-    Passage cells if world too full or if substrates run low.
-    """
-
-    def __init__(
-        self,
-        split_ratio: float,
-        split_thresh_subs: float,
-        split_thresh_cells: float,
-        max_subs: float,
-        max_cells: int,
-        max_steps: int,
-    ):
-        self.split_thresh_subs = split_thresh_subs
-        self.split_thresh_cells = split_thresh_cells
-        self.min_subs = max_subs * split_thresh_subs
-        self.max_cells = int(max_cells * split_thresh_cells)
-        self.split_ratio = split_ratio
-        self.split_leftover = int(split_ratio * max_cells)
-        self.max_steps = max_steps
-        self.prev_split_step = 0
-        self.next_split_step = max_steps
-
-    def __call__(self, exp: "Experiment") -> bool:
-        if any(
-            [
-                exp.world.molecule_map[exp.E_I].sum().item() <= self.min_subs,
-                exp.world.molecule_map[exp.CO2_I].sum().item() <= self.min_subs,
-                exp.world.n_cells >= self.max_cells,
-                (exp.step_i > self.next_split_step)
-                and (exp.world.n_cells < self.split_leftover),
-            ]
-        ):
-            self.prev_split_step = exp.step_i
-            self.next_split_step = exp.step_i + self.max_steps
-            return True
-        return False
-
-
-class StepWiseRateAdaption(MutationRateFact):
-    """
-    Switch rate from from one probability to another after n generations
-    """
-
-    def __init__(self, n: float, from_p: float, to_p: float):
-        self.n = n
-        self.from_p = from_p
-        self.to_p = to_p
-
-    def __call__(self, exp: Experiment) -> float:
-        if exp.gen_i >= self.n:
-            return self.to_p
-        return self.from_p
 
 
 def _log_scalars(
@@ -246,10 +38,11 @@ def _log_scalars(
         writer.add_scalar(tag, molecule_map[idx].mean().item(), step)
 
     if n_cells > 0:
-        writer.add_scalar("Cells/total", n_cells, step)
+        writer.add_scalar("Cells/Total", n_cells, step)
         mean_surv = exp.world.cell_survival.float().mean()
         writer.add_scalar("Cells/Survival", mean_surv, step)
         writer.add_scalar("Cells/Generation", exp.gen_i, step)
+        writer.add_scalar("Cells/GrowthRate", exp.growth_rate, step)
         writer.add_scalar(
             "Cells/GenomeSize", sum(len(d) for d in exp.world.genomes) / n_cells, step
         )
@@ -259,8 +52,7 @@ def _log_scalars(
 
     writer.add_scalar("Other/TimePerStep[s]", dtime, step)
     writer.add_scalar("Other/Split", exp.split_i, step)
-    writer.add_scalar("Other/Phase", exp.phase_i, step)
-    writer.add_scalar("Other/Score", exp.score, step)
+    writer.add_scalar("Other/Progress", exp.progress, step)
     writer.add_scalar("Other/MutationRate", exp.mutation_rate, step)
 
 
@@ -268,90 +60,230 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
+class ProgressDependentMutationRate(MutationRateFact):
+    """
+    Switch rate from from one probability to another after progress reaches threshold
+    """
+
+    def __init__(self, thresh: float, from_p: float, to_p: float):
+        self.thresh = thresh
+        self.from_p = from_p
+        self.to_p = to_p
+
+    def __call__(self, exp: Experiment) -> float:
+        if exp.progress >= self.thresh:
+            return self.to_p
+        return self.from_p
+
+
+class GeneraionDependentLinearAdaption(MediumFact):
+    """
+    Medium factory for medium with essential molecules
+    at `essentials_max` and substrates at `substrates_max`
+    concentrations.
+    Concentrations of molecules that are to be removed are linearly
+    decreased from `essentials_max` to 0 over the course of `n_adapt_gens`.
+    After these molecules were reduced to 0, cells should grow a final
+    `n_fix_gens` before progress is set to 100%.
+    """
+
+    def __init__(
+        self,
+        rms: list[str],
+        essentials: list[str],
+        substrates: list[str],
+        substrates_max: float,
+        essentials_max: float,
+        molmap: torch.Tensor,
+        mol_2_idx: dict[str, int],
+        n_adapt_gens: float,
+        n_final_gens: float,
+    ):
+        self.rms = rms
+        self.substrates = substrates
+        self.essentials = essentials
+        self.substrates_max = substrates_max
+        self.essentials_max = essentials_max
+        self.rm_idxs = [mol_2_idx[d] for d in rms]
+        self.essential_idxs = [mol_2_idx[d] for d in essentials]
+        self.substrate_idxs = [mol_2_idx[d] for d in substrates]
+
+        self.n_adapt_gens = n_adapt_gens
+        self.n_total_gens = n_final_gens + n_adapt_gens
+        self.molmap = molmap
+
+    def __call__(self, exp: Experiment) -> torch.Tensor:
+        n = self.n_adapt_gens
+        i = exp.gen_i
+        decay = max((n - i) / n, 0.0)
+        exp.progress = min(1.0, i / self.n_total_gens)
+
+        t = torch.zeros_like(self.molmap)
+        t[self.essential_idxs] = self.essentials_max
+        t[self.substrate_idxs] = self.substrates_max
+        t[self.rm_idxs] = self.essentials_max * decay
+        return t
+
+
+class GrowthDependentExponentialAdaption(MediumFact):
+    """
+    Medium factory for medium with essential molecules
+    at `essentials_max` and substrates at `substrates_max`
+    concentrations.
+    Concentrations of molecules that are to be removed are exponentially
+    decreased from `essentials_max` to 0 over the course of `n_steps`.
+    with a decay rate of `decay_lambda` (i.e. lambda=ln(2) for n(t)=(1/2)^t).
+    In order to advance 1 step, the previous passage's growth rate must exceed
+    `min_gr` and the cells must have grown at least `n_min_gens` generations .
+    Progress is increased linearly over `n_steps + 1` steps to 100%.
+    For the last step, removed molecules are at exactly 0.
+    """
+
+    def __init__(
+        self,
+        rms: list[str],
+        essentials: list[str],
+        substrates: list[str],
+        substrates_max: float,
+        essentials_max: float,
+        molmap: torch.Tensor,
+        mol_2_idx: dict[str, int],
+        n_min_gens: float,
+        min_gr: float,
+        decay_lambda: float,
+        n_steps: int,
+    ):
+        self.rms = rms
+        self.substrates = substrates
+        self.essentials = essentials
+        self.substrates_max = substrates_max
+        self.essentials_max = essentials_max
+        self.rm_idxs = [mol_2_idx[d] for d in rms]
+        self.essential_idxs = [mol_2_idx[d] for d in essentials]
+        self.substrate_idxs = [mol_2_idx[d] for d in substrates]
+
+        self.n_min_gens = n_min_gens
+        self.min_gr = min_gr
+        self.molmap = molmap
+
+        self.gen_thresh = self.n_min_gens
+        self.step_i = 0
+        self.n_steps = n_steps
+        self.decays = [math.exp(-decay_lambda * i) for i in range(n_steps)]
+
+        # n_steps + 1 adjusting [1;0], final 10% for static phase
+        self.incr_progress = 1 / (n_steps + 1)
+
+    def __call__(self, exp: Experiment) -> torch.Tensor:
+        if exp.gen_i > self.gen_thresh and exp.growth_rate < self.min_gr:
+            self.step_i += 1
+            exp.progress = min(1.0, exp.progress + self.incr_progress)
+            self.gen_thresh = exp.gen_i + self.n_min_gens
+
+        decay = self.decays[self.step_i] if self.step_i < self.n_steps else 0.0
+        t = torch.zeros_like(self.molmap)
+        t[self.essential_idxs] = self.essentials_max
+        t[self.substrate_idxs] = self.substrates_max
+        t[self.rm_idxs] = self.essentials_max * decay
+        return t
+
+
 def run_trial(
     device: str,
     n_workers: int,
-    name: str,
+    run_name: str,
     n_steps: int,
     trial_max_time_s: int,
     hparams: dict,
 ):
-    rundir = THIS_DIR / "runs"
-    trial_dir = rundir / name
-    world = ms.World.from_file(rundir=rundir, device=device, workers=n_workers)
+    train_label = hparams["train_label"]
+    runsdir = THIS_DIR / "runs"
+    trial_dir = runsdir / run_name
+    world = ms.World.from_file(rundir=runsdir, device=device, workers=n_workers)
     mol_2_idx = {d.name: i for i, d in enumerate(world.chemistry.molecules)}
     n_pxls = world.map_size**2
 
-    pathway_phases = PATHWAY_PHASES_MAP[hparams["pathway"]]
+    essentials, rms = TRAIN_WL_MOL_MAP[train_label]
+    substrates = sorted(d.name for d in SUBSTRATE_MOLS)
+    print("Medium will change from complex to minimal")
+    print(f"  complex: {', '.join(essentials)}")
+    print(f"  minimal {', '.join(sorted(list(set(essentials) - set(rms))))}")
+    print(f"  (disregarding substrates {', '.join(substrates)})")
 
-    genome_fact = GainPathway(
-        phases=pathway_phases,
-        genome_size=hparams["genome_size"],
-        genfun=lambda p, s: world.generate_genome(p, size=s),
-    )
-
-    medium_fact = LinearMediumAdaption(
-        phases=pathway_phases,
-        n_gens=hparams["n_adapt_gens"] * 0.8,
+    medium_fact = GeneraionDependentLinearAdaption(
+        rms=rms,
+        essentials=essentials,
+        substrates=substrates,
         essentials_max=20.0,
         substrates_max=100.0,
-        mol_2_idx=mol_2_idx,
         molmap=world.molecule_map,
+        mol_2_idx=mol_2_idx,
+        n_adapt_gens=hparams["n_adapt_gens"],
+        n_final_gens=hparams["n_final_gens"],
     )
 
-    passage = PassageByCellAndSubstrates(
+    mutation_rate_fact = ProgressDependentMutationRate(
+        thresh=hparams["n_adapt_gens"]
+        / (hparams["n_adapt_gens"] + hparams["n_final_gens"]),
+        from_p=1e-4,
+        to_p=1e-6,
+    )
+
+    passager = PassageByCellAndSubstrates(
         split_ratio=hparams["split_ratio"],
         split_thresh_subs=hparams["split_thresh_subs"],
         split_thresh_cells=hparams["split_thresh_cells"],
         max_subs=medium_fact.substrates_max * n_pxls,
         max_cells=n_pxls,
-        max_steps=1000,
     )
 
-    mutation_rate_fact = StepWiseRateAdaption(
-        n=hparams["n_adapt_gens"],
-        from_p=1e-4,
-        to_p=1e-6,
-    )
-
-    division_by_x_fact = MoleculeDependentCellDivision(
+    division_by_x = MoleculeDependentCellDivision(
         mol_i=mol_2_idx["X"], k=hparams["mol_divide_k"], n=3
     )
-    death_by_e_fact = MoleculeDependentCellDeath(
+    death_by_e = MoleculeDependentCellDeath(
         mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
     )
-    death_by_genome_fact = GenomeSizeController(
-        k=hparams["genome_kill_k"],
-        n=7,
-        n_phases=len(pathway_phases),
-    )
+    genome_size_controller = GenomeSizeController(k=hparams["genome_kill_k"], n=7)
 
     exp = Experiment(
         world=world,
-        n_phases=len(pathway_phases),
-        n_phase_gens=hparams["n_adapt_gens"] + hparams["n_static_gens"],
         lgt_rate=hparams["lgt_rate"],
-        passage=passage,
+        passager=passager,
         medium_fact=medium_fact,
         mutation_rate_fact=mutation_rate_fact,
-        genome_fact=genome_fact,
-        division_by_x_fact=division_by_x_fact,
-        death_by_e_fact=death_by_e_fact,
-        death_by_genome_fact=death_by_genome_fact,
+        division_by_x=division_by_x,
+        death_by_e=death_by_e,
+        genome_size_controller=genome_size_controller,
     )
 
-    # initial cells
+    # load initial genomes
+    init_label = hparams["init_label"]
+    genome_size = hparams["genome_size"]
     n_cells = int(n_pxls * hparams["init_cell_cover"])
-    init_genomes = [genome_fact(exp) for _ in range(n_cells)]
-    batch_add_cells(world=exp.world, genomes=init_genomes)
+    if init_label == "random":
+        genomes = [ms.random_genome(s=genome_size) for _ in range(n_cells)]
+    else:
+        pop = load_genomes(world=world, label=init_label, runsdir=runsdir)
+        genomes = random.choices(pop, k=n_cells)
+
+    # will fail if gene size too small
+    prots = TRAIN_WL_GENE_MAP[train_label]
+    size = hparams["gene_size"]
+    exp.init_cells(
+        genomes=[d + world.generate_genome(proteome=prots, size=size) for d in genomes]
+    )
+
+    avg_genome_len = sum(len(d) for d in world.genomes) / world.n_cells
+    print(f"In total {len(prots)} genes were added")
+    print(f"   Average genome size is {avg_genome_len:,}")
 
     writer = init_writer(
         logdir=trial_dir,
         hparams={
             **hparams,
             "mut_rates": f"{mutation_rate_fact.from_p:.0e}-{mutation_rate_fact.to_p:.0e}",
-            "cell_split": f"{passage.split_ratio:.1f}-{passage.split_thresh_cells:.1f}",
-            "substrates_min": passage.split_thresh_subs,
+            "cell_split": f"{passager.split_ratio:.1f}-{passager.split_thresh_cells:.1f}",
+            "substrates_min": passager.split_thresh_subs,
             "substrates_max": medium_fact.substrates_max,
             "essentials_max": medium_fact.essentials_max,
         },
@@ -362,7 +294,7 @@ def run_trial(
     watch_substrates = [(d, mol_2_idx[d]) for d in medium_fact.substrates]
     watch_essentials = [(d, mol_2_idx[d]) for d in medium_fact.essentials]
     watch = watch_substrates + watch_essentials
-    print(f"Starting trial {name}")
+    print(f"Starting trial {run_name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
     _log_scalars(exp=exp, writer=writer, step=0, dtime=0, mols=watch)
     _log_imgs(exp=exp, writer=writer, step=0)
@@ -371,10 +303,10 @@ def run_trial(
     for step_i in exp.run(max_steps=n_steps):
         step_t0 = time.time()
 
-        try:
-            exp.step_1s()
-        except Finished:
-            print(f"target phase {exp.n_phases} finished after {step_i} steps")
+        exp.step_1s()
+
+        if exp.progress >= 1.0:
+            print(f"target reached after {step_i + 1} steps")
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
             break
 
@@ -394,5 +326,9 @@ def run_trial(
             print(f"{trial_max_time_s} hours have passed")
             break
 
-    print(f"Finishing trial {name}")
+    print(f"Finishing trial {run_name}")
     writer.close()
+
+
+# TODO: vllt lieber Welt neu initialisieren nachdem alte Zellen geladen wurden?
+# TODO: load state bruacht auch ein batch argument, weil da ja ein update cells kommt
