@@ -153,7 +153,6 @@ class ExponentialAdaption(MediumFact):
         mol_2_idx: dict[str, int],
         n_adapt_gens: float,
         n_final_gens: float,
-        half_time: float,
     ):
         self.rms = rms
         self.substrates = substrates
@@ -168,7 +167,7 @@ class ExponentialAdaption(MediumFact):
         self.n_total_gens = n_final_gens + n_adapt_gens
         self.molmap = molmap
 
-        self.decay_rate = -math.log(2) / half_time
+        self.decay_rate = math.log(0.1) / n_adapt_gens
         self.gen_offset = 0.0
 
     def __call__(self, exp: Experiment) -> torch.Tensor:
@@ -211,7 +210,7 @@ def get_medium_fact(
     if label == "linear":
         return LinearAdaption(**kwargs)  # type: ignore
     if label == "exponential":
-        return ExponentialAdaption(half_time=n_adapt_gens / 4, **kwargs)  # type: ignore
+        return ExponentialAdaption(**kwargs)  # type: ignore
     raise ValueError(f"Didnt recognize label {label}")
 
 
