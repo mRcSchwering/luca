@@ -187,11 +187,10 @@ class Experiment:
         self.medium_fact = medium_fact
         self.passager = passager
 
+        self.world.kill_cells(cell_idxs=list(range(self.world.n_cells)))
         self._prepare_fresh_plate()
-        self.world.reposition_cells(cell_idxs=list(range(self.world.n_cells)))
 
     def init_cells(self, genomes: list[str]):
-        self.world.kill_cells(cell_idxs=list(range(self.world.n_cells)))
         batch_add_cells(world=self.world, genomes=genomes)
         self._s0 = self.step_i
         self._n0 = self.world.n_cells
@@ -232,10 +231,10 @@ class Experiment:
         kill_n = max(n_old - self.passager.split_leftover, 0)
         idxs = random.sample(range(n_old), k=kill_n)
         self.world.kill_cells(cell_idxs=idxs)
+        self.split_i += 1
         self._prepare_fresh_plate()
         n_new = self.world.n_cells
         self.world.reposition_cells(cell_idxs=list(range(n_new)))
-        self.split_i += 1
 
         # set for next growth rate calculation
         self._n0 = n_new

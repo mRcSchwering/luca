@@ -66,18 +66,24 @@ if __name__ == "__main__":
     )
     train_parser.set_defaults(func=train_pathway_cmd)
     train_parser.add_argument(
-        "train_label",
+        "pathway_label",
         type=str,
         choices=TRAIN_WL_MOL_MAP,
         help="Which part of which pathway to train",
     )
     train_parser.add_argument(
+        "train_label",
+        choices=("linear", "exponential"),
+        type=str,
+        help="Describes the strategy how medium is changed",
+    )
+    train_parser.add_argument(
         "init_label",
         type=str,
-        help="Describes from where initial genomes are loaded. E.g. "
-        "`2023-05-09_14-08_0:-1` to load genomes from run '2023-05-09_14-08_0' last "
-        "saved state, or `2023-05-09_14-08_0/step=150` to load step 150. `random`"
-        " to initialize random genomes (default %(default)s)",
+        help="""Describes from where initial genomes are loaded. E.g. 
+        `2023-05-09_14-08_0:-1` to load genomes from run '2023-05-09_14-08_0' last 
+        saved state, or `2023-05-09_14-08_0/step=150` to load step 150. `random`
+         to initialize random genomes (default %(default)s)""",
     )
     train_parser.add_argument(
         "--init_cell_cover",
@@ -96,12 +102,6 @@ if __name__ == "__main__":
         type=int,
         default=200,
         help="Sequence size in which genes will be added (default %(default)s).",
-    )
-    train_parser.add_argument(
-        "--n_trials",
-        default=3,
-        type=int,
-        help="How many times to try the training (default %(default)s)",
     )
     train_parser.add_argument(
         "--n_adapt_gens",
@@ -162,6 +162,12 @@ if __name__ == "__main__":
         type=float,
         help="Trigger passage if CO2 or E levels (relative to initial levels)"
         " in medium go below this (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--n_trials",
+        default=3,
+        type=int,
+        help="How many times to try the training (default %(default)s)",
     )
     train_parser.add_argument(
         "--n_steps",

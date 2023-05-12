@@ -76,7 +76,7 @@ class ProgressDependentMutationRate(MutationRateFact):
         return self.from_p
 
 
-class GeneraionDependentLinearAdaption(MediumFact):
+class LinearAdaption(MediumFact):
     """
     Medium factory for medium with essential molecules
     at `essentials_max` and substrates at `substrates_max`
@@ -84,7 +84,7 @@ class GeneraionDependentLinearAdaption(MediumFact):
     Concentrations of molecules that are to be removed are linearly
     decreased from `essentials_max` to 0 over the course of `n_adapt_gens`.
     After these molecules were reduced to 0, cells should grow a final
-    `n_fix_gens` before progress is set to 100%.
+    `n_fix_gens` before progress reaches 100%.
     """
 
     def __init__(
@@ -112,9 +112,14 @@ class GeneraionDependentLinearAdaption(MediumFact):
         self.n_total_gens = n_final_gens + n_adapt_gens
         self.molmap = molmap
 
+        self.gen_offset = 0.0
+
     def __call__(self, exp: Experiment) -> torch.Tensor:
+        if exp.split_i == 1:
+            self.gen_offset = exp.gen_i
+
         n = self.n_adapt_gens
-        i = exp.gen_i
+        i = exp.gen_i - self.gen_offset
         decay = max((n - i) / n, 0.0)
         exp.progress = min(1.0, i / self.n_total_gens)
 
@@ -125,18 +130,16 @@ class GeneraionDependentLinearAdaption(MediumFact):
         return t
 
 
-class GrowthDependentExponentialAdaption(MediumFact):
+class ExponentialAdaption(MediumFact):
     """
     Medium factory for medium with essential molecules
     at `essentials_max` and substrates at `substrates_max`
     concentrations.
     Concentrations of molecules that are to be removed are exponentially
-    decreased from `essentials_max` to 0 over the course of `n_steps`.
-    with a decay rate of `decay_lambda` (i.e. lambda=ln(2) for n(t)=(1/2)^t).
-    In order to advance 1 step, the previous passage's growth rate must exceed
-    `min_gr` and the cells must have grown at least `n_min_gens` generations .
-    Progress is increased linearly over `n_steps + 1` steps to 100%.
-    For the last step, removed molecules are at exactly 0.
+    decreased from `essentials_max` to 0 over the course of `n_adapt_gens`
+    with a decay rate according to half time `half_time`.
+    After these molecules were reduced to 0, cells should grow a final
+    `n_fix_gens` before progress reaches 100%.
     """
 
     def __init__(
@@ -148,10 +151,9 @@ class GrowthDependentExponentialAdaption(MediumFact):
         essentials_max: float,
         molmap: torch.Tensor,
         mol_2_idx: dict[str, int],
-        n_min_gens: float,
-        min_gr: float,
-        decay_lambda: float,
-        n_steps: int,
+        n_adapt_gens: float,
+        n_final_gens: float,
+        half_time: float,
     ):
         self.rms = rms
         self.substrates = substrates
@@ -162,30 +164,55 @@ class GrowthDependentExponentialAdaption(MediumFact):
         self.essential_idxs = [mol_2_idx[d] for d in essentials]
         self.substrate_idxs = [mol_2_idx[d] for d in substrates]
 
-        self.n_min_gens = n_min_gens
-        self.min_gr = min_gr
+        self.n_adapt_gens = n_adapt_gens
+        self.n_total_gens = n_final_gens + n_adapt_gens
         self.molmap = molmap
 
-        self.gen_thresh = self.n_min_gens
-        self.step_i = 0
-        self.n_steps = n_steps
-        self.decays = [math.exp(-decay_lambda * i) for i in range(n_steps)]
-
-        # n_steps + 1 adjusting [1;0], final 10% for static phase
-        self.incr_progress = 1 / (n_steps + 1)
+        self.decay_rate = -math.log(2) / half_time
+        self.gen_offset = 0.0
 
     def __call__(self, exp: Experiment) -> torch.Tensor:
-        if exp.gen_i > self.gen_thresh and exp.growth_rate < self.min_gr:
-            self.step_i += 1
-            exp.progress = min(1.0, exp.progress + self.incr_progress)
-            self.gen_thresh = exp.gen_i + self.n_min_gens
+        if exp.split_i == 1:
+            self.gen_offset = exp.gen_i
 
-        decay = self.decays[self.step_i] if self.step_i < self.n_steps else 0.0
+        n = self.n_adapt_gens
+        i = exp.gen_i - self.gen_offset
+        decay = 0.0 if i > n else math.exp(self.decay_rate * i)
+        exp.progress = min(1.0, i / self.n_total_gens)
+
         t = torch.zeros_like(self.molmap)
         t[self.essential_idxs] = self.essentials_max
         t[self.substrate_idxs] = self.substrates_max
         t[self.rm_idxs] = self.essentials_max * decay
         return t
+
+
+def get_medium_fact(
+    label: str,
+    rms: list[str],
+    essentials: list[str],
+    substrates: list[str],
+    molmap: torch.Tensor,
+    mol_2_idx: dict[str, int],
+    n_adapt_gens: float,
+    n_final_gens: float,
+) -> MediumFact:
+    kwargs = {
+        "rms": rms,
+        "essentials": essentials,
+        "substrates": substrates,
+        "essentials_max": 20.0,
+        "substrates_max": 100.0,
+        "molmap": molmap,
+        "mol_2_idx": mol_2_idx,
+        "n_adapt_gens": n_adapt_gens,
+        "n_final_gens": n_final_gens,
+    }
+    if label == "linear":
+        return LinearAdaption(**kwargs)  # type: ignore
+    if label == "exponential":
+        return ExponentialAdaption(half_time=n_adapt_gens / 4, **kwargs)  # type: ignore
+    raise ValueError(f"Didnt recognize label {label}")
 
 
 def run_trial(
@@ -196,26 +223,25 @@ def run_trial(
     trial_max_time_s: int,
     hparams: dict,
 ):
-    train_label = hparams["train_label"]
+    pathway_label = hparams["pathway_label"]
     runsdir = THIS_DIR / "runs"
     trial_dir = runsdir / run_name
     world = ms.World.from_file(rundir=runsdir, device=device, workers=n_workers)
     mol_2_idx = {d.name: i for i, d in enumerate(world.chemistry.molecules)}
     n_pxls = world.map_size**2
 
-    essentials, rms = TRAIN_WL_MOL_MAP[train_label]
+    essentials, rms = TRAIN_WL_MOL_MAP[pathway_label]
     substrates = sorted(d.name for d in SUBSTRATE_MOLS)
     print("Medium will change from complex to minimal")
     print(f"  complex: {', '.join(essentials)}")
     print(f"  minimal {', '.join(sorted(list(set(essentials) - set(rms))))}")
     print(f"  (disregarding substrates {', '.join(substrates)})")
 
-    medium_fact = GeneraionDependentLinearAdaption(
+    medium_fact = get_medium_fact(
+        label=hparams["train_label"],
         rms=rms,
         essentials=essentials,
         substrates=substrates,
-        essentials_max=20.0,
-        substrates_max=100.0,
         molmap=world.molecule_map,
         mol_2_idx=mol_2_idx,
         n_adapt_gens=hparams["n_adapt_gens"],
@@ -263,11 +289,11 @@ def run_trial(
     if init_label == "random":
         genomes = [ms.random_genome(s=genome_size) for _ in range(n_cells)]
     else:
-        pop = load_genomes(world=world, label=init_label, runsdir=runsdir)
+        pop = load_genomes(label=init_label, runsdir=runsdir)
         genomes = random.choices(pop, k=n_cells)
 
     # will fail if gene size too small
-    prots = TRAIN_WL_GENE_MAP[train_label]
+    prots = TRAIN_WL_GENE_MAP[pathway_label]
     size = hparams["gene_size"]
     exp.init_cells(
         genomes=[d + world.generate_genome(proteome=prots, size=size) for d in genomes]
@@ -304,14 +330,15 @@ def run_trial(
         step_t0 = time.time()
 
         exp.step_1s()
+        dtime = time.time() - step_t0
 
         if exp.progress >= 1.0:
             print(f"target reached after {step_i + 1} steps")
             exp.world.save_state(statedir=trial_dir / f"step={step_i}")
+            _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime, mols=watch)
             break
 
         if step_i % 5 == 0:
-            dtime = time.time() - step_t0
             _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime, mols=watch)
 
         if step_i % 50 == 0:
@@ -328,7 +355,3 @@ def run_trial(
 
     print(f"Finishing trial {run_name}")
     writer.close()
-
-
-# TODO: vllt lieber Welt neu initialisieren nachdem alte Zellen geladen wurden?
-# TODO: load state bruacht auch ein batch argument, weil da ja ein update cells kommt
