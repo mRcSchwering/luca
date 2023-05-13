@@ -3,7 +3,7 @@ import random
 import math
 import torch
 import magicsoup as ms
-from .util import batch_update_cells, batch_add_cells, sigm_sample, rev_sigm_sample
+from .util import sigm_sample, rev_sigm_sample
 
 THIS_DIR = Path(__file__).parent
 
@@ -191,7 +191,7 @@ class Experiment:
         self._prepare_fresh_plate()
 
     def init_cells(self, genomes: list[str]):
-        batch_add_cells(world=self.world, genomes=genomes)
+        self.world.add_cells(genomes=genomes, batch_size=500)
         self._s0 = self.step_i
         self._n0 = self.world.n_cells
 
@@ -242,7 +242,7 @@ class Experiment:
 
     def _mutate_cells(self):
         mutated = ms.point_mutations(seqs=self.world.genomes, p=self.mutation_rate)
-        batch_update_cells(world=self.world, genome_idx_pairs=mutated)
+        self.world.update_cells(genome_idx_pairs=mutated, batch_size=500)
 
     def _lateral_gene_transfer(self):
         # sample cells according to LGT rate
@@ -263,7 +263,7 @@ class Experiment:
             c0_i, c1_i = nghbrs[idx]
             genome_idx_pairs.append((c0, c0_i))
             genome_idx_pairs.append((c1, c1_i))
-        batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
+        self.world.update_cells(genome_idx_pairs=genome_idx_pairs, batch_size=500)
 
     def _replicate_cells(self):
         i = self.X_I
@@ -290,7 +290,7 @@ class Experiment:
             c0_i, c1_i = successes[idx]
             genome_idx_pairs.append((c0, c0_i))
             genome_idx_pairs.append((c1, c1_i))
-        batch_update_cells(world=self.world, genome_idx_pairs=genome_idx_pairs)
+        self.world.update_cells(genome_idx_pairs=genome_idx_pairs, batch_size=500)
 
     def _kill_cells(self):
         idxs0 = self.death_by_e(self)
