@@ -94,7 +94,7 @@ if __name__ == "__main__":
     train_parser.add_argument(
         "--genome_size",
         type=int,
-        default=1000,
+        default=500,
         help="Genome size if random genomes are initialized (default %(default)s).",
     )
     train_parser.add_argument(
