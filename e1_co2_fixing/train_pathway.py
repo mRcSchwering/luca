@@ -130,6 +130,51 @@ class LinearAdaption(MediumFact):
         return t
 
 
+class ImmediateAdaption(MediumFact):
+    """
+    Medium factory for medium with essential molecules
+    at `essentials_max` and substrates at `substrates_max`
+    concentrations.
+    Concentrations of molecules that are to be removed are immediately
+    set to 0. Progress still ticks upwards by generation so `n_adapt_gens`
+    can be given a different mutation rate as `n_final_gens`.
+    """
+
+    def __init__(
+        self,
+        rms: list[str],
+        essentials: list[str],
+        substrates: list[str],
+        substrates_max: float,
+        essentials_max: float,
+        molmap: torch.Tensor,
+        mol_2_idx: dict[str, int],
+        n_adapt_gens: float,
+        n_final_gens: float,
+    ):
+        self.rms = rms
+        self.substrates = substrates
+        self.essentials = essentials
+        self.substrates_max = substrates_max
+        self.essentials_max = essentials_max
+        self.rm_idxs = [mol_2_idx[d] for d in rms]
+        self.essential_idxs = [mol_2_idx[d] for d in essentials]
+        self.substrate_idxs = [mol_2_idx[d] for d in substrates]
+
+        self.n_adapt_gens = n_adapt_gens
+        self.n_total_gens = n_final_gens + n_adapt_gens
+        self.molmap = molmap
+
+    def __call__(self, exp: Experiment) -> torch.Tensor:
+        exp.progress = min(1.0, exp.gen_i / self.n_total_gens)
+
+        t = torch.zeros_like(self.molmap)
+        t[self.essential_idxs] = self.essentials_max
+        t[self.substrate_idxs] = self.substrates_max
+        t[self.rm_idxs] = 0.0
+        return t
+
+
 class ExponentialAdaption(MediumFact):
     """
     Medium factory for medium with essential molecules
@@ -209,6 +254,8 @@ def get_medium_fact(
     }
     if label == "linear":
         return LinearAdaption(**kwargs)  # type: ignore
+    if label == "immediate":
+        return ImmediateAdaption(**kwargs)  # type: ignore
     if label == "exponential":
         return ExponentialAdaption(**kwargs)  # type: ignore
     raise ValueError(f"Didnt recognize label {label}")
