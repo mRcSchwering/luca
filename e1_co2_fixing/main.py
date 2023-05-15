@@ -73,7 +73,7 @@ if __name__ == "__main__":
     )
     train_parser.add_argument(
         "train_label",
-        choices=("linear", "immediate", "exponential"),
+        choices=("linear", "immediate", "exponential", "dynamic"),
         type=str,
         help="Describes the strategy how medium is changed",
     )
