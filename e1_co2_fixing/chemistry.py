@@ -462,25 +462,31 @@ def print_mathjax(chem: Chemistry):
 
 
 # building up pathway from end towards beginning
-# transporters and removed molecules are used to determine essentials
-# stage: (new proteins added, molecules removed from medium)
-_wl_stages: list[tuple[list[ProtF], list[Molecule]]] = [
+# stage: (new genes, complex substrates, minimal substrates, essentials)
+# disregarding E and CO2
+WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule]]] = [
     (
         [
             ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
             ProtF(TrnDF(_acetylCoA)),
             ProtF(TrnDF(_E)),
             ProtF(TrnDF(_X)),
+            ProtF(TrnDF(_HSCoA)),
         ],
         [_X],
+        [_acetylCoA],
+        [],
     ),
     (
         [
             ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
-            ProtF(TrnDF(_HSCoA)),
+            # ProtF(TrnDF(_HSCoA)),
             ProtF(TrnDF(_methylFH4)),
+            ProtF(TrnDF(_FH4)),
         ],
         [_acetylCoA],
+        [_co, _methylFH4],
+        [_HSCoA],
     ),
     (
         [
@@ -488,7 +494,9 @@ _wl_stages: list[tuple[list[ProtF], list[Molecule]]] = [
             ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
             ProtF(TrnDF(_NADP)),
         ],
-        [_co],
+        [_co, _methylFH4],
+        [_methylFH4],
+        [_HSCoA, _NADP],
     ),
     (
         [
@@ -497,52 +505,25 @@ _wl_stages: list[tuple[list[ProtF], list[Molecule]]] = [
             ProtF(TrnDF(_formylFH4)),
         ],
         [_methylFH4],
+        [_formylFH4],
+        [_HSCoA, _NADP],
     ),
     (
         [
             ProtF(CatDF(([_formate, _FH4], [_formylFH4]))),
-            ProtF(TrnDF(_FH4)),
+            # ProtF(TrnDF(_FH4)),
             ProtF(TrnDF(_formate)),
         ],
         [_formylFH4],
+        [_formate],
+        [_HSCoA, _NADP, _FH4],
     ),
     (
         [
             ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
         ],
         [_formate],
+        [],
+        [_HSCoA, _NADP, _FH4],
     ),
 ]
-
-
-def _get_stage_molecules(
-    stage_i: int, stages: list[tuple[list[ProtF], list[Molecule]]]
-) -> tuple[list[str], list[str]]:
-    essentials: list[str] = []
-    for prot_facts, rm_mols in stages:
-        for prot in prot_facts:
-            for dom in prot.domain_facts:
-                if isinstance(dom, TrnDF):
-                    essentials.append(dom.molecule.name)
-        essentials.extend([d.name for d in rm_mols])
-
-    essentials = list(set(essentials) - set(SUBSTRATE_MOLS))
-
-    rng_essentials = set(essentials)
-    stage_essentials: list[list[str]] = []
-    stage_removals: list[list[str]] = []
-    for _, rm_mols in stages:
-        rm_names = set(d.name for d in rm_mols)
-        stage_essentials.append(list(rng_essentials))
-        rng_essentials = rng_essentials - rm_names
-        stage_removals.append(list(rm_names))
-
-    return sorted(stage_essentials[stage_i]), sorted(stage_removals[stage_i])
-
-
-TRAIN_WL_MOL_MAP = {
-    f"WL-{i}": _get_stage_molecules(stage_i=i, stages=_wl_stages)
-    for i in range(len(_wl_stages))
-}
-
-TRAIN_WL_GENE_MAP = {f"WL-{i}": d[0] for i, d in enumerate(_wl_stages)}
