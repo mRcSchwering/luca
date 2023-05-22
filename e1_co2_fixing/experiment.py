@@ -23,10 +23,8 @@ class MediumFact:
     Factory for returning new medium.
     """
 
-    essentials_max: float  # maximum essentials concentration
-    substrates_max: float  # maximum substrates concentration
-    substrates: list[str]  # list of substrates
-    essentials: list[str]  # list of essentials
+    additives_init: float  # initial additives concentration
+    substrates_init: float  # initial substrates concentration
 
     def __call__(self, exp: "Experiment") -> torch.Tensor:
         """Returns a new molecule map"""
@@ -108,34 +106,31 @@ class GenomeSizeController(CellSampler):
         return sigm_sample(sizes, self.k, self.n)
 
 
-class PassageByCellAndSubstrates(Passager):
+class PassageByCells(Passager):
     """
-    Passage cells if world too full or if substrates run low.
+    Passage cells if world too full.
     """
 
     def __init__(
         self,
         split_ratio: float,
-        split_thresh_subs: float,
-        split_thresh_cells: float,
-        max_subs: float,
+        split_thresh: float,
         max_cells: int,
     ):
-        self.split_thresh_subs = split_thresh_subs
-        self.split_thresh_cells = split_thresh_cells
-        self.min_subs = max_subs * split_thresh_subs
-        self.max_cells = int(max_cells * split_thresh_cells)
-        self.split_ratio = split_ratio
+        self.max_cells = int(max_cells * split_thresh)
         self.split_leftover = int(split_ratio * max_cells)
 
     def __call__(self, exp: "Experiment") -> bool:
-        return any(
-            [
-                exp.world.molecule_map[exp.E_I].sum().item() <= self.min_subs,
-                exp.world.molecule_map[exp.CO2_I].sum().item() <= self.min_subs,
-                exp.world.n_cells >= self.max_cells,
-            ]
-        )
+        return exp.world.n_cells >= self.max_cells
+
+
+class GenomeEditor:
+    """
+    Editing cell genomes during the experiment at passage time.
+    """
+
+    def __call__(self, exp: "Experiment"):
+        raise NotImplementedError
 
 
 class Experiment:
@@ -153,6 +148,7 @@ class Experiment:
     def __init__(
         self,
         world: ms.World,
+        init_genomes: list[str],
         lgt_rate: float,
         passager: Passager,
         mutation_rate_fact: MutationRateFact,
@@ -160,14 +156,13 @@ class Experiment:
         division_by_x: CellSampler,
         death_by_e: CellSampler,
         genome_size_controller: CellSampler,
+        genome_editor: GenomeEditor | None = None,
     ):
         self.world = world
         self.score = 0.0
         self.split_i = 0
         self.step_i = 0
-        self.gen_i = 0.0
-        self._n0 = 0
-        self._s0 = 0
+        self.cpd = 0.0
         self.growth_rate = 0.0
         self.progress = 0.0
 
@@ -186,14 +181,15 @@ class Experiment:
 
         self.medium_fact = medium_fact
         self.passager = passager
+        self.genome_editor = genome_editor
 
         self.world.kill_cells(cell_idxs=list(range(self.world.n_cells)))
         self._prepare_fresh_plate()
 
-    def init_cells(self, genomes: list[str]):
-        self.world.add_cells(genomes=genomes, batch_size=500)
-        self._s0 = self.step_i
+        # init cells
+        self.world.add_cells(genomes=init_genomes, batch_size=500)
         self._n0 = self.world.n_cells
+        self._s0 = self.step_i
 
     def run(self, max_steps: int):
         for step_i in range(max_steps):
@@ -209,23 +205,25 @@ class Experiment:
         self.world.increment_cell_survival()
         self._replicate_cells()
 
+        # calculate growth
+        n_steps = self.step_i - self._s0
+        if n_steps > 0 and self._n0 > 0:
+            self.growth_rate = math.log(self.world.n_cells / self._n0, 2) / n_steps
+
         if self.passager(self):
             self._passage_cells()
 
         self._mutate_cells()
         self._lateral_gene_transfer()
 
-        avg = self.world.cell_divisions.float().mean().item()
-        self.gen_i = 0.0 if math.isnan(avg) else avg
         self.mutation_rate = self.mutation_rate_fact(self)
 
     def _passage_cells(self):
         n_old = self.world.n_cells
 
-        # calculate prev split growth rate
-        n_steps = self.step_i - self._s0
-        if n_steps > 0 and self._n0 > 0:
-            self.growth_rate = math.log(n_old / self._n0) / n_steps
+        # calculate cumulative population doubling
+        if self._n0 > 0:
+            self.cpd += math.log(n_old / self._n0, 2)
 
         # split cells
         kill_n = max(n_old - self.passager.split_leftover, 0)
@@ -236,7 +234,11 @@ class Experiment:
         n_new = self.world.n_cells
         self.world.reposition_cells(cell_idxs=list(range(n_new)))
 
-        # set for next growth rate calculation
+        # edit genomes
+        if self.genome_editor is not None:
+            self.genome_editor(self)
+
+        # set for passage-averaged growth calculations
         self._n0 = n_new
         self._s0 = self.step_i
 

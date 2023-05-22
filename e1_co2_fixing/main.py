@@ -8,7 +8,7 @@ import datetime as dt
 from argparse import ArgumentParser
 from pathlib import Path
 import magicsoup as ms
-from .chemistry import CHEMISTRY, TRAIN_WL_MOL_MAP
+from .chemistry import CHEMISTRY, WL_STAGES_MAP
 from .train_pathway import run_trial
 
 THIS_DIR = Path(__file__).parent
@@ -68,14 +68,8 @@ if __name__ == "__main__":
     train_parser.add_argument(
         "pathway_label",
         type=str,
-        choices=TRAIN_WL_MOL_MAP,
+        choices=WL_STAGES_MAP,
         help="Which part of which pathway to train",
-    )
-    train_parser.add_argument(
-        "train_label",
-        choices=("linear", "immediate", "exponential", "dynamic"),
-        type=str,
-        help="Describes the strategy how medium is changed",
     )
     train_parser.add_argument(
         "init_label",
@@ -92,30 +86,62 @@ if __name__ == "__main__":
         help="Ratio of map initially covered by cells (default %(default)s)",
     )
     train_parser.add_argument(
-        "--genome_size",
-        type=int,
-        default=500,
-        help="Genome size if random genomes are initialized (default %(default)s).",
-    )
-    train_parser.add_argument(
         "--gene_size",
         type=int,
         default=200,
         help="Sequence size in which genes will be added (default %(default)s).",
     )
     train_parser.add_argument(
-        "--n_adapt_gens",
-        default=100.0,
+        "--n_init_splits",
+        default=2.0,
         type=float,
-        help="How many generations to let cells adapt to new medium"
+        help="How many passages to let cells grow before starting adaption"
         " (default %(default)s)",
     )
     train_parser.add_argument(
-        "--n_final_gens",
+        "--n_adapt_splits",
+        default=2.0,
+        type=float,
+        help="How many passages to let cells adapt to new substrates"
+        " (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--n_final_splits",
+        default=4.0,
+        type=float,
+        help="How many passages to grow cells after adaption finished"
+        " (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--min_gr",
+        default=0.05,
+        type=float,
+        help="Minimum growth rate to use for advancing training phases"
+        " (max. theoretically possible is 0.1, default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--substrates_init",
         default=100.0,
         type=float,
-        help="How many generations to grow cells at low mutation rates"
-        " in minimal medium (default %(default)s)",
+        help="Substrate concentration in medium (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--additives_init",
+        default=10.0,
+        type=float,
+        help="Additives concentration in medium (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--mutation_rate_high",
+        default=1e-4,
+        type=float,
+        help="High mutation rate during adaption (default %(default)s)",
+    )
+    train_parser.add_argument(
+        "--mutation_rate_low",
+        default=1e-6,
+        type=float,
+        help="Low mutation rate during normal growth (default %(default)s)",
     )
     train_parser.add_argument(
         "--mol_divide_k",
@@ -150,18 +176,11 @@ if __name__ == "__main__":
         " (theoretically 0.13-0.2 is best, default %(default)s)",
     )
     train_parser.add_argument(
-        "--split_thresh_cells",
+        "--split_thresh",
         default=0.7,
         type=float,
         help="Ratio of map covered in cells that will trigger passage"
         " (should be below 0.8, default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--split_thresh_subs",
-        default=0.2,
-        type=float,
-        help="Trigger passage if CO2 or E levels (relative to initial levels)"
-        " in medium go below this (default %(default)s)",
     )
     train_parser.add_argument(
         "--n_trials",

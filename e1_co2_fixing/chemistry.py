@@ -462,19 +462,17 @@ def print_mathjax(chem: Chemistry):
 
 
 # building up pathway from end towards beginning
-# stage: (new genes, complex substrates, minimal substrates, essentials)
-# disregarding E and CO2
+# stage: (new genes, substrates a, substrates b, additives)
 WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule]]] = [
     (
         [
             ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
             ProtF(TrnDF(_acetylCoA)),
             ProtF(TrnDF(_E)),
-            ProtF(TrnDF(_X)),
             ProtF(TrnDF(_HSCoA)),
         ],
-        [_X],
-        [_acetylCoA],
+        [_co2, _E, _X],
+        [_co2, _E, _acetylCoA],
         [],
     ),
     (
@@ -484,8 +482,8 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
             ProtF(TrnDF(_methylFH4)),
             ProtF(TrnDF(_FH4)),
         ],
-        [_acetylCoA],
-        [_co, _methylFH4],
+        [_co2, _E, _acetylCoA],
+        [_co2, _E, _co, _methylFH4],
         [_HSCoA],
     ),
     (
@@ -494,8 +492,8 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
             ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
             ProtF(TrnDF(_NADP)),
         ],
-        [_co, _methylFH4],
-        [_methylFH4],
+        [_co2, _E, _co, _methylFH4],
+        [_co2, _E, _methylFH4],
         [_HSCoA, _NADP],
     ),
     (
@@ -504,8 +502,8 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
             ProtF(CatDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
             ProtF(TrnDF(_formylFH4)),
         ],
-        [_methylFH4],
-        [_formylFH4],
+        [_co2, _E, _methylFH4],
+        [_co2, _E, _formylFH4],
         [_HSCoA, _NADP],
     ),
     (
@@ -514,16 +512,17 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
             # ProtF(TrnDF(_FH4)),
             ProtF(TrnDF(_formate)),
         ],
-        [_formylFH4],
-        [_formate],
+        [_co2, _E, _formylFH4],
+        [_co2, _E, _formate],
         [_HSCoA, _NADP, _FH4],
     ),
     (
         [
             ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
         ],
-        [_formate],
-        [],
+        [_co2, _E, _formate],
+        [_co2, _E],
         [_HSCoA, _NADP, _FH4],
     ),
 ]
+WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
