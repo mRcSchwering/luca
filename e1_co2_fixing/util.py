@@ -54,7 +54,7 @@ def find_steps(rundir: Path) -> list[int]:
     return sorted(int(d.split("step=")[-1]) for d in names)
 
 
-def load_cells(world: ms.World, label: str, runsdir: Path) -> list[str]:
+def load_cells(world: ms.World, label: str, runsdir: Path):
     """
     Use label to load a world's genomes:
         - "<rundir>/step=<i>" to load step <i> of <rundir>

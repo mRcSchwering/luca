@@ -2,15 +2,17 @@ from pathlib import Path
 from typing import Callable
 import time
 import torch
-from torch.utils.tensorboard import SummaryWriter
 import magicsoup as ms
 from .chemistry import WL_STAGES_MAP
-from .util import init_writer, load_cells, sigm_sample
+from .util import load_cells, sigm_sample
 from .experiment import (
     Experiment,
+    BatchCulture,
+    BatchCultureLogger,
     PassageByCells,
     MutationRateFact,
     MediumFact,
+    BatchCultureProgress,
     CellSampler,
     MoleculeDependentCellDivision,
     MoleculeDependentCellDeath,
@@ -19,47 +21,6 @@ from .experiment import (
 
 
 THIS_DIR = Path(__file__).parent
-
-
-def _log_scalars(
-    exp: Experiment,
-    writer: SummaryWriter,
-    step: int,
-    dtime: float,
-    mols: list[tuple[str, int]],
-):
-    n_cells = exp.world.n_cells
-    molecule_map = exp.world.molecule_map
-    cell_molecules = exp.world.cell_molecules
-    molecules = {f"Molecules/{s}": i for s, i in mols}
-
-    for scalar, idx in molecules.items():
-        tag = f"{scalar}[ext]"
-        writer.add_scalar(tag, molecule_map[idx].mean(), step)
-
-    if n_cells > 0:
-        writer.add_scalar("Cells/Total", n_cells, step)
-        mean_surv = exp.world.cell_survival.float().mean()
-        mean_divis = exp.world.cell_divisions.float().mean()
-        writer.add_scalar("Cells/Survival", mean_surv, step)
-        writer.add_scalar("Cells/Divisions", mean_divis, step)
-        writer.add_scalar("Cells/cPD", exp.cpd, step)
-        writer.add_scalar("Cells/GrowthRate", exp.growth_rate, step)
-        writer.add_scalar(
-            "Cells/GenomeSize", sum(len(d) for d in exp.world.genomes) / n_cells, step
-        )
-        for scalar, idx in molecules.items():
-            tag = f"{scalar}[int]"
-            writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
-
-    writer.add_scalar("Other/TimePerStep[s]", dtime, step)
-    writer.add_scalar("Other/Split", exp.split_i, step)
-    writer.add_scalar("Other/Progress", exp.progress, step)
-    writer.add_scalar("Other/MutationRate", exp.mutation_rate, step)
-
-
-def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
-    writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
 class MutationRateSteps(MutationRateFact):
@@ -82,7 +43,7 @@ class GenomeSizeController(CellSampler):
         self.n = n
         self.progress_k_pairs = sorted(progress_k_pairs, reverse=True)
 
-    def __call__(self, exp: "Experiment") -> list[int]:
+    def __call__(self, exp: Experiment) -> list[int]:
         genome_lens = [len(d) for d in exp.world.genomes]
         sizes = torch.tensor(genome_lens)
         for progress, k in self.progress_k_pairs:
@@ -91,15 +52,26 @@ class GenomeSizeController(CellSampler):
         return []
 
 
-class DynamicAdaption(MediumFact):
+class AdvanceBySplitsAndGrowthRate(BatchCultureProgress):
+    def __init__(self, n_total_splits: float, min_gr: float):
+        self.min_gr = min_gr
+        self.n_valid_total_splits = n_total_splits
+        self.valid_split_i = 0
+
+    def __call__(self, exp: BatchCulture) -> float:
+        if exp.growth_rate >= self.min_gr:
+            self.valid_split_i += 1
+
+        return min(1.0, self.valid_split_i / self.n_valid_total_splits)
+
+
+class InstantMediumChange(MediumFact):
     def __init__(
         self,
         additives: list[ms.Molecule],
         substrates_a: list[ms.Molecule],
         substrates_b: list[ms.Molecule],
-        n_init_splits: float,
-        n_total_splits: float,
-        min_gr: float,
+        from_progress: float,
         substrates_init: float,
         additives_init: float,
         molmap: torch.Tensor,
@@ -112,19 +84,10 @@ class DynamicAdaption(MediumFact):
         self.add_idxs = [mol_2_idx[d.name] for d in additives]
         self.molmap = molmap
 
-        self.min_gr = min_gr
-
-        self.n_valid_init_splits = n_init_splits
-        self.n_valid_total_splits = n_total_splits
-        self.valid_split_i = 0
+        self.from_progress = from_progress  # n_init_splits / n_total_splits
 
     def __call__(self, exp: Experiment) -> torch.Tensor:
-        if exp.growth_rate >= self.min_gr:
-            self.valid_split_i += 1
-
-        exp.progress = min(1.0, self.valid_split_i / self.n_valid_total_splits)
-
-        if self.valid_split_i < self.n_valid_init_splits:
+        if exp.progress < self.from_progress:
             subs_idxs = self.subs_a_idxs
         else:
             subs_idxs = self.subs_b_idxs
@@ -187,17 +150,19 @@ def run_trial(
     n_init_adapt_splits = n_init_splits + hparams["n_adapt_splits"]
     n_total_splits = n_init_adapt_splits + hparams["n_final_splits"]
 
-    medium_fact = DynamicAdaption(
+    progress_controller = AdvanceBySplitsAndGrowthRate(
+        n_total_splits=n_total_splits, min_gr=hparams["min_gr"]
+    )
+
+    medium_fact = InstantMediumChange(
         substrates_a=subs_a,
         substrates_b=subs_b,
         additives=add,
         molmap=world.molecule_map,
         mol_2_idx=mol_2_idx,
-        n_init_splits=n_init_splits,
-        n_total_splits=n_total_splits,
+        from_progress=n_init_splits / n_total_splits,
         additives_init=hparams["additives_init"],
         substrates_init=hparams["substrates_init"],
-        min_gr=hparams["min_gr"],
     )
 
     genome_editor = EditAfterInit(
@@ -240,10 +205,11 @@ def run_trial(
     world.labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
 
     # init experiment with fresh medium
-    exp = Experiment(
+    exp = BatchCulture(
         world=world,
         lgt_rate=hparams["lgt_rate"],
         passager=passager,
+        progress_controller=progress_controller,
         medium_fact=medium_fact,
         mutation_rate_fact=mutation_rate_fact,
         division_by_x=division_by_x,
@@ -256,46 +222,46 @@ def run_trial(
     print(f"In total {len(genes)} genes are added")
     print(f"   Average genome size is {avg_genome_len:.0f}")
 
-    # start logging
-    writer = init_writer(logdir=trial_dir, hparams=hparams)
-    exp.world.save_state(statedir=trial_dir / "step=0")
-
     trial_t0 = time.time()
-    watchmols = list(set(add + subs_a + subs_b))
-    watch = [(d, mol_2_idx[d.name]) for d in watchmols]
     print(f"Starting trial {run_name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
-    _log_scalars(exp=exp, writer=writer, step=0, dtime=0, mols=watch)
-    _log_imgs(exp=exp, writer=writer, step=0)
 
-    # start steps
-    min_cells = int(exp.world.map_size**2 * 0.01)
-    for step_i in exp.run(max_steps=n_steps):
-        step_t0 = time.time()
+    # start logging
+    with BatchCultureLogger(
+        trial_dir=trial_dir,
+        hparams=hparams,
+        exp=exp,
+        watch_mols=list(set(add + subs_a + subs_b)),
+    ) as logger:
+        exp.world.save_state(statedir=trial_dir / "step=0")
 
-        exp.step_1s()
-        dtime = time.time() - step_t0
+        # start steps
+        min_cells = int(exp.world.map_size**2 * 0.01)
+        for step_i in exp.run(max_steps=n_steps):
+            step_t0 = time.time()
 
-        if exp.progress >= 1.0:
-            print(f"target reached after {step_i + 1} steps")
-            exp.world.save_state(statedir=trial_dir / f"step={step_i}")
-            _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime, mols=watch)
-            break
+            exp.step_1s()
+            dtime = time.time() - step_t0
 
-        if step_i % 5 == 0:
-            _log_scalars(exp=exp, writer=writer, step=step_i, dtime=dtime, mols=watch)
+            if exp.progress >= 1.0:
+                print(f"target reached after {step_i + 1} steps")
+                exp.world.save_state(statedir=trial_dir / f"step={step_i}")
+                logger.log_scalars(step=step_i, dtime=dtime)
+                break
 
-        if step_i % 50 == 0:
-            exp.world.save_state(statedir=trial_dir / f"step={step_i}")
-            _log_imgs(exp=exp, writer=writer, step=step_i)
+            if step_i % 5 == 0:
+                logger.log_scalars(step=step_i, dtime=dtime)
 
-        if exp.world.n_cells < min_cells:
-            print(f"after {step_i} steps less than {min_cells} cells left")
-            break
+            if step_i % 50 == 0:
+                exp.world.save_state(statedir=trial_dir / f"step={step_i}")
+                logger.log_imgs(step=step_i)
 
-        if (time.time() - trial_t0) > trial_max_time_s:
-            print(f"{trial_max_time_s} hours have passed")
-            break
+            if exp.world.n_cells < min_cells:
+                print(f"after {step_i} steps less than {min_cells} cells left")
+                break
+
+            if (time.time() - trial_t0) > trial_max_time_s:
+                print(f"{trial_max_time_s} hours have passed")
+                break
 
     print(f"Finishing trial {run_name}")
-    writer.close()
