@@ -148,7 +148,6 @@ class Experiment:
     def __init__(
         self,
         world: ms.World,
-        init_genomes: list[str],
         lgt_rate: float,
         passager: Passager,
         mutation_rate_fact: MutationRateFact,
@@ -183,11 +182,8 @@ class Experiment:
         self.passager = passager
         self.genome_editor = genome_editor
 
-        self.world.kill_cells(cell_idxs=list(range(self.world.n_cells)))
         self._prepare_fresh_plate()
 
-        # init cells
-        self.world.add_cells(genomes=init_genomes, batch_size=500)
         self._n0 = self.world.n_cells
         self._s0 = self.step_i
 

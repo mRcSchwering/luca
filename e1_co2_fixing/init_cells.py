@@ -1,20 +1,18 @@
 from pathlib import Path
-from typing import Callable
 import time
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import magicsoup as ms
-from .chemistry import WL_STAGES_MAP
-from .util import init_writer, load_cells, sigm_sample
+from .chemistry import WL_STAGES_MAP, _X, _E
+from .util import init_writer
 from .experiment import (
     Experiment,
     PassageByCells,
     MutationRateFact,
     MediumFact,
-    CellSampler,
+    GenomeSizeController,
     MoleculeDependentCellDivision,
     MoleculeDependentCellDeath,
-    GenomeEditor,
 )
 
 
@@ -62,102 +60,33 @@ def _log_imgs(exp: Experiment, writer: SummaryWriter, step: int):
     writer.add_image("Maps/Cells", exp.world.cell_map, step, dataformats="WH")
 
 
-class MutationRateSteps(MutationRateFact):
-    def __init__(self, progress_rate_pairs: list[tuple[float, float]]):
-        self.progress_rate_pairs = sorted(progress_rate_pairs, reverse=True)
+class ConstantRate(MutationRateFact):
+    def __init__(self, rate: float):
+        self.rate = rate
 
     def __call__(self, exp: Experiment) -> float:
-        for progress, rate in self.progress_rate_pairs:
-            if exp.progress >= progress:
-                return rate
-        return 0.0
+        return self.rate
 
 
-class GenomeSizeController(CellSampler):
+class DefinedMedium(MediumFact):
     def __init__(
         self,
-        progress_k_pairs: list[tuple[float, float]],
-        n: int,
-    ):
-        self.n = n
-        self.progress_k_pairs = sorted(progress_k_pairs, reverse=True)
-
-    def __call__(self, exp: "Experiment") -> list[int]:
-        genome_lens = [len(d) for d in exp.world.genomes]
-        sizes = torch.tensor(genome_lens)
-        for progress, k in self.progress_k_pairs:
-            if exp.progress >= progress:
-                return sigm_sample(sizes, k, self.n)
-        return []
-
-
-class DynamicAdaption(MediumFact):
-    def __init__(
-        self,
-        additives: list[ms.Molecule],
-        substrates_a: list[ms.Molecule],
-        substrates_b: list[ms.Molecule],
-        n_init_splits: float,
-        n_total_splits: float,
-        min_gr: float,
+        substrates: list[ms.Molecule],
+        n_splits: float,
         substrates_init: float,
-        additives_init: float,
         molmap: torch.Tensor,
         mol_2_idx: dict[str, int],
     ):
         self.substrates_init = substrates_init
-        self.additives_init = additives_init
-        self.subs_a_idxs = [mol_2_idx[d.name] for d in substrates_a]
-        self.subs_b_idxs = [mol_2_idx[d.name] for d in substrates_b]
-        self.add_idxs = [mol_2_idx[d.name] for d in additives]
+        self.subs_idxs = [mol_2_idx[d.name] for d in substrates]
         self.molmap = molmap
-
-        self.min_gr = min_gr
-
-        self.n_valid_init_splits = n_init_splits
-        self.n_valid_total_splits = n_total_splits
-        self.valid_split_i = 0
+        self.n_splits = n_splits
 
     def __call__(self, exp: Experiment) -> torch.Tensor:
-        if exp.growth_rate >= self.min_gr:
-            self.valid_split_i += 1
-
-        exp.progress = min(1.0, self.valid_split_i / self.n_valid_total_splits)
-
-        if self.valid_split_i < self.n_valid_init_splits:
-            subs_idxs = self.subs_a_idxs
-        else:
-            subs_idxs = self.subs_b_idxs
-
+        exp.progress = min(1.0, exp.split_i / self.n_splits)
         t = torch.zeros_like(self.molmap)
-        t[self.add_idxs] = self.additives_init
-        t[subs_idxs] = self.substrates_init
+        t[self.subs_idxs] = self.substrates_init
         return t
-
-
-class EditAfterInit(GenomeEditor):
-    def __init__(self, at_progress: float, genfun: Callable[[], str]):
-        self.genfun = genfun
-
-        # fails if size too small
-        _ = self.genfun()
-
-        self.at_progress = at_progress
-        self.edited = False
-
-    def __call__(self, exp: Experiment):
-        if self.edited:
-            return
-
-        if exp.progress < self.at_progress:
-            return
-
-        pairs: list[tuple[str, int]] = []
-        for cell_i, genome in enumerate(exp.world.genomes):
-            pairs.append((genome + self.genfun(), cell_i))
-
-        exp.world.update_cells(genome_idx_pairs=pairs)
-        self.edited = True
 
 
 def run_trial(
@@ -175,43 +104,16 @@ def run_trial(
     mol_2_idx = {d.name: i for i, d in enumerate(world.chemistry.molecules)}
     n_pxls = world.map_size**2
 
-    # stage: (new genes, complex substrates, minimal substrates, essentials)
-    genes, subs_a, subs_b, add = WL_STAGES_MAP[hparams["pathway_label"]]
-    print("Medium will change from substrates a to substrates b")
-    print(f"  substrates a: {', '.join(d.name for d in subs_a)}")
-    print(f"  substrates b: {', '.join(d.name for d in subs_b)}")
-    print(f"  additives: {', '.join(d.name for d in add)}")
-
     # factories
-    n_init_splits = hparams["n_init_splits"]
-    n_init_adapt_splits = n_init_splits + hparams["n_adapt_splits"]
-    n_total_splits = n_init_adapt_splits + hparams["n_final_splits"]
-
-    medium_fact = DynamicAdaption(
-        substrates_a=subs_a,
-        substrates_b=subs_b,
-        additives=add,
+    medium_fact = DefinedMedium(
+        substrates=WL_STAGES_MAP["WL-0"][1],
         molmap=world.molecule_map,
         mol_2_idx=mol_2_idx,
-        n_init_splits=n_init_splits,
-        n_total_splits=n_total_splits,
-        additives_init=hparams["additives_init"],
+        n_splits=hparams["n_splits"],
         substrates_init=hparams["substrates_init"],
-        min_gr=hparams["min_gr"],
     )
 
-    genome_editor = EditAfterInit(
-        at_progress=n_init_splits / n_total_splits,
-        genfun=lambda: world.generate_genome(proteome=genes, size=hparams["gene_size"]),
-    )
-
-    mutation_rate_fact = MutationRateSteps(
-        progress_rate_pairs=[
-            (0.0, hparams["mutation_rate_low"]),
-            (n_init_splits / n_total_splits, hparams["mutation_rate_high"]),
-            (n_init_adapt_splits / n_total_splits, hparams["mutation_rate_low"]),
-        ]
-    )
+    mutation_rate_fact = ConstantRate(rate=hparams["mutation_rate"])
 
     passager = PassageByCells(
         split_ratio=hparams["split_ratio"],
@@ -225,19 +127,7 @@ def run_trial(
     death_by_e = MoleculeDependentCellDeath(
         mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
     )
-    genome_size_controller = GenomeSizeController(
-        progress_k_pairs=[
-            (0.0, hparams["genome_kill_k"]),
-            (n_init_splits / n_total_splits, hparams["genome_kill_k"] + 4000),
-            (n_init_adapt_splits / n_total_splits, hparams["genome_kill_k"]),
-        ],
-        n=7,
-    )
-
-    # load initial cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=runsdir)
-    world.cell_divisions[:] = 0.0
-    world.labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
+    genome_size_controller = GenomeSizeController(k=hparams["genome_kill_k"], n=7)
 
     # init experiment with fresh medium
     exp = Experiment(
@@ -249,11 +139,19 @@ def run_trial(
         division_by_x=division_by_x,
         death_by_e=death_by_e,
         genome_size_controller=genome_size_controller,
-        genome_editor=genome_editor,
     )
 
+    # add initial genomes
+    xt = ms.ProteinFact(ms.TransporterDomainFact(_X))
+    et = ms.ProteinFact(ms.TransporterDomainFact(_E))
+    init_genomes = [
+        world.generate_genome(proteome=[xt, et], size=hparams["genome_size"])
+        for _ in range(int(n_pxls * hparams["init_cell_cover"]))
+    ]
+    exp.world.add_cells(genomes=init_genomes)
+
     avg_genome_len = sum(len(d) for d in world.genomes) / world.n_cells
-    print(f"In total {len(genes)} genes are added")
+    print(f"{exp.world.n_cells} cells were added")
     print(f"   Average genome size is {avg_genome_len:.0f}")
 
     # start logging
@@ -261,8 +159,7 @@ def run_trial(
     exp.world.save_state(statedir=trial_dir / "step=0")
 
     trial_t0 = time.time()
-    watchmols = list(set(add + subs_a + subs_b))
-    watch = [(d, mol_2_idx[d.name]) for d in watchmols]
+    watch = [(d, mol_2_idx[d.name]) for d in [_X, _E]]
     print(f"Starting trial {run_name}")
     print(f"on {exp.world.device} with {exp.world.workers} workers")
     _log_scalars(exp=exp, writer=writer, step=0, dtime=0, mols=watch)

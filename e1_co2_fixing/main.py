@@ -9,7 +9,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 import magicsoup as ms
 from .chemistry import CHEMISTRY, WL_STAGES_MAP
-from .train_pathway import run_trial
+from .init_cells import run_trial as init_cells_trial
+from .train_pathway import run_trial as train_pathway_trial
 
 THIS_DIR = Path(__file__).parent
 
@@ -26,6 +27,26 @@ def init_world_cmd(kwargs: dict):
     world.save(rundir=rundir)
 
 
+def init_cells_cmd(kwargs: dict):
+    kwargs.pop("func")
+    device = kwargs.pop("device")
+    n_workers = kwargs.pop("n_workers")
+    n_trials = kwargs.pop("n_trials")
+    n_steps = kwargs.pop("n_steps")
+    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
+    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+    for trial_i in range(n_trials):
+        init_cells_trial(
+            device=device,
+            n_workers=n_workers,
+            run_name=f"{ts}_{trial_i}",
+            n_steps=n_steps,
+            trial_max_time_s=trial_max_time_s,
+            hparams=kwargs,
+        )
+
+
 def train_pathway_cmd(kwargs: dict):
     kwargs.pop("func")
     device = kwargs.pop("device")
@@ -36,7 +57,7 @@ def train_pathway_cmd(kwargs: dict):
     ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     for trial_i in range(n_trials):
-        run_trial(
+        train_pathway_trial(
             device=device,
             n_workers=n_workers,
             run_name=f"{ts}_{trial_i}",
@@ -51,13 +72,118 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers()
 
     # init world
-    init_parser = subparsers.add_parser("init_world", help="initialize world object")
-    init_parser.set_defaults(func=init_world_cmd)
-    init_parser.add_argument(
+    world_parser = subparsers.add_parser("init_world", help="initialize world object")
+    world_parser.set_defaults(func=init_world_cmd)
+    world_parser.add_argument(
         "--map_size",
         default=128,
         type=int,
         help="Number of pixels of 2D map in each direction (default %(default)s)",
+    )
+
+    # init cells
+    cells_parser = subparsers.add_parser("init_cells", help="initialize cells")
+    cells_parser.set_defaults(func=init_cells_cmd)
+    cells_parser.add_argument(
+        "--init_cell_cover",
+        default=0.2,
+        type=float,
+        help="Ratio of map initially covered by cells (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--genome_size",
+        type=int,
+        default=500,
+        help="Initial genome size (default %(default)s).",
+    )
+    cells_parser.add_argument(
+        "--substrates_init",
+        default=100.0,
+        type=float,
+        help="Substrate concentration in medium (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--n_splits",
+        default=5.0,
+        type=float,
+        help="How many passages to let cells grow" " (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--mol_divide_k",
+        default=30.0,
+        type=float,
+        help="Affinity k for X-dependent cell division ([15;30], default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--mol_kill_k",
+        default=0.04,
+        type=float,
+        help="Affinity k for E-dependent cell death ([0.01;0.04], default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--genome_kill_k",
+        default=3_000.0,
+        type=float,
+        help="Affinity k for genome-size-dependent cell death"
+        " ([2000;4000], default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--mutation_rate",
+        default=1e-6,
+        type=float,
+        help="High mutation rate during adaption (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--lgt_rate",
+        default=1e-3,
+        type=float,
+        help="Lateral gene transfer rate (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--split_ratio",
+        default=0.2,
+        type=float,
+        help="Fraction of cells (to fully covered map) carried over during passage"
+        " (theoretically 0.13-0.2 is best, default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--split_thresh",
+        default=0.7,
+        type=float,
+        help="Ratio of map covered in cells that will trigger passage"
+        " (should be below 0.8, default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--n_trials",
+        default=1,
+        type=int,
+        help="How many times to try the training (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--n_steps",
+        default=1_000,
+        type=int,
+        help="Maxmimum number of steps (=virtual seconds) for each trial"
+        " (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--device",
+        default="cpu",
+        type=str,
+        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--n_workers",
+        default=4,
+        type=int,
+        help="How many processes to use for transcription and translation"
+        " (default %(default)s)",
+    )
+    cells_parser.add_argument(
+        "--trial_max_time_h",
+        default=1,
+        type=int,
+        help="Interrupt and stop trial after that many hours (default %(default)s)",
     )
 
     # train pathway
@@ -76,14 +202,7 @@ if __name__ == "__main__":
         type=str,
         help="""Describes from where initial genomes are loaded. E.g. 
         `2023-05-09_14-08_0:-1` to load genomes from run '2023-05-09_14-08_0' last 
-        saved state, or `2023-05-09_14-08_0/step=150` to load step 150. `random`
-         to initialize random genomes (default %(default)s)""",
-    )
-    train_parser.add_argument(
-        "--init_cell_cover",
-        default=0.2,
-        type=float,
-        help="Ratio of map initially covered by cells (default %(default)s)",
+        saved state, or `2023-05-09_14-08_0/step=150` to load step 150.""",
     )
     train_parser.add_argument(
         "--gene_size",
@@ -93,21 +212,21 @@ if __name__ == "__main__":
     )
     train_parser.add_argument(
         "--n_init_splits",
-        default=2.0,
+        default=5.0,
         type=float,
         help="How many passages to let cells grow before starting adaption"
         " (default %(default)s)",
     )
     train_parser.add_argument(
         "--n_adapt_splits",
-        default=2.0,
+        default=5.0,
         type=float,
         help="How many passages to let cells adapt to new substrates"
         " (default %(default)s)",
     )
     train_parser.add_argument(
         "--n_final_splits",
-        default=4.0,
+        default=5.0,
         type=float,
         help="How many passages to grow cells after adaption finished"
         " (default %(default)s)",

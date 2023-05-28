@@ -54,7 +54,7 @@ def find_steps(rundir: Path) -> list[int]:
     return sorted(int(d.split("step=")[-1]) for d in names)
 
 
-def load_genomes(label: str, runsdir: Path) -> list[str]:
+def load_cells(world: ms.World, label: str, runsdir: Path) -> list[str]:
     """
     Use label to load a world's genomes:
         - "<rundir>/step=<i>" to load step <i> of <rundir>
@@ -71,8 +71,4 @@ def load_genomes(label: str, runsdir: Path) -> list[str]:
     else:
         raise ValueError(f"Label {label} not recognized")
 
-    with open(statedir / "cells.fasta", "r", encoding="utf-8") as fh:
-        text: str = fh.read()
-
-    entries = [d.strip() for d in text.split(">") if len(d.strip()) > 0]
-    return [d.split("\n")[1] for d in entries]
+    world.load_state(statedir=statedir, batch_size=500)
