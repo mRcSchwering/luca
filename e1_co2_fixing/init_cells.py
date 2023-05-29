@@ -6,8 +6,7 @@ from .chemistry import WL_STAGES_MAP, _X, _E
 from .experiment import (
     Experiment,
     BatchCulture,
-    BatchCultureLogger,
-    BatchCultureProgress,
+    ProgressController,
     PassageByCells,
     ConstantRate,
     MediumFact,
@@ -15,20 +14,28 @@ from .experiment import (
     MoleculeDependentCellDivision,
     MoleculeDependentCellDeath,
 )
+from .logging import BatchCultureLogger
 
 
 THIS_DIR = Path(__file__).parent
 
 
-class AdvanceBySplit(BatchCultureProgress):
+class AdvanceBySplit(ProgressController):
+    """Increment progress by each passage up to `n_splits`"""
+
     def __init__(self, n_splits: int):
         self.n_splits = n_splits
 
-    def __call__(self, exp: "BatchCulture") -> float:
+    def __call__(self, exp: BatchCulture) -> float:  # type: ignore[override]
         return min(1.0, exp.split_i / self.n_splits)
 
 
 class DefinedMedium(MediumFact):
+    """
+    Medium is replaced during passage with fresh medium
+    containing substrates at `substrate_init`.
+    """
+
     def __init__(
         self,
         substrates: list[ms.Molecule],

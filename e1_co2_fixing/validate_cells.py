@@ -7,29 +7,40 @@ from .util import load_cells
 from .experiment import (
     Experiment,
     ChemoStat,
-    ChemoStatLogger,
-    ChemoStatProgress,
+    ProgressController,
     ConstantRate,
     MediumFact,
     GenomeSizeController,
     MoleculeDependentCellDivision,
     MoleculeDependentCellDeath,
 )
+from .logging import ChemoStatLogger
 
 
 THIS_DIR = Path(__file__).parent
 
 
-class AdvanceByCellDivisions(ChemoStatProgress):
+class AdvanceByCellDivisions(ProgressController):
+    """Increment progress by average cell divisions up to `n_divisions`"""
+
     def __init__(self, n_divisions: float):
         self.n_divisions = n_divisions
 
-    def __call__(self, exp: ChemoStat) -> float:
+    def __call__(self, exp: ChemoStat) -> float:  # type: ignore[override]
         mean_divis = exp.world.cell_divisions.float().mean()
         return min(1.0, mean_divis.item() / self.n_divisions)
 
 
 class XGradient(MediumFact):
+    """
+    A 1D gradient is created over the X axis of the map.
+    In the middle there is an area where fresh medium is added,
+    at the borders there is an area where medium is removed.
+    The total area where medium is added and where medium is removed
+    is 10% each. Fresh medium contains substrates at `substrates_init`
+    and additives at `additives_init`.
+    """
+
     def __init__(
         self,
         substrates: list[ms.Molecule],

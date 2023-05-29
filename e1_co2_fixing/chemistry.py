@@ -12,7 +12,8 @@ from Gong, Fuyu & Cai, Zhen & Li, Yin. (2016). Synthetic biology for CO2 fixatio
 and https://en.wikipedia.org/wiki/Biological_carbon_fixation#Overview%20of%20pathways
 
 Some reactions are combined for simplicity.
-Common intermediates between different pathways are kept to allow cell to use combinations of pathways.
+Common intermediates between different pathways are kept
+to allow cell to use combinations of pathways.
 
 ## Calvin cycle
 
@@ -142,7 +143,6 @@ I would like to add more transformations that are not described in these
 pathway but I don't know enough about this topic.
 E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
-from collections import Counter
 from magicsoup.containers import (
     Molecule,
     Chemistry,
@@ -425,9 +425,8 @@ REACTIONS = (
 CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 
 
-# building up pathway from end towards beginning
+# building up pathway from end to start
 # stage: (new genes, substrates a, substrates b, additives)
-# TODO: magicsoup test, gucken wie sich Ke-Q verhalten bei Transportern und Reactions
 WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule]]] = [
     (
         [
@@ -490,26 +489,3 @@ WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
 
 ADDITIVES = [_HSCoA, _FH4, _RuBP, _ADP, _NADP]
 SUBSTRATES = [_E, _co2]
-
-
-def print_mathjax(chem: Chemistry):
-    """Print mathjax for all defined reactions"""
-    print(r"\begin{align*}")
-    for subs, prods in chem.reactions:
-        sub_cnts = Counter(r"\text{" + d.name + r"}" for d in subs)
-        prod_cnts = Counter(r"\text{" + d.name + r"}" for d in prods)
-        sub_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in sub_cnts.items()]
-        prod_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in prod_cnts.items()]
-        sub_str = " + ".join(sub_strs)
-        prod_str = " + ".join(prod_strs)
-        raw_energy = sum(d.energy for d in prods) - sum(d.energy for d in subs)
-        fmd_energy = f"{raw_energy / 1e3:.0f}" + r" \; \text{kJ/mol}"
-        print(
-            sub_str
-            + r" & \rightleftharpoons "
-            + prod_str
-            + r" \; & "
-            + f"({fmd_energy})"
-            + r" \\"
-        )
-    print(r"\end{align*}")

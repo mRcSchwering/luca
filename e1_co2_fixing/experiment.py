@@ -3,31 +3,22 @@ import random
 import math
 import torch
 import magicsoup as ms
-from .util import sigm_sample, rev_sigm_sample, init_writer
+from .util import sigm_sample, rev_sigm_sample
 
 THIS_DIR = Path(__file__).parent
 
 
+# abstract factories
+
+
 class MutationRateFact:
     """
-    Factory for returning current mutation rates.
+    Factory for returning current mutation rate.
     """
 
     def __call__(self, exp: "Experiment") -> float:
         """Returns current mutation rates"""
         raise NotImplementedError
-
-
-class ConstantRate(MutationRateFact):
-    """
-    Keep constant mutation rate
-    """
-
-    def __init__(self, rate: float):
-        self.rate = rate
-
-    def __call__(self, exp: "Experiment") -> float:
-        return self.rate
 
 
 class CellSampler:
@@ -37,6 +28,66 @@ class CellSampler:
 
     def __call__(self, exp: "Experiment") -> list[int]:
         raise NotImplementedError
+
+
+class MediumFact:
+    """
+    Factory for generating new medium in experiment
+    """
+
+    additives_init: float  # initial additives concentration
+    substrates_init: float  # initial substrates concentration
+    add_idxs: list[int]  # additives indexes
+    subs_idxs: list[int]  # substrate indexes
+
+    def __call__(self, exp: "Experiment") -> torch.Tensor:
+        """Returns a new molecule map"""
+        raise NotImplementedError
+
+
+class GenomeEditor:
+    """
+    Edit cell genomes
+    """
+
+    def __call__(self, exp: "Experiment"):
+        raise NotImplementedError
+
+
+class ProgressController:
+    """
+    Control experimental progress
+    """
+
+    def __call__(self, exp: "Experiment") -> float:
+        raise NotImplementedError
+
+
+class Passager:
+    """
+    Class defining when and how passages are done in batch culture experiment
+    """
+
+    split_leftover: int
+
+    def __call__(self, exp: "BatchCulture") -> bool:
+        """Returns whether to passage cells now"""
+        raise NotImplementedError
+
+
+# common factories
+
+
+class ConstantRate(MutationRateFact):
+    """
+    Returns a constant mutation rate
+    """
+
+    def __init__(self, rate: float):
+        self.rate = rate
+
+    def __call__(self, exp: "Experiment") -> float:
+        return self.rate
 
 
 class MoleculeDependentCellDeath(CellSampler):
@@ -93,63 +144,6 @@ class GenomeSizeController(CellSampler):
         return sigm_sample(sizes, self.k, self.n)
 
 
-class MediumFact:
-    """
-    Factory for generating new medium in experiment
-    """
-
-    additives_init: float  # initial additives concentration
-    substrates_init: float  # initial substrates concentration
-    add_idxs: list[int]  # additives indexes
-    subs_idxs: list[int]  # substrate indexes
-
-    def __call__(self, exp: "Experiment") -> torch.Tensor:
-        """Returns a new molecule map"""
-        raise NotImplementedError
-
-
-class GenomeEditor:
-    """
-    Edit cell genomes
-    """
-
-    def __call__(self, exp: "Experiment"):
-        raise NotImplementedError
-
-
-# TODO: TypeVar instead of 2 classes?
-class BatchCultureProgress:
-    """
-    Progress controller for batch culture experiments
-    """
-
-    def __call__(self, exp: "BatchCulture") -> float:
-        """Returns current progress"""
-        raise NotImplementedError
-
-
-class ChemoStatProgress:
-    """
-    Progress controller for ChemoStat experiments
-    """
-
-    def __call__(self, exp: "ChemoStat") -> float:
-        """Returns current progress"""
-        raise NotImplementedError
-
-
-class Passager:
-    """
-    Class defining when and how passages are done in batch culture experiment
-    """
-
-    split_leftover: int
-
-    def __call__(self, exp: "BatchCulture") -> bool:
-        """Returns whether to passage cells now"""
-        raise NotImplementedError
-
-
 class PassageByCells(Passager):
     """
     Passage cells if world too full in batch culture experiment
@@ -168,6 +162,9 @@ class PassageByCells(Passager):
         return exp.world.n_cells >= self.max_cells
 
 
+# experimental procedures
+
+
 class Experiment:
     """
     Common experimental procedure.
@@ -180,6 +177,7 @@ class Experiment:
         death_by_e: cell idx sampler for cell death by low energy
         genome_size_controller: cell idx sampler for cell death by high genome size
         medium_fact: factory for generating media
+        progress_controller: controll experimental progress
         genome_editor: factory for editing genomes
     """
 
@@ -192,6 +190,7 @@ class Experiment:
         death_by_e: CellSampler,
         genome_size_controller: CellSampler,
         medium_fact: MediumFact,
+        progress_controller: ProgressController,
         genome_editor: GenomeEditor | None = None,
     ):
         self.world = world
@@ -211,6 +210,7 @@ class Experiment:
         self.death_by_e = death_by_e
         self.genome_size_controller = genome_size_controller
         self.medium_fact = medium_fact
+        self.progress_controller = progress_controller
         self.genome_editor = genome_editor
 
     def run(self, max_steps: int):
@@ -293,6 +293,7 @@ class BatchCulture(Experiment):
         genome_size_controller: cell idx sampler for cell death by high genome size
         medium_fact: factory for generating media
         passager: controller for passaging cells
+        progress_controller: controll experimental progress
         genome_editor: factory for editing genomes
     """
 
@@ -305,7 +306,7 @@ class BatchCulture(Experiment):
         death_by_e: CellSampler,
         genome_size_controller: CellSampler,
         medium_fact: MediumFact,
-        progress_controller: BatchCultureProgress,
+        progress_controller: ProgressController,
         passager: Passager,
         genome_editor: GenomeEditor | None = None,
     ):
@@ -317,6 +318,7 @@ class BatchCulture(Experiment):
             death_by_e=death_by_e,
             genome_size_controller=genome_size_controller,
             medium_fact=medium_fact,
+            progress_controller=progress_controller,
             genome_editor=genome_editor,
         )
 
@@ -324,7 +326,6 @@ class BatchCulture(Experiment):
         self.cpd = 0.0
         self.growth_rate = 0.0
 
-        self.progress_controller = progress_controller
         self.passager = passager
 
         self._prepare_fresh_plate()
@@ -396,6 +397,7 @@ class ChemoStat(Experiment):
         death_by_e: cell idx sampler for cell death by low energy
         genome_size_controller: cell idx sampler for cell death by high genome size
         medium_fact: factory for generating media
+        progress_controller: controll experimental progress
         genome_editor: factory for editing genomes
     """
 
@@ -408,7 +410,7 @@ class ChemoStat(Experiment):
         death_by_e: CellSampler,
         genome_size_controller: CellSampler,
         medium_fact: MediumFact,
-        progress_controller: ChemoStatProgress,
+        progress_controller: ProgressController,
         genome_editor: GenomeEditor | None = None,
     ):
         super().__init__(
@@ -419,12 +421,11 @@ class ChemoStat(Experiment):
             death_by_e=death_by_e,
             genome_size_controller=genome_size_controller,
             medium_fact=medium_fact,
+            progress_controller=progress_controller,
             genome_editor=genome_editor,
         )
 
-        self.progress_controller = progress_controller
-
-        # fresh medium
+        # initial fresh medium
         self.world.molecule_map[medium_fact.subs_idxs] = medium_fact.substrates_init
         self.world.molecule_map[medium_fact.add_idxs] = medium_fact.additives_init
         self._set_medium()
@@ -449,156 +450,3 @@ class ChemoStat(Experiment):
         self.progress = self.progress_controller(self)
         self.world.molecule_map = self.medium_fact(self)
         self.world.diffuse_molecules()
-
-
-class Logger:
-    """
-    Tensorboard logger base class
-    """
-
-    def __init__(
-        self,
-        trial_dir: Path,
-        hparams: dict,
-    ):
-        self.writer = init_writer(logdir=trial_dir, hparams=hparams)
-
-    def close(self):
-        self.writer.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        self.writer.close()
-
-
-class BatchCultureLogger(Logger):
-    """
-    Tensorboard logger for batch culture experiment
-
-    Arguments:
-        - trial_dir: path to runs directory
-        - hparams: dict of all hyperparameters
-        - exp: initialized experiment object
-        - watch_mols: list of molecules to log
-    """
-
-    def __init__(
-        self,
-        trial_dir: Path,
-        hparams: dict,
-        exp: BatchCulture,
-        watch_mols: list[ms.Molecule],
-    ):
-        super().__init__(trial_dir=trial_dir, hparams=hparams)
-
-        mol_2_idx = {d.name: i for i, d in enumerate(exp.world.chemistry.molecules)}
-        mol_idxs = [(d, mol_2_idx[d.name]) for d in watch_mols]
-
-        self.molecules = {f"Molecules/{s}": i for s, i in mol_idxs}
-        self.exp = exp
-
-        self.log_scalars(step=0, dtime=0.0)
-        self.log_imgs(step=0)
-
-    def log_scalars(
-        self,
-        step: int,
-        dtime: float,
-    ):
-        n_cells = self.exp.world.n_cells
-        molecule_map = self.exp.world.molecule_map
-        cell_molecules = self.exp.world.cell_molecules
-
-        for scalar, idx in self.molecules.items():
-            tag = f"{scalar}[ext]"
-            self.writer.add_scalar(tag, molecule_map[idx].mean(), step)
-
-        if n_cells > 0:
-            self.writer.add_scalar("Cells/Total", n_cells, step)
-            mean_surv = self.exp.world.cell_survival.float().mean()
-            mean_divis = self.exp.world.cell_divisions.float().mean()
-            genome_lens = [len(d) for d in self.exp.world.genomes]
-            self.writer.add_scalar("Cells/Survival", mean_surv, step)
-            self.writer.add_scalar("Cells/Divisions", mean_divis, step)
-            self.writer.add_scalar("Cells/cPD", self.exp.cpd, step)
-            self.writer.add_scalar("Cells/GrowthRate", self.exp.growth_rate, step)
-            self.writer.add_scalar("Cells/GenomeSize", sum(genome_lens) / n_cells, step)
-            for scalar, idx in self.molecules.items():
-                tag = f"{scalar}[int]"
-                self.writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
-
-        self.writer.add_scalar("Other/TimePerStep[s]", dtime, step)
-        self.writer.add_scalar("Other/Split", self.exp.split_i, step)
-        self.writer.add_scalar("Other/Progress", self.exp.progress, step)
-        self.writer.add_scalar("Other/MutationRate", self.exp.mutation_rate, step)
-
-    def log_imgs(self, step: int):
-        self.writer.add_image(
-            "Maps/Cells", self.exp.world.cell_map, step, dataformats="WH"
-        )
-
-
-class ChemoStatLogger(Logger):
-    """
-    Tensorboard logger for ChemoStat experiment
-
-    Arguments:
-        - trial_dir: path to runs directory
-        - hparams: dict of all hyperparameters
-        - exp: initialized experiment object
-        - watch_mols: list of molecules to log
-    """
-
-    def __init__(
-        self,
-        trial_dir: Path,
-        hparams: dict,
-        exp: ChemoStat,
-        watch_mols: list[ms.Molecule],
-    ):
-        super().__init__(trial_dir=trial_dir, hparams=hparams)
-
-        mol_2_idx = {d.name: i for i, d in enumerate(exp.world.chemistry.molecules)}
-        mol_idxs = [(d, mol_2_idx[d.name]) for d in watch_mols]
-
-        self.molecules = {f"Molecules/{s}": i for s, i in mol_idxs}
-        self.exp = exp
-
-        self.log_scalars(step=0, dtime=0.0)
-        self.log_imgs(step=0)
-
-    def log_scalars(
-        self,
-        step: int,
-        dtime: float,
-    ):
-        n_cells = self.exp.world.n_cells
-        molecule_map = self.exp.world.molecule_map
-        cell_molecules = self.exp.world.cell_molecules
-
-        for scalar, idx in self.molecules.items():
-            tag = f"{scalar}[ext]"
-            self.writer.add_scalar(tag, molecule_map[idx].mean(), step)
-
-        if n_cells > 0:
-            self.writer.add_scalar("Cells/Total", n_cells, step)
-            mean_surv = self.exp.world.cell_survival.float().mean()
-            mean_divis = self.exp.world.cell_divisions.float().mean()
-            genome_lens = [len(d) for d in self.exp.world.genomes]
-            self.writer.add_scalar("Cells/Survival", mean_surv, step)
-            self.writer.add_scalar("Cells/Divisions", mean_divis, step)
-            self.writer.add_scalar("Cells/GenomeSize", sum(genome_lens) / n_cells, step)
-            for scalar, idx in self.molecules.items():
-                tag = f"{scalar}[int]"
-                self.writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
-
-        self.writer.add_scalar("Other/TimePerStep[s]", dtime, step)
-        self.writer.add_scalar("Other/Progress", self.exp.progress, step)
-        self.writer.add_scalar("Other/MutationRate", self.exp.mutation_rate, step)
-
-    def log_imgs(self, step: int):
-        self.writer.add_image(
-            "Maps/Cells", self.exp.world.cell_map, step, dataformats="WH"
-        )

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from collections import Counter
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
@@ -72,3 +73,26 @@ def load_cells(world: ms.World, label: str, runsdir: Path):
         raise ValueError(f"Label {label} not recognized")
 
     world.load_state(statedir=statedir, batch_size=500)
+
+
+def print_mathjax(chem: ms.Chemistry):
+    """Print mathjax for all defined reactions"""
+    print(r"\begin{align*}")
+    for subs, prods in chem.reactions:
+        sub_cnts = Counter(r"\text{" + d.name + r"}" for d in subs)
+        prod_cnts = Counter(r"\text{" + d.name + r"}" for d in prods)
+        sub_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in sub_cnts.items()]
+        prod_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in prod_cnts.items()]
+        sub_str = " + ".join(sub_strs)
+        prod_str = " + ".join(prod_strs)
+        raw_energy = sum(d.energy for d in prods) - sum(d.energy for d in subs)
+        fmd_energy = f"{raw_energy / 1e3:.0f}" + r" \; \text{kJ/mol}"
+        print(
+            sub_str
+            + r" & \rightleftharpoons "
+            + prod_str
+            + r" \; & "
+            + f"({fmd_energy})"
+            + r" \\"
+        )
+    print(r"\end{align*}")

@@ -12,23 +12,16 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 
 - [main.py](./main.py) entrypoint for the simulation
 - [chemistry.py](./chemistry.py) world's chemistry definition
-- [train_pathway.py](./train_pathway.py) experimental procedure to train cells to fix CO2
+- [experiment.py](./experiment.py) common experimental procedures
+- [init_cells.py](./init_cells.py) initialize cells to grow in medium containing X (batch culture)
+- [train_pathway.py](./train_pathway.py) stage-wise pathway training teaching cells to fix CO2 (batch culture)
+- [validate_cells.py](./validate_cells.py) validate viability by growing cells in CO2 and E (ChemoStat)
 - [runs/](./runs/) saved runs (in gitignore)
 - [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
-- [analyze_2023-01-17_21-45.ipynb](./analyze_2023-01-17_21-45.ipynb) cells formed a stable colony, but they grew huge genomes
 
 ```
-# init world
-python -m e1_co2_fixing.main init_world
-
-# short test run with default hyperparameters:
-python -m e1_co2_fixing.main train_pathway --pathway WL --n_steps=50 --n_trials=1
-...
-# proper run on GPU with default hyperparameters:
-python -m e1_co2_fixing.main train_pathway --pathway WL --device=cuda
-...
-# watch progress on tensorboard
-tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
+# follow help texts for commands
+python -m e1_co2_fixing.main --help
 ```
 
 ## Chemistry
