@@ -226,11 +226,6 @@ def run_trial(
         n=7,
     )
 
-    # load initial cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=runsdir)
-    world.cell_divisions[:] = 0.0
-    world.labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
-
     # init experiment with fresh medium
     exp = BatchCulture(
         world=world,
@@ -245,9 +240,8 @@ def run_trial(
         genome_editor=genome_editor,
     )
 
-    avg_genome_len = sum(len(d) for d in world.genomes) / world.n_cells
-    print(f"In total {len(genes)} genes are added")
-    print(f"   Average genome size is {avg_genome_len:.0f}")
+    # load initial cells
+    load_cells(world=world, label=hparams["init_label"], runsdir=runsdir)
 
     trial_t0 = time.time()
     print(f"Starting trial {run_name}")

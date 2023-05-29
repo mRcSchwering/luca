@@ -107,7 +107,7 @@ def run_trial(
         genome_size_controller=genome_size_controller,
     )
 
-    # add initial genomes
+    # add initial cells
     xt = ms.ProteinFact(ms.TransporterDomainFact(_X))
     et = ms.ProteinFact(ms.TransporterDomainFact(_E))
     init_genomes = [
@@ -115,10 +115,6 @@ def run_trial(
         for _ in range(int(n_pxls * hparams["init_cell_cover"]))
     ]
     exp.world.add_cells(genomes=init_genomes)
-
-    avg_genome_len = sum(len(d) for d in world.genomes) / world.n_cells
-    print(f"{exp.world.n_cells} cells were added")
-    print(f"   Average genome size is {avg_genome_len:.0f}")
 
     trial_t0 = time.time()
     print(f"Starting trial {run_name}")

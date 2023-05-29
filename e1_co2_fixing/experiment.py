@@ -177,8 +177,7 @@ class Experiment:
         death_by_e: cell idx sampler for cell death by low energy
         genome_size_controller: cell idx sampler for cell death by high genome size
         medium_fact: factory for generating media
-        progress_controller: controll experimental progress
-        genome_editor: factory for editing genomes
+        progress_controller: control experimental progress
     """
 
     def __init__(
@@ -191,7 +190,6 @@ class Experiment:
         genome_size_controller: CellSampler,
         medium_fact: MediumFact,
         progress_controller: ProgressController,
-        genome_editor: GenomeEditor | None = None,
     ):
         self.world = world
         self.step_i = 0
@@ -211,7 +209,6 @@ class Experiment:
         self.genome_size_controller = genome_size_controller
         self.medium_fact = medium_fact
         self.progress_controller = progress_controller
-        self.genome_editor = genome_editor
 
     def run(self, max_steps: int):
         for step_i in range(max_steps):
@@ -319,19 +316,20 @@ class BatchCulture(Experiment):
             genome_size_controller=genome_size_controller,
             medium_fact=medium_fact,
             progress_controller=progress_controller,
-            genome_editor=genome_editor,
         )
 
+        self.genome_editor = genome_editor
+        self.passager = passager
+
+        # initialize passage variables
         self.split_i = 0
         self.cpd = 0.0
         self.growth_rate = 0.0
-
-        self.passager = passager
-
-        self._prepare_fresh_plate()
-
         self._n0 = self.world.n_cells
         self._s0 = self.step_i
+
+        # initial fresh medium
+        self._prepare_fresh_plate()
 
     def step_1s(self):
         self.world.diffuse_molecules()
@@ -398,7 +396,6 @@ class ChemoStat(Experiment):
         genome_size_controller: cell idx sampler for cell death by high genome size
         medium_fact: factory for generating media
         progress_controller: controll experimental progress
-        genome_editor: factory for editing genomes
     """
 
     def __init__(
@@ -411,7 +408,6 @@ class ChemoStat(Experiment):
         genome_size_controller: CellSampler,
         medium_fact: MediumFact,
         progress_controller: ProgressController,
-        genome_editor: GenomeEditor | None = None,
     ):
         super().__init__(
             world=world,
@@ -422,13 +418,12 @@ class ChemoStat(Experiment):
             genome_size_controller=genome_size_controller,
             medium_fact=medium_fact,
             progress_controller=progress_controller,
-            genome_editor=genome_editor,
         )
 
         # initial fresh medium
         self.world.molecule_map[medium_fact.subs_idxs] = medium_fact.substrates_init
         self.world.molecule_map[medium_fact.add_idxs] = medium_fact.additives_init
-        self._set_medium()
+        self._add_remove_medium()
 
     def step_1s(self):
         self.world.diffuse_molecules()
@@ -444,9 +439,9 @@ class ChemoStat(Experiment):
 
         self.mutation_rate = self.mutation_rate_fact(self)
 
-        self._set_medium()
+        self._add_remove_medium()
 
-    def _set_medium(self):
+    def _add_remove_medium(self):
         self.progress = self.progress_controller(self)
         self.world.molecule_map = self.medium_fact(self)
         self.world.diffuse_molecules()

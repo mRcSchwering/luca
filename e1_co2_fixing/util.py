@@ -73,6 +73,9 @@ def load_cells(world: ms.World, label: str, runsdir: Path):
         raise ValueError(f"Label {label} not recognized")
 
     world.load_state(statedir=statedir, batch_size=500)
+    world.reposition_cells(cell_idxs=list(range(world.n_cells)))
+    world.cell_divisions[:] = 0.0
+    world.labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
 
 
 def print_mathjax(chem: ms.Chemistry):

@@ -33,10 +33,10 @@ python -c 'import torch; print(torch.cuda.is_available())'  # check torch was co
 nvidia-smi -l 1  # monitor GPU
 ```
 
-In [e1_co2_fixing/](./e1_co2_fixing/) on a **g4dn.xlarge** with a map size of 128 and around 2k cells
+In [e1_co2_fixing/](./e1_co2_fixing/) on a **g4dn.xlarge** with `magicsoup==0.3.8` and a map size of 128 and around 2k cells
 of each 1k genome size
 I am seeing ~5.5GB (of 15GB) GPU memory usage, mostly >90% GPU utilisation with short 0% gaps (probably genome translation),
-~1s per step (CUDA 12, magicsoup 0.3).
+on average ~1s per step (CUDA 12, magicsoup 0.3) ranging from 0.1s to 1.5s depending on number of cells.
 
 ### Screen
 

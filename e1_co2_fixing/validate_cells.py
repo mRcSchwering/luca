@@ -128,12 +128,6 @@ def run_trial(
 
     # load initial cells
     load_cells(world=world, label=hparams["init_label"], runsdir=runsdir)
-    world.cell_divisions[:] = 0.0
-    world.labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
-
-    avg_genome_len = sum(len(d) for d in world.genomes) / world.n_cells
-    print(f"{exp.world.n_cells} cells were added")
-    print(f"   Average genome size is {avg_genome_len:.0f}")
 
     trial_t0 = time.time()
     print(f"Starting trial {run_name}")
