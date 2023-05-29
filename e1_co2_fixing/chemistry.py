@@ -412,10 +412,6 @@ MOLECULES = (
     + _hprophbut_mols
 )
 
-# have to create oxalacetate on their own
-ESSENTIAL_MOLS = [_HSCoA, _FH4, _RuBP, _ADP, _NADP]
-SUBSTRATE_MOLS = [_E, _co2]
-
 REACTIONS = (
     _common_reacts
     + _calvin_reacts
@@ -427,38 +423,6 @@ REACTIONS = (
 )
 
 CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
-
-GENOMES = {
-    "Calvin": _calvin_reacts,
-    "WL": _wl_reacts,
-    "hProp": _hprop_reacts,
-    "rTCA": _rtca_reacts,
-    "dCarbHB": _dcarbhb_reacts,
-    "hPropHBut": _hprophbut_reacts,
-}
-
-
-def print_mathjax(chem: Chemistry):
-    """Print mathjax for all defined reactions"""
-    print(r"\begin{align*}")
-    for subs, prods in chem.reactions:
-        sub_cnts = Counter(r"\text{" + d.name + r"}" for d in subs)
-        prod_cnts = Counter(r"\text{" + d.name + r"}" for d in prods)
-        sub_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in sub_cnts.items()]
-        prod_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in prod_cnts.items()]
-        sub_str = " + ".join(sub_strs)
-        prod_str = " + ".join(prod_strs)
-        raw_energy = sum(d.energy for d in prods) - sum(d.energy for d in subs)
-        fmd_energy = f"{raw_energy / 1e3:.0f}" + r" \; \text{kJ/mol}"
-        print(
-            sub_str
-            + r" & \rightleftharpoons "
-            + prod_str
-            + r" \; & "
-            + f"({fmd_energy})"
-            + r" \\"
-        )
-    print(r"\end{align*}")
 
 
 # building up pathway from end towards beginning
@@ -523,3 +487,29 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
 ]
 
 WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
+
+ADDITIVES = [_HSCoA, _FH4, _RuBP, _ADP, _NADP]
+SUBSTRATES = [_E, _co2]
+
+
+def print_mathjax(chem: Chemistry):
+    """Print mathjax for all defined reactions"""
+    print(r"\begin{align*}")
+    for subs, prods in chem.reactions:
+        sub_cnts = Counter(r"\text{" + d.name + r"}" for d in subs)
+        prod_cnts = Counter(r"\text{" + d.name + r"}" for d in prods)
+        sub_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in sub_cnts.items()]
+        prod_strs = [("" if d < 2 else rf"{d} \; ") + k for k, d in prod_cnts.items()]
+        sub_str = " + ".join(sub_strs)
+        prod_str = " + ".join(prod_strs)
+        raw_energy = sum(d.energy for d in prods) - sum(d.energy for d in subs)
+        fmd_energy = f"{raw_energy / 1e3:.0f}" + r" \; \text{kJ/mol}"
+        print(
+            sub_str
+            + r" & \rightleftharpoons "
+            + prod_str
+            + r" \; & "
+            + f"({fmd_energy})"
+            + r" \\"
+        )
+    print(r"\end{align*}")
