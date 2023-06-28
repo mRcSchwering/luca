@@ -4,7 +4,7 @@ import time
 import torch
 import magicsoup as ms
 from .chemistry import WL_STAGES_MAP
-from .util import load_cells, sigm_sample
+from .util import load_cells
 from .experiment import (
     Experiment,
     BatchCulture,
@@ -12,7 +12,7 @@ from .experiment import (
     MutationRateFact,
     MediumFact,
     ProgressController,
-    CellSampler,
+    GenomeSizeController,
     MoleculeDependentCellDivision,
     MoleculeDependentCellDeath,
     GenomeEditor,
@@ -56,25 +56,6 @@ class MutationRateSteps(MutationRateFact):
             if exp.progress >= progress:
                 return rate
         return 0.0
-
-
-# TODO: possible without?
-class GenomeSizeController(CellSampler):
-    def __init__(
-        self,
-        progress_k_pairs: list[tuple[float, float]],
-        n: int,
-    ):
-        self.n = n
-        self.progress_k_pairs = sorted(progress_k_pairs, reverse=True)
-
-    def __call__(self, exp: Experiment) -> list[int]:
-        genome_lens = [len(d) for d in exp.world.genomes]
-        sizes = torch.tensor(genome_lens)
-        for progress, k in self.progress_k_pairs:
-            if exp.progress >= progress:
-                return sigm_sample(sizes, k, self.n)
-        return []
 
 
 class InstantMediumChange(MediumFact):
@@ -215,14 +196,7 @@ def run_trial(
     death_by_e = MoleculeDependentCellDeath(
         mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
     )
-    genome_size_controller = GenomeSizeController(
-        progress_k_pairs=[
-            (0.0, hparams["genome_kill_k"]),
-            (n_init_splits / n_total_splits, hparams["genome_kill_k"] + 4000),
-            (n_init_adapt_splits / n_total_splits, hparams["genome_kill_k"]),
-        ],
-        n=7,
-    )
+    genome_size_controller = GenomeSizeController(k=hparams["genome_kill_k"], n=7)
 
     # init experiment with fresh medium
     exp = BatchCulture(
