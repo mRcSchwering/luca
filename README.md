@@ -7,10 +7,12 @@ I organized experiments in more or less self-contained directories.
 
 ### CPU-only Setup
 
-For CPU-only with [conda](https://docs.conda.io/en/latest/):
+For CPU-only with [conda](https://docs.conda.io/en/latest/).
+Install environment from the desired experiment:
 
 ```
-conda env create -f environment.yml
+# e.g. for e1_co2_fixing
+conda env create -f e1_co2_fixing/environment.yml
 ```
 
 ### AWS EC2 with GPU
@@ -25,7 +27,9 @@ git clone https://github.com/mRcSchwering/luca  # get repo
 
 conda init && source ~/.bashrc  # init conda
 conda update -n base conda  # update conda
-conda env create -f environment_gpu.yml  # install environment
+
+# e.g. for e1_co2_fixing experiment
+conda env create -f e1_co2_fixing/environment_gpu.yml  # install environment
 conda activate luca  # activate envrionment
 
 nvcc --version  # check CUDA version
