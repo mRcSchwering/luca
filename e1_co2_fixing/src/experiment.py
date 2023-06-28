@@ -1,11 +1,8 @@
-from pathlib import Path
 import random
 import math
 import torch
 import magicsoup as ms
 from .util import sigm_sample, rev_sigm_sample
-
-THIS_DIR = Path(__file__).parent
 
 
 # abstract factories

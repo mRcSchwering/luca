@@ -8,16 +8,15 @@ import datetime as dt
 from argparse import ArgumentParser
 from pathlib import Path
 import magicsoup as ms
-from .chemistry import CHEMISTRY, WL_STAGES_MAP
-from .init_cells import run_trial as init_cells_trial
-from .train_pathway import run_trial as train_pathway_trial
-from .validate_cells import run_trial as validate_cells_trial
+from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
+from .src.init_cells import run_trial as init_cells_trial
+from .src.train_pathway import run_trial as train_pathway_trial
+from .src.validate_cells import run_trial as validate_cells_trial
 
-THIS_DIR = Path(__file__).parent
+_RUNS_DIR = Path(__file__).parent / "runs"
 
 
 def init_world_cmd(kwargs: dict):
-    rundir = THIS_DIR / "runs"
     map_size = kwargs["map_size"]
     print(f"Initialing world with map_size={map_size}")
     world = ms.World(
@@ -25,7 +24,7 @@ def init_world_cmd(kwargs: dict):
         map_size=map_size,
         mol_map_init="zeros",
     )
-    world.save(rundir=rundir)
+    world.save(rundir=_RUNS_DIR)
 
 
 def init_cells_cmd(kwargs: dict):
@@ -41,6 +40,7 @@ def init_cells_cmd(kwargs: dict):
         init_cells_trial(
             device=device,
             n_workers=n_workers,
+            runs_dir=_RUNS_DIR,
             run_name=f"{ts}_{trial_i}",
             n_steps=n_steps,
             trial_max_time_s=trial_max_time_s,
@@ -61,6 +61,7 @@ def train_pathway_cmd(kwargs: dict):
         train_pathway_trial(
             device=device,
             n_workers=n_workers,
+            runs_dir=_RUNS_DIR,
             run_name=f"{ts}_{trial_i}",
             n_steps=n_steps,
             trial_max_time_s=trial_max_time_s,
@@ -81,6 +82,7 @@ def validate_cells_cmd(kwargs: dict):
         validate_cells_trial(
             device=device,
             n_workers=n_workers,
+            runs_dir=_RUNS_DIR,
             run_name=f"{ts}_{trial_i}",
             n_steps=n_steps,
             trial_max_time_s=trial_max_time_s,

@@ -20,8 +20,6 @@ from .experiment import (
 from .logging import BatchCultureLogger
 
 
-THIS_DIR = Path(__file__).parent
-
 
 class AdvanceBySplitsAndGrowthRate(ProgressController):
     """
@@ -153,15 +151,15 @@ class EditAfterInit(GenomeEditor):
 def run_trial(
     device: str,
     n_workers: int,
+    runs_dir: Path,
     run_name: str,
     n_steps: int,
     trial_max_time_s: int,
     hparams: dict,
 ):
     # runs reference
-    runsdir = THIS_DIR / "runs"
-    trial_dir = runsdir / run_name
-    world = ms.World.from_file(rundir=runsdir, device=device, workers=n_workers)
+    trial_dir = runs_dir / run_name
+    world = ms.World.from_file(rundir=runs_dir, device=device, workers=n_workers)
     mol_2_idx = {d.name: i for i, d in enumerate(world.chemistry.molecules)}
     n_pxls = world.map_size**2
 
@@ -241,7 +239,7 @@ def run_trial(
     )
 
     # load initial cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=runsdir)
+    load_cells(world=world, label=hparams["init_label"], runsdir=runs_dir)
 
     trial_t0 = time.time()
     print(f"Starting trial {run_name}")
