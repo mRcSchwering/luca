@@ -1,7 +1,7 @@
 """
 Entrypoint for simulation. Run with:
 
-  python -m e1_co2_fixing.main --help
+  python -m e1_co2_fixing --help
 
 """
 import datetime as dt

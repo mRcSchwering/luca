@@ -10,18 +10,18 @@ Fixed carbon is defined by molecule species such as acetyl-CoA.
 ![latest run](latest_run.png "latest run")
 _World map for cells and CO2 is shown. Columns represent different time steps of the simulation, the top row shows cells, the bottom row shows CO2 concentrations. CO2 is constantly replenished on the vertical middle-line, creating a gradient. First, cells grow randomly over the map, exhausting acetyl-CoA. Then, most cells die. Only cells that know how to replenish acetyl-CoA from CO2 and that are close to the CO2 source survive._
 
-- [main.py](./main.py) entrypoint for the simulation
-- [chemistry.py](./chemistry.py) world's chemistry definition
-- [experiment.py](./experiment.py) common experimental procedures
-- [init_cells.py](./init_cells.py) initialize cells to grow in medium containing X (batch culture)
-- [train_pathway.py](./train_pathway.py) stage-wise pathway training teaching cells to fix CO2 (batch culture)
-- [validate_cells.py](./validate_cells.py) validate viability by growing cells in CO2 and E (ChemoStat)
+- [**main**.py](./__main__.py) entrypoint for the simulation
+- [src/chemistry.py](./src/chemistry.py) world's chemistry definition
+- [src/experiment.py](./src/experiment.py) common experimental procedures
+- [src/init_cells.py](./src/init_cells.py) initialize cells to grow in medium containing X (batch culture)
+- [src/train_pathway.py](./src/train_pathway.py) stage-wise pathway training teaching cells to fix CO2 (batch culture)
+- [src/validate_cells.py](./src/validate_cells.py) validate viability by growing cells in CO2 and E (ChemoStat)
 - [runs/](./runs/) saved runs (in gitignore)
 - [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
 
 ```
 # follow help texts for commands
-python -m e1_co2_fixing.main --help
+python -m e1_co2_fixing --help
 ```
 
 ## Chemistry
@@ -78,4 +78,4 @@ are hyperparameters which are varied.
 In [prep.ipynb](./ipynb) useful ranges for these hyperparameters are estimated.
 Different hyperparameter sets are tested where each set of hyperparameters is a
 $run$ and replicates are $trials$.
-See [train_pathway.py](./train_pathway.py) for details.
+See [src/train_pathway.py](./src/train_pathway.py) for details.
