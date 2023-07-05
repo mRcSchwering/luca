@@ -75,21 +75,6 @@ class Passager:
 # common factories
 
 
-# TODO: or even not change mutation rate?
-
-
-class ConstantRate(MutationRateFact):
-    """
-    Returns a constant mutation rate
-    """
-
-    def __init__(self, rate: float):
-        self.rate = rate
-
-    def __call__(self, exp: "Experiment") -> float:
-        return self.rate
-
-
 class MutationRateSteps(MutationRateFact):
     """
     Change mutation rate in steps defined by `progress_rate_pairs`
@@ -183,6 +168,10 @@ class PassageByCells(Passager):
 # experimental procedures
 
 
+# TODO: was taking mutation rate fact out a good idea?
+
+
+# TODO: arguments
 class Experiment:
     """
     Common experimental procedure.
@@ -202,9 +191,9 @@ class Experiment:
         self,
         world: ms.World,
         lgt_rate: float,
-        mutation_rate_fact: MutationRateFact,
         medium_fact: MediumFact,
         progress_controller: ProgressController,
+        mutation_rates: float | list[tuple[float, float]] = 1e-6,
         mol_divide_k: float = 30.0,
         mol_divide_n: int = 3,
         mol_kill_k: float = 0.04,
@@ -221,7 +210,12 @@ class Experiment:
         self.X_I = molecules.index("X")
         self.E_I = molecules.index("E")
 
-        self.mutation_rate_fact = mutation_rate_fact
+        self.mutation_rate_fact = MutationRateSteps(
+            progress_rate_pairs=[(0.0, mutation_rates)]
+            if isinstance(mutation_rates, float)
+            else mutation_rates
+        )
+
         self.mutation_rate = self.mutation_rate_fact(self)
         self.lgt_rate = lgt_rate
 

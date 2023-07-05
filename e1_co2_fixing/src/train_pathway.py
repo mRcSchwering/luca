@@ -9,16 +9,11 @@ from .experiment import (
     Experiment,
     BatchCulture,
     PassageByCells,
-    MutationRateFact,
     MediumFact,
     ProgressController,
-    GenomeSizeController,
-    MoleculeDependentCellDivision,
-    MoleculeDependentCellDeath,
     GenomeEditor,
 )
 from .logging import BatchCultureLogger
-
 
 
 class AdvanceBySplitsAndGrowthRate(ProgressController):
@@ -38,24 +33,6 @@ class AdvanceBySplitsAndGrowthRate(ProgressController):
             self.valid_split_i += 1
 
         return min(1.0, self.valid_split_i / self.n_valid_total_splits)
-
-
-class MutationRateSteps(MutationRateFact):
-    """
-    Change mutation rate in steps defined by `progress_rate_pairs`
-    where each pair defines the experimental progress and mutation rate
-    of a step. If the experimental progress is reached or achieved the
-    associated mutation rate will be returned.
-    """
-
-    def __init__(self, progress_rate_pairs: list[tuple[float, float]]):
-        self.progress_rate_pairs = sorted(progress_rate_pairs, reverse=True)
-
-    def __call__(self, exp: Experiment) -> float:
-        for progress, rate in self.progress_rate_pairs:
-            if exp.progress >= progress:
-                return rate
-        return 0.0
 
 
 class InstantMediumChange(MediumFact):
@@ -176,27 +153,17 @@ def run_trial(
         genfun=lambda: world.generate_genome(proteome=genes, size=hparams["gene_size"]),
     )
 
-    mutation_rate_fact = MutationRateSteps(
-        progress_rate_pairs=[
-            (0.0, hparams["mutation_rate_low"]),
-            (n_init_splits / n_total_splits, hparams["mutation_rate_high"]),
-            (n_init_adapt_splits / n_total_splits, hparams["mutation_rate_low"]),
-        ]
-    )
+    mutation_rates = [
+        (0.0, 1e-6),
+        (n_init_splits / n_total_splits, 1e-6 * hparams["mutation_rate_increase"]),
+        (n_init_adapt_splits / n_total_splits, 1e-6),
+    ]
 
     passager = PassageByCells(
         split_ratio=hparams["split_ratio"],
         split_thresh=hparams["split_thresh"],
         max_cells=n_pxls,
     )
-
-    division_by_x = MoleculeDependentCellDivision(
-        mol_i=mol_2_idx["X"], k=hparams["mol_divide_k"], n=3
-    )
-    death_by_e = MoleculeDependentCellDeath(
-        mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
-    )
-    genome_size_controller = GenomeSizeController(k=hparams["genome_kill_k"], n=7)
 
     # init experiment with fresh medium
     exp = BatchCulture(
@@ -205,10 +172,7 @@ def run_trial(
         passager=passager,
         progress_controller=progress_controller,
         medium_fact=medium_fact,
-        mutation_rate_fact=mutation_rate_fact,
-        division_by_x=division_by_x,
-        death_by_e=death_by_e,
-        genome_size_controller=genome_size_controller,
+        mutation_rates=mutation_rates,
         genome_editor=genome_editor,
     )
 

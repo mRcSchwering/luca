@@ -140,12 +140,6 @@ if __name__ == "__main__":
         help="How many passages to let cells grow" " (default %(default)s)",
     )
     cells_parser.add_argument(
-        "--mutation_rate",
-        default=1e-6,
-        type=float,
-        help="Mutation rate (default %(default)s)",
-    )
-    cells_parser.add_argument(
         "--lgt_rate",
         default=1e-3,
         type=float,
@@ -266,16 +260,11 @@ if __name__ == "__main__":
         help="Additives concentration in fresh medium (default %(default)s)",
     )
     train_parser.add_argument(
-        "--mutation_rate_high",
-        default=1e-4,
+        "--mutation_rate_increase",
+        default=10.0,
         type=float,
-        help="High mutation rate during adaption phase (default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--mutation_rate_low",
-        default=1e-6,
-        type=float,
-        help="Low mutation rate during other phases (default %(default)s)",
+        help="How much higher mutation rate is during adaption phase"
+        " (default %(default)s)",
     )
     train_parser.add_argument(
         "--lgt_rate",
@@ -361,12 +350,6 @@ if __name__ == "__main__":
         type=float,
         help="How many average cell divisions to let cells grow"
         " (default %(default)s)",
-    )
-    val_parser.add_argument(
-        "--mutation_rate",
-        default=1e-6,
-        type=float,
-        help="Mutation rate (default %(default)s)",
     )
     val_parser.add_argument(
         "--lgt_rate",

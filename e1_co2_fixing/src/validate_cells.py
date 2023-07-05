@@ -8,11 +8,7 @@ from .experiment import (
     Experiment,
     ChemoStat,
     ProgressController,
-    ConstantRate,
     MediumFact,
-    GenomeSizeController,
-    MoleculeDependentCellDivision,
-    MoleculeDependentCellDeath,
 )
 from .logging import ChemoStatLogger
 
@@ -88,7 +84,6 @@ def run_trial(
     # runs reference
     trial_dir = runs_dir / run_name
     world = ms.World.from_file(rundir=runs_dir, device=device, workers=n_workers)
-    mol_2_idx = {d.name: i for i, d in enumerate(world.chemistry.molecules)}
 
     # factories
     progress_controller = AdvanceByCellDivisions(n_divisions=hparams["n_divisions"])
@@ -101,26 +96,12 @@ def run_trial(
         world=world,
     )
 
-    mutation_rate_fact = ConstantRate(rate=hparams["mutation_rate"])
-
-    division_by_x = MoleculeDependentCellDivision(
-        mol_i=mol_2_idx["X"], k=hparams["mol_divide_k"], n=3
-    )
-    death_by_e = MoleculeDependentCellDeath(
-        mol_i=mol_2_idx["E"], k=hparams["mol_kill_k"], n=1
-    )
-    genome_size_controller = GenomeSizeController(k=hparams["genome_kill_k"], n=7)
-
     # init experiment with fresh medium
     exp = ChemoStat(
         world=world,
         lgt_rate=hparams["lgt_rate"],
         progress_controller=progress_controller,
         medium_fact=medium_fact,
-        mutation_rate_fact=mutation_rate_fact,
-        division_by_x=division_by_x,
-        death_by_e=death_by_e,
-        genome_size_controller=genome_size_controller,
     )
 
     # load initial cells
