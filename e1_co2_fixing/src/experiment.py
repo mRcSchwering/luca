@@ -75,6 +75,9 @@ class Passager:
 # common factories
 
 
+# TODO: or even not change mutation rate?
+
+
 class ConstantRate(MutationRateFact):
     """
     Returns a constant mutation rate
@@ -85,6 +88,24 @@ class ConstantRate(MutationRateFact):
 
     def __call__(self, exp: "Experiment") -> float:
         return self.rate
+
+
+class MutationRateSteps(MutationRateFact):
+    """
+    Change mutation rate in steps defined by `progress_rate_pairs`
+    where each pair defines the experimental progress and mutation rate
+    of a step. If the experimental progress is reached or achieved the
+    associated mutation rate will be returned.
+    """
+
+    def __init__(self, progress_rate_pairs: list[tuple[float, float]]):
+        self.progress_rate_pairs = sorted(progress_rate_pairs, reverse=True)
+
+    def __call__(self, exp: "Experiment") -> float:
+        for progress, rate in self.progress_rate_pairs:
+            if exp.progress >= progress:
+                return rate
+        return 0.0
 
 
 class MoleculeDependentCellDeath(CellSampler):
@@ -182,11 +203,14 @@ class Experiment:
         world: ms.World,
         lgt_rate: float,
         mutation_rate_fact: MutationRateFact,
-        division_by_x: CellSampler,
-        death_by_e: CellSampler,
-        genome_size_controller: CellSampler,
         medium_fact: MediumFact,
         progress_controller: ProgressController,
+        mol_divide_k: float = 30.0,
+        mol_divide_n: int = 3,
+        mol_kill_k: float = 0.04,
+        mol_kill_n: int = 1,
+        genome_kill_k: float = 3_000.0,
+        genome_kill_n: int = 7,
     ):
         self.world = world
         self.step_i = 0
@@ -201,9 +225,18 @@ class Experiment:
         self.mutation_rate = self.mutation_rate_fact(self)
         self.lgt_rate = lgt_rate
 
-        self.division_by_x = division_by_x
-        self.death_by_e = death_by_e
-        self.genome_size_controller = genome_size_controller
+        self.division_by_x = MoleculeDependentCellDivision(
+            mol_i=self.X_I, k=mol_divide_k, n=mol_divide_n
+        )
+
+        self.death_by_e = MoleculeDependentCellDeath(
+            mol_i=self.E_I, k=mol_kill_k, n=mol_kill_n
+        )
+
+        self.genome_size_controller = GenomeSizeController(
+            k=genome_kill_k, n=genome_kill_n
+        )
+
         self.medium_fact = medium_fact
         self.progress_controller = progress_controller
 
@@ -225,7 +258,7 @@ class Experiment:
         sample = torch.bernoulli(p).to(self.world.device).bool()
 
         # cells that havent replicated in a while are open to LGT
-        old_cells = self.world.cell_survival >= 20
+        old_cells = self.world.cell_lifetimes >= 20
         idxs = torch.argwhere(old_cells & sample).flatten().tolist()
         nghbr_idxs = torch.argwhere(old_cells).flatten().tolist()
 
@@ -245,7 +278,7 @@ class Experiment:
 
         # max mu will be every 10 steps, consumes 4X
         idxs0 = self.division_by_x(self)
-        idxs1 = torch.argwhere(self.world.cell_survival >= 10).flatten().tolist()
+        idxs1 = torch.argwhere(self.world.cell_lifetimes >= 10).flatten().tolist()
         idxs2 = torch.argwhere(self.world.cell_molecules[:, i] > 4.1).flatten().tolist()
         idxs = list(set(idxs0) & set(idxs1) & set(idxs2))
 
@@ -270,7 +303,7 @@ class Experiment:
     def kill_cells(self):
         idxs0 = self.death_by_e(self)
         idxs1 = self.genome_size_controller(self)
-        idxs2 = torch.argwhere(self.world.cell_survival <= 3).flatten().tolist()
+        idxs2 = torch.argwhere(self.world.cell_lifetimes <= 3).flatten().tolist()
         self.world.kill_cells(cell_idxs=list(set(idxs0 + idxs1) - set(idxs2)))
 
 
@@ -279,41 +312,15 @@ class BatchCulture(Experiment):
     Experimental procedure for batch culture experiments
 
     Parameters:
-        world: Initialized and loaded world object on device
-        lgt_rate: lateral gene transfer rate
-        mutation_rate_fact: factory defining mutation rates
-        division_by_x: cell idx sampler for cell divisions
-        death_by_e: cell idx sampler for cell death by low energy
-        genome_size_controller: cell idx sampler for cell death by high genome size
-        medium_fact: factory for generating media
         passager: controller for passaging cells
-        progress_controller: controll experimental progress
         genome_editor: factory for editing genomes
+        kwargs: additional arguments for Experiment
     """
 
     def __init__(
-        self,
-        world: ms.World,
-        lgt_rate: float,
-        mutation_rate_fact: MutationRateFact,
-        division_by_x: CellSampler,
-        death_by_e: CellSampler,
-        genome_size_controller: CellSampler,
-        medium_fact: MediumFact,
-        progress_controller: ProgressController,
-        passager: Passager,
-        genome_editor: GenomeEditor | None = None,
+        self, passager: Passager, genome_editor: GenomeEditor | None = None, **kwargs
     ):
-        super().__init__(
-            world=world,
-            lgt_rate=lgt_rate,
-            mutation_rate_fact=mutation_rate_fact,
-            division_by_x=division_by_x,
-            death_by_e=death_by_e,
-            genome_size_controller=genome_size_controller,
-            medium_fact=medium_fact,
-            progress_controller=progress_controller,
-        )
+        super().__init__(**kwargs)
 
         self.genome_editor = genome_editor
         self.passager = passager
@@ -334,7 +341,7 @@ class BatchCulture(Experiment):
         self.world.enzymatic_activity()
 
         self.kill_cells()
-        self.world.increment_cell_survival()
+        self.world.increment_cell_lifetimes()
         self.replicate_cells()
 
         # calculate growth
@@ -385,41 +392,17 @@ class ChemoStat(Experiment):
     Experimental procedure for ChemoStat culture
 
     Parameters:
-        world: Initialized and loaded world object on device
-        lgt_rate: lateral gene transfer rate
-        mutation_rate_fact: factory defining mutation rates
-        division_by_x: cell idx sampler for cell divisions
-        death_by_e: cell idx sampler for cell death by low energy
-        genome_size_controller: cell idx sampler for cell death by high genome size
-        medium_fact: factory for generating media
-        progress_controller: controll experimental progress
+        kwargs: Arguments for Experiment
     """
 
-    def __init__(
-        self,
-        world: ms.World,
-        lgt_rate: float,
-        mutation_rate_fact: MutationRateFact,
-        division_by_x: CellSampler,
-        death_by_e: CellSampler,
-        genome_size_controller: CellSampler,
-        medium_fact: MediumFact,
-        progress_controller: ProgressController,
-    ):
-        super().__init__(
-            world=world,
-            lgt_rate=lgt_rate,
-            mutation_rate_fact=mutation_rate_fact,
-            division_by_x=division_by_x,
-            death_by_e=death_by_e,
-            genome_size_controller=genome_size_controller,
-            medium_fact=medium_fact,
-            progress_controller=progress_controller,
-        )
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         # initial fresh medium
-        self.world.molecule_map[medium_fact.subs_idxs] = medium_fact.substrates_init
-        self.world.molecule_map[medium_fact.add_idxs] = medium_fact.additives_init
+        subs_idxs = self.medium_fact.subs_idxs
+        add_idxs = self.medium_fact.add_idxs
+        self.world.molecule_map[subs_idxs] = self.medium_fact.substrates_init
+        self.world.molecule_map[add_idxs] = self.medium_fact.additives_init
         self._add_remove_medium()
 
     def step_1s(self):
@@ -428,7 +411,7 @@ class ChemoStat(Experiment):
         self.world.enzymatic_activity()
 
         self.kill_cells()
-        self.world.increment_cell_survival()
+        self.world.increment_cell_lifetimes()
         self.replicate_cells()
 
         self.mutate_cells()

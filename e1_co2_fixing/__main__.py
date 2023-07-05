@@ -140,25 +140,6 @@ if __name__ == "__main__":
         help="How many passages to let cells grow" " (default %(default)s)",
     )
     cells_parser.add_argument(
-        "--mol_divide_k",
-        default=30.0,
-        type=float,
-        help="Affinity k for X-dependent cell division ([15;30], default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--mol_kill_k",
-        default=0.04,
-        type=float,
-        help="Affinity k for E-dependent cell death ([0.01;0.04], default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--genome_kill_k",
-        default=3_000.0,
-        type=float,
-        help="Affinity k for genome-size-dependent cell death"
-        " ([2000;4000], default %(default)s)",
-    )
-    cells_parser.add_argument(
         "--mutation_rate",
         default=1e-6,
         type=float,
@@ -297,25 +278,6 @@ if __name__ == "__main__":
         help="Low mutation rate during other phases (default %(default)s)",
     )
     train_parser.add_argument(
-        "--mol_divide_k",
-        default=30.0,
-        type=float,
-        help="Affinity k for X-dependent cell division ([15;30], default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--mol_kill_k",
-        default=0.04,
-        type=float,
-        help="Affinity k for E-dependent cell death ([0.01;0.04], default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--genome_kill_k",
-        default=3_000.0,
-        type=float,
-        help="Affinity k for genome-size-dependent cell death"
-        " ([2000;4000], default %(default)s)",
-    )
-    train_parser.add_argument(
         "--lgt_rate",
         default=1e-3,
         type=float,
@@ -399,25 +361,6 @@ if __name__ == "__main__":
         type=float,
         help="How many average cell divisions to let cells grow"
         " (default %(default)s)",
-    )
-    val_parser.add_argument(
-        "--mol_divide_k",
-        default=30.0,
-        type=float,
-        help="Affinity k for X-dependent cell division ([15;30], default %(default)s)",
-    )
-    val_parser.add_argument(
-        "--mol_kill_k",
-        default=0.04,
-        type=float,
-        help="Affinity k for E-dependent cell death ([0.01;0.04], default %(default)s)",
-    )
-    val_parser.add_argument(
-        "--genome_kill_k",
-        default=3_000.0,
-        type=float,
-        help="Affinity k for genome-size-dependent cell death"
-        " ([2000;4000], default %(default)s)",
     )
     val_parser.add_argument(
         "--mutation_rate",
