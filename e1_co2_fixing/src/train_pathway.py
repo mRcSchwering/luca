@@ -12,6 +12,7 @@ from .experiment import (
     MediumFact,
     ProgressController,
     GenomeEditor,
+    MutationRateSteps,
 )
 from .logging import BatchCultureLogger
 
@@ -132,6 +133,17 @@ def run_trial(
     n_init_splits = hparams["n_init_splits"]
     n_init_adapt_splits = n_init_splits + hparams["n_adapt_splits"]
     n_total_splits = n_init_adapt_splits + hparams["n_final_splits"]
+    adaption_start = n_init_splits / n_total_splits
+    adaption_end = n_init_adapt_splits / n_total_splits
+
+    base_rate = MutationRateSteps.base_rate
+    mutation_rate_fact = MutationRateSteps(
+        progress_rate_pairs=[
+            (0.0, base_rate),
+            (adaption_start, base_rate * hparams["mutation_rate_mult"]),
+            (adaption_end, base_rate),
+        ]
+    )
 
     progress_controller = AdvanceBySplitsAndGrowthRate(
         n_total_splits=n_total_splits, min_gr=hparams["min_gr"]
@@ -143,21 +155,15 @@ def run_trial(
         additives=add,
         molmap=world.molecule_map,
         mol_2_idx=mol_2_idx,
-        at_progress=n_init_splits / n_total_splits,
+        at_progress=adaption_start,
         additives_init=hparams["additives_init"],
         substrates_init=hparams["substrates_init"],
     )
 
     genome_editor = EditAfterInit(
-        at_progress=n_init_splits / n_total_splits,
+        at_progress=adaption_start,
         genfun=lambda: world.generate_genome(proteome=genes, size=hparams["gene_size"]),
     )
-
-    mutation_rates = [
-        (0.0, 1e-6),
-        (n_init_splits / n_total_splits, 1e-6 * hparams["mutation_rate_increase"]),
-        (n_init_adapt_splits / n_total_splits, 1e-6),
-    ]
 
     passager = PassageByCells(
         split_ratio=hparams["split_ratio"],
@@ -168,11 +174,10 @@ def run_trial(
     # init experiment with fresh medium
     exp = BatchCulture(
         world=world,
-        lgt_rate=hparams["lgt_rate"],
         passager=passager,
         progress_controller=progress_controller,
         medium_fact=medium_fact,
-        mutation_rates=mutation_rates,
+        mutation_rate_fact=mutation_rate_fact,
         genome_editor=genome_editor,
     )
 

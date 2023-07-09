@@ -99,7 +99,6 @@ def run_trial(
     # init experiment with fresh medium
     exp = ChemoStat(
         world=world,
-        lgt_rate=hparams["lgt_rate"],
         progress_controller=progress_controller,
         medium_fact=medium_fact,
     )

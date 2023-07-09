@@ -80,7 +80,6 @@ def run_trial(
     # init experiment with fresh medium
     exp = BatchCulture(
         world=world,
-        lgt_rate=hparams["lgt_rate"],
         passager=passager,
         progress_controller=progress_controller,
         medium_fact=medium_fact,

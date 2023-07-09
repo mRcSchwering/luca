@@ -13,6 +13,8 @@ class MutationRateFact:
     Factory for returning current mutation rate.
     """
 
+    base_rate: float = 1e-6
+
     def __call__(self, exp: "Experiment") -> float:
         """Returns current mutation rates"""
         raise NotImplementedError
@@ -77,20 +79,31 @@ class Passager:
 
 class MutationRateSteps(MutationRateFact):
     """
-    Change mutation rate in steps defined by `progress_rate_pairs`
-    where each pair defines the experimental progress and mutation rate
-    of a step. If the experimental progress is reached or achieved the
-    associated mutation rate will be returned.
+    Set mutation rate in accordance with experiment progress.
+
+    Arguments:
+        progress_rate_pairs: List of tuples of progress and mutation rate pairs.
+            If experimental progress reaches or surpasses a pair's progress
+            its mutation rate will be active.
+
+    If `progress_rate_pairs` is `None` or empty, `base_rate` will be the (constant)
+    mutation rate.
     """
 
-    def __init__(self, progress_rate_pairs: list[tuple[float, float]]):
+    def __init__(
+        self,
+        progress_rate_pairs: list[tuple[float, float]] | None = None,
+    ):
+        if progress_rate_pairs is None:
+            progress_rate_pairs = []
+
         self.progress_rate_pairs = sorted(progress_rate_pairs, reverse=True)
 
     def __call__(self, exp: "Experiment") -> float:
         for progress, rate in self.progress_rate_pairs:
             if exp.progress >= progress:
                 return rate
-        return 0.0
+        return self.base_rate
 
 
 class MoleculeDependentCellDeath(CellSampler):
@@ -168,32 +181,31 @@ class PassageByCells(Passager):
 # experimental procedures
 
 
-# TODO: was taking mutation rate fact out a good idea?
-
-
-# TODO: arguments
 class Experiment:
     """
     Common experimental procedure.
 
     Parameters:
         world: Initialized and loaded world object on device
-        lgt_rate: lateral gene transfer rate
-        mutation_rate_fact: factory defining mutation rates
-        division_by_x: cell idx sampler for cell divisions
-        death_by_e: cell idx sampler for cell death by low energy
-        genome_size_controller: cell idx sampler for cell death by high genome size
         medium_fact: factory for generating media
         progress_controller: control experimental progress
+        mutation_rate_fact: factory defining mutation rates
+        lgt_rate: lateral gene transfer rate
+        mol_divide_k: k for X-dependent division CellSampler
+        mol_divide_n: n for X-dependent division CellSampler
+        mol_kill_k: k for E-dependent death CellSampler
+        mol_kill_n: n for E-dependent death CellSampler
+        genome_kill_k: k for genome-size-dependent death CellSampler
+        genome_kill_n: n for genome-size-dependent death CellSampler
     """
 
     def __init__(
         self,
         world: ms.World,
-        lgt_rate: float,
         medium_fact: MediumFact,
         progress_controller: ProgressController,
-        mutation_rates: float | list[tuple[float, float]] = 1e-6,
+        mutation_rate_fact: MutationRateFact | None = None,
+        lgt_rate: float = 1e-3,
         mol_divide_k: float = 30.0,
         mol_divide_n: int = 3,
         mol_kill_k: float = 0.04,
@@ -210,12 +222,10 @@ class Experiment:
         self.X_I = molecules.index("X")
         self.E_I = molecules.index("E")
 
-        self.mutation_rate_fact = MutationRateSteps(
-            progress_rate_pairs=[(0.0, mutation_rates)]
-            if isinstance(mutation_rates, float)
-            else mutation_rates
-        )
+        if mutation_rate_fact is None:
+            mutation_rate_fact = MutationRateSteps()
 
+        self.mutation_rate_fact = mutation_rate_fact
         self.mutation_rate = self.mutation_rate_fact(self)
         self.lgt_rate = lgt_rate
 
@@ -308,7 +318,6 @@ class BatchCulture(Experiment):
     Parameters:
         passager: controller for passaging cells
         genome_editor: factory for editing genomes
-        kwargs: additional arguments for Experiment
     """
 
     def __init__(
@@ -330,6 +339,11 @@ class BatchCulture(Experiment):
         self._prepare_fresh_plate()
 
     def step_1s(self):
+        print(
+            self.world.molecule_map.min(),
+            self.world.molecule_map.mean(),
+            self.world.molecule_map.max(),
+        )
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
         self.world.enzymatic_activity()
@@ -384,9 +398,6 @@ class BatchCulture(Experiment):
 class ChemoStat(Experiment):
     """
     Experimental procedure for ChemoStat culture
-
-    Parameters:
-        kwargs: Arguments for Experiment
     """
 
     def __init__(self, **kwargs):

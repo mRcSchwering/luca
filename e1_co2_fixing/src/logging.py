@@ -80,7 +80,7 @@ class BatchCultureLogger(Logger):
 
         if n_cells > 0:
             self.writer.add_scalar("Cells/Total", n_cells, step)
-            mean_surv = self.exp.world.cell_survival.float().mean()
+            mean_surv = self.exp.world.cell_lifetimes.float().mean()
             mean_divis = self.exp.world.cell_divisions.float().mean()
             genome_lens = [len(d) for d in self.exp.world.genomes]
             self.writer.add_scalar("Cells/Survival", mean_surv, step)
@@ -147,7 +147,7 @@ class ChemoStatLogger(Logger):
 
         if n_cells > 0:
             self.writer.add_scalar("Cells/Total", n_cells, step)
-            mean_surv = self.exp.world.cell_survival.float().mean()
+            mean_surv = self.exp.world.cell_lifetimes.float().mean()
             mean_divis = self.exp.world.cell_divisions.float().mean()
             genome_lens = [len(d) for d in self.exp.world.genomes]
             self.writer.add_scalar("Cells/Survival", mean_surv, step)
