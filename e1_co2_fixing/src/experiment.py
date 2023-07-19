@@ -339,11 +339,6 @@ class BatchCulture(Experiment):
         self._prepare_fresh_plate()
 
     def step_1s(self):
-        print(
-            self.world.molecule_map.min(),
-            self.world.molecule_map.mean(),
-            self.world.molecule_map.max(),
-        )
         self.world.diffuse_molecules()
         self.world.degrade_molecules()
         self.world.enzymatic_activity()

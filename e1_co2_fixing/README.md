@@ -10,7 +10,7 @@ Fixed carbon is defined by molecule species such as acetyl-CoA.
 ![latest run](latest_run.png "latest run")
 _World map for cells and CO2 is shown. Columns represent different time steps of the simulation, the top row shows cells, the bottom row shows CO2 concentrations. CO2 is constantly replenished on the vertical middle-line, creating a gradient. First, cells grow randomly over the map, exhausting acetyl-CoA. Then, most cells die. Only cells that know how to replenish acetyl-CoA from CO2 and that are close to the CO2 source survive._
 
-- [**main**.py](./__main__.py) entrypoint for the simulation
+- [\_\_main\_\_.py](./__main__.py) entrypoint for the simulation
 - [src/chemistry.py](./src/chemistry.py) world's chemistry definition
 - [src/experiment.py](./src/experiment.py) common experimental procedures
 - [src/init_cells.py](./src/init_cells.py) initialize cells to grow in medium containing X (batch culture)
@@ -22,6 +22,8 @@ _World map for cells and CO2 is shown. Columns represent different time steps of
 ```
 # follow help texts for commands
 python -m e1_co2_fixing --help
+...
+tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
 ```
 
 ## Chemistry

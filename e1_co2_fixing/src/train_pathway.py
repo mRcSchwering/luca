@@ -123,7 +123,7 @@ def run_trial(
     n_pxls = world.map_size**2
 
     # stage: (new genes, complex substrates, minimal substrates, essentials)
-    genes, subs_a, subs_b, add = WL_STAGES_MAP[hparams["pathway_label"]]
+    genes, subs_a, subs_b, add = WL_STAGES_MAP[hparams["pathway-label"]]
     print("Medium will change from substrates a to substrates b")
     print(f"  substrates a: {', '.join(d.name for d in subs_a)}")
     print(f"  substrates b: {', '.join(d.name for d in subs_b)}")
@@ -182,7 +182,7 @@ def run_trial(
     )
 
     # load initial cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=runs_dir)
+    load_cells(world=world, label=hparams["init-label"], runsdir=runs_dir)
 
     trial_t0 = time.time()
     print(f"Starting trial {run_name}")
