@@ -104,7 +104,7 @@ def run_trial(
     )
 
     # load initial cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=runs_dir)
+    load_cells(world=world, label=hparams["init-label"], runsdir=runs_dir)
 
     trial_t0 = time.time()
     print(f"Starting trial {run_name}")
