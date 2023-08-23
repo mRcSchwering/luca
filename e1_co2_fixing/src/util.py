@@ -55,7 +55,9 @@ def find_steps(rundir: Path) -> list[int]:
     return sorted(int(d.split("step=")[-1]) for d in names)
 
 
-def load_cells(world: ms.World, label: str, runsdir: Path):
+def load_cells(
+    world: ms.World, label: str, runsdir: Path, reposition_cells: bool = True
+):
     """
     Use label to load a world's genomes:
         - "<rundir>/step=<i>" to load step <i> of <rundir>
@@ -73,7 +75,8 @@ def load_cells(world: ms.World, label: str, runsdir: Path):
         raise ValueError(f"Label {label} not recognized")
 
     world.load_state(statedir=statedir, batch_size=500)
-    world.reposition_cells(cell_idxs=list(range(world.n_cells)))
+    if reposition_cells:
+        world.reposition_cells(cell_idxs=list(range(world.n_cells)))
     world.cell_divisions[:] = 0.0
     world.labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
 
