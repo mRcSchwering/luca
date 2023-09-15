@@ -13,6 +13,7 @@ _Illustration of final cells that were able to grow in a Chemostat on CO2 and en
 
 - [Chemistry](#chemistry)
 - [Experimental Setup](#experimental-setup)
+- [Wood-Ljungdahl Training](#wood-ljungdahl-training)
 - [Run](#run)
 
 
