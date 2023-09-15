@@ -7,8 +7,9 @@ Evolutionary pressure is applied by killing cells with low energy levels
 and replicating cells with high levels of fixed carbon.
 Fixed carbon is defined by molecule species such as acetyl-CoA.
 
-![latest run](latest_run.png "latest run")
-_World map for cells and CO2 is shown. Columns represent different time steps of the simulation, the top row shows cells, the bottom row shows CO2 concentrations. CO2 is constantly replenished on the vertical middle-line, creating a gradient. First, cells grow randomly over the map, exhausting acetyl-CoA. Then, most cells die. Only cells that know how to replenish acetyl-CoA from CO2 and that are close to the CO2 source survive._
+![result cell](./img/WL-training-result-cell.png)
+
+_Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
 
 - [\_\_main\_\_.py](./__main__.py) entrypoint for the simulation
 - [src/chemistry.py](./src/chemistry.py) world's chemistry definition
@@ -58,26 +59,56 @@ All molecule species recieved a moderate diffusivity and 0 permeability.
 Only CO2 was given a high diffusivity and high permeability.
 See [chemistry.py](./chemistry.py) for details.
 
-## Training Experiment
+## Experimental Setup
 
-Cells are grows in batch culture.
-They are passaged if medium energy levels of CO2 levels are too low
-or if the world map is overgrown.
-In general, cells with low energy ($E$) levels have a high chance of dying
-and cells with high fixed carbon levels ($X$) have a high chance of replicating.
-Additionally, cells with large genomes have a high chance of dying.
+One simulation run represents a one experiment in which certain cells are cultured
+in a specific medium with certain interventions.
+Each simulation run is repeated in trials multiple times.
+In the simulation time advances step-by-step, incrementally calculating protein activities,
+diffusion and permeation, and resulting molecule changes at each step.
+Reaction velocities are calibrated in a way that 1 step could represent 1 second.
+However, protein transcription and translation, as well as cell death and replication
+happen instantaneously.
+Thus, simulated cells grow and evolve much faster than their real-live equivalents.
 
-Different culture strategies are tested to train more or less naive
-cells (mostly random genomes) to efficiently fix carbon (create $X$).
-These usually involve an adaption phase in which a complex medium
-is changed to a minimal medium.
-The complex medium consists of high levels of all molecule species.
-The minimal medium only has high levels of essential molecule species,
-such as $E$ and $CO2$.
+### Cell Growth
 
-The exact details - _e.g._ about passaging, the adaption phase, culture medium -
-are hyperparameters which are varied.
-In [prep.ipynb](./ipynb) useful ranges for these hyperparameters are estimated.
-Different hyperparameter sets are tested where each set of hyperparameters is a
-$run$ and replicates are $trials$.
-See [src/train_pathway.py](./src/train_pathway.py) for details.
+During each step a cell can replicate and/or die.
+At each step probability distribution functions
+calculate probabilities for each cell for replication and dying.
+The decision of whether a cell actually replicates or dies is sampled
+with the calculated probability.
+
+There are 3 probability distribution functions.
+A function $p_x = [X]^{n_x} / ([X]^{n_x} + k_x^{n_x})$ calculates the probability
+of replication for a cell based on its $X$ molecule contents,
+$p_e = k_e^{n_e} / ([E]^{n_e} + k_e^{n_e})$ calculates the probability of dying
+for a cell based on its $E$ molecule contents,
+$p_s = s^{n_s} / (s^{n_s} + k_s^{n_s})$ calculates the probability of dying
+for a cell based on its genome size $s$.
+Initial ranges for $n_x, n_e, n_s$ and $k_x, k_e, k_s$ were estimated in [prep.ipynb](./ipynb),
+concrete values were found by trial-and-error when running simulations.
+They were set in a way that it is hard but not impossible for cells to grow.
+
+### Culturing Systems
+
+In the simulation the `world` represents a flask or plate in which the cells grow.
+It's molecule contents represent the growth medium.
+2 basic culturing systems are used: _Batch culture_ and a _Chemostat_.
+
+During **batch culture** cells are placed and growth medium is set initially.
+Then, cells are left to grow.
+This means the contents of the growth medium change as cells grow.
+Batch culture is usually coupled with passaging of cells.
+If the number of cells exceeds a certain threshold (almost all of the `world` is overgrown with cells),
+fresh growth medium is prepared and a randomly selected subset of cells is placed
+in the fresh growth medium.
+This culturing strategy can keep cells indefinitly in exponential growth phase.
+It strongly selects for fast-growing cells.
+
+In a **Chemostat** growth medium is continuously adjusted.
+Fresh medium is continuously added while left over medium is removed.
+This means a stable nutrient gradient can arise while cells grow.
+Here, this is implemented by continously setting fresh medium in the middle of the `world`
+while removing all medium on the edge of it.
+This creates a nutrient gradient which is high in the middle and falls to zero toward the edge.
