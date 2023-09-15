@@ -11,21 +11,10 @@ Fixed carbon is defined by molecule species such as acetyl-CoA.
 
 _Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
 
-- [\_\_main\_\_.py](./__main__.py) entrypoint for the simulation
-- [src/chemistry.py](./src/chemistry.py) world's chemistry definition
-- [src/experiment.py](./src/experiment.py) common experimental procedures
-- [src/init_cells.py](./src/init_cells.py) initialize cells to grow in medium containing X (batch culture)
-- [src/train_pathway.py](./src/train_pathway.py) stage-wise pathway training teaching cells to fix CO2 (batch culture)
-- [src/validate_cells.py](./src/validate_cells.py) validate viability by growing cells in CO2 and E (ChemoStat)
-- [runs/](./runs/) saved runs (in gitignore)
-- [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
+- [Chemistry](#chemistry)
+- [Experimental Setup](#experimental-setup)
+- [Run](#run)
 
-```
-# follow help texts for commands
-python -m e1_co2_fixing --help
-...
-tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
-```
 
 ## Chemistry
 
@@ -58,6 +47,8 @@ are thermodynamically possible and have roughly the same reaction energies.
 All molecule species recieved a moderate diffusivity and 0 permeability.
 Only CO2 was given a high diffusivity and high permeability.
 See [chemistry.py](./chemistry.py) for details.
+
+([back to top](#carbon-fixation))
 
 ## Experimental Setup
 
@@ -112,3 +103,40 @@ This means a stable nutrient gradient can arise while cells grow.
 Here, this is implemented by continously setting fresh medium in the middle of the `world`
 while removing all medium on the edge of it.
 This creates a nutrient gradient which is high in the middle and falls to zero toward the edge.
+
+([back to top](#carbon-fixation))
+
+## Wood-Ljungdahl Training
+
+![WL-training-strategy](./img/WL-training-strategy.png)
+
+_**Training Strategy** Cells were trained to evolve a WL pathway in 5 stages WL-0 to WL-4 with 2 trials each. Only cells of successful trials proceeded to the next stage. Finally, cells of successful WL-4 were validated in medium with only CO2 and energy. Validation was run in a Chemostat. All other runs were performed in batch culture._
+
+![WL-training-runs](./img/WL-training-runs.png)
+
+_**Training overview** Total cells, average growth rate, and genome size over steps. Cells were passaged to 20% whenever they covered 70%. Each stage had 3 phases: First, growth in medium of the previous stage with low mutation rate; Second, growth in medium lacking nutrients with high mutation rate; Third, growth in the same medium with low mutation rate. In the second phase each cell recieved genes to produce lacking nutrients. Cell proceeded to the next phase after growing a minimum number of passages at a high enough rate._
+
+![result cell](./img/WL-training-result-cell.png)
+
+_**Resulting proteomes** Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
+
+([back to top](#carbon-fixation))
+
+## Run
+
+- [\_\_main\_\_.py](./__main__.py) entrypoint for the simulation
+- [src/chemistry.py](./src/chemistry.py) world's chemistry definition
+- [src/experiment.py](./src/experiment.py) common experimental procedures
+- [src/init_cells.py](./src/init_cells.py) initialize cells to grow in medium containing X (batch culture)
+- [src/train_pathway.py](./src/train_pathway.py) stage-wise pathway training teaching cells to fix CO2 (batch culture)
+- [src/validate_cells.py](./src/validate_cells.py) validate viability by growing cells in CO2 and E (ChemoStat)
+- [runs/](./runs/) saved runs (in gitignore)
+- [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
+
+```
+python -m e1_co2_fixing --help  # follow help texts
+...
+tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
+```
+
+([back to top](#carbon-fixation))
