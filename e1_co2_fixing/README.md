@@ -144,8 +144,8 @@ The figure below shows a summary of this part of their proteomes.
 
 _**Resulting proteomes** Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
 
-However, $\text{CO2} + \text{NADPH} \rightleftharpoons \text{CO} \text{NADP}$ was rarely found.
-It turns out that only a few clusters of cells possess a protein that can catalyze this reaction.
+One domain -- that catalyzing $\text{CO2} + \text{NADPH} \rightleftharpoons \text{CO} \text{NADP}$ -- was rarely found.
+It turns out that only a few cell clusters possess this domain.
 The other cells rely on external $CO$ production and passive $CO$ import.
 
 ([back to top](#carbon-fixation))
