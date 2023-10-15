@@ -103,23 +103,50 @@ Fresh medium is continuously added while left over medium is removed.
 This means a stable nutrient gradient can arise while cells grow.
 Here, this is implemented by continously setting fresh medium in the middle of the `world`
 while removing all medium on the edge of it.
-This creates a nutrient gradient which is high in the middle and falls to zero toward the edge.
+This creates a nutrient gradient which is high in the middle and falls to zero toward the edges.
 
 ([back to top](#carbon-fixation))
 
 ## Wood-Ljungdahl Training
 
+Cells were trained to create a proteome that represents a WL pathway in 5 stages.
+In each stage cells were grown in batch culture with 3 phases:
+an initial, a training, and a final phase.
+For each stage 2 trials were run.
+The minimal medium of one stage would be the initial medium of the next.
+The initial cells of one stage were the successful cells of the previous stage.
+This way cells' proteomes grew with every stage until they could finally generate molecule $X$ from $CO2$ and $E$ alone.
+
 ![WL-training-strategy](./img/WL-training-strategy.png)
 
 _**Training Strategy** Cells were trained to evolve a WL pathway in 5 stages WL-0 to WL-4 with 2 trials each. Only cells of successful trials proceeded to the next stage. Finally, cells of successful WL-4 were validated in medium with only CO2 and energy. Validation was run in a Chemostat. All other runs were performed in batch culture._
+
+The initial phase consists of a medium in which cells can grow continously.
+_I.e._ cells already possess the required proteins to metabolize nutrient to molecule $X$.
+Then, in the training phase, some nutrients are removed from the medium so that cells need additional proteins to create these nutrients.
+At the same time cells were given new genes for exactly these proteins.
+Additionally, overall mutation rate is increased during this phase.
+Finally, in the last phase, cells must continue to grow in this minimal medium at normal mutation rates.
+To successfully pass one phase, cells must grow at a sufficiently high average growth-rate for a minimum number of passages.
+(See [WL_STAGES in chemistry.py](./src/chemistry.py) for the exact composition of each stage)
 
 ![WL-training-runs](./img/WL-training-runs.png)
 
 _**Training overview** Total cells, average growth rate, and genome size over steps. Cells were passaged to 20% whenever they covered 70%. Each stage had 3 phases: First, growth in medium of the previous stage with low mutation rate; Second, growth in medium lacking nutrients with high mutation rate; Third, growth in the same medium with low mutation rate. In the second phase each cell recieved genes to produce lacking nutrients. Cell proceeded to the next phase after growing a minimum number of passages at a high enough rate._
 
+Cells that successfully passed stage 4 were grown once more in a Chemostat with continuous $CO2$ and $E$ supply for about 30 generations.
+Cells started to reduce their genome sizes during this time.
+Proteome analysis revealed that cell clusters formed around certain regions of the map.
+Most domains related to the Wood-Ljungdahl pathway were however present in all of them.
+The figure below shows a summary of this part of their proteomes.
+
 ![result cell](./img/WL-training-result-cell.png)
 
 _**Resulting proteomes** Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
+
+However, $\text{CO2} + \text{NADPH} \rightleftharpoons \text{CO} \text{NADP}$ was rarely found.
+It turns out that only a few clusters of cells possess a protein that can catalyze this reaction.
+The other cells rely on external $CO$ production and passive $CO$ import.
 
 ([back to top](#carbon-fixation))
 
