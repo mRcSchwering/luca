@@ -145,13 +145,14 @@ def run_trial(
             # shrink genome size k
             exp.genome_size_controller.k = _adjust_genome_size_k(progress=exp.progress)
 
-            logger.log_scalars(
-                step=step_i,
-                dtime=dtime,
-                kwargs={"Other/GenomeSizeK": exp.genome_size_controller.k},
-            )
-
             if step_i % 5 == 0:
+                logger.log_scalars(
+                    step=step_i,
+                    dtime=dtime,
+                    kwargs={"Other/GenomeSizeK": exp.genome_size_controller.k},
+                )
+
+            if step_i % 50 == 0:
                 exp.world.save_state(statedir=trial_dir / f"step={step_i}")
                 logger.log_imgs(step=step_i)
 
