@@ -2,7 +2,7 @@
 
 In this simulation cells are brought to fix CO2 from the environment.
 For this the world was defined with a [chemistry](#chemistry) resembling 6 major CO2-fixing metabolic pathways.
-Cells are grown in batches in media with high CO2 and energy content.
+Cells are grown in media with high CO2 and energy content.
 Evolutionary pressure is applied by killing cells with low energy levels
 and replicating cells with high levels of fixed carbon.
 Fixed carbon is defined by molecule species such as acetyl-CoA.
@@ -15,6 +15,7 @@ _Illustration of final cells that were able to grow in a Chemostat on CO2 and en
 - [Experimental Setup](#experimental-setup)
 - [Wood-Ljungdahl Training](#wood-ljungdahl-training)
 - [Run](#run)
+- [Lessons Learned](#lessons-learned)
 
 
 ## Chemistry
@@ -166,5 +167,75 @@ python -m e1_co2_fixing --help  # follow help texts
 ...
 tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
 ```
+
+([back to top](#carbon-fixation))
+
+## Lessons Learned
+
+### Resupply of Additives
+
+Many runs were wasted medium that did not include a re-supply of additives.
+Of course the aim is to bring cells to grow on CO2 and E alone.
+However, there are also additive molecules like NADP, ADP, HS-CoA, FH4, RuBP which cells cannot create
+(at least not with this chemistry).
+As a cell divides, the descendant cells will have each half the amount of these additives.
+Sooner or later, they need to import these molecules from the environment.
+Theoretically, a cell that dies would release its additives back to the environment.
+However, over time (steps) the amount of additives in the system will still decrease.
+Firstly, they degrade.
+Secondly, in batch culture only a few cells are carried over during a passage.
+So, some additives are lost during every passage.
+In any case, I need to re-supply additives regularly and cells also need importers for these additives.
+
+### Evolutionary Pressure and Molecule Abundance
+
+In earlier runs I had the misconception that as molecule X is decreased (in medium)
+evolutionary pressure on cells to recreate this molecule increases.
+So, _e.g._ as I decrease NADPH, cells are pressured to create NADPH from NADP and E by themselves.
+This might be true qualitatively, but I cannot assume that it follows a linear trend.
+_I.e._ if I start with 1mM NADPH and linearly reduce it to 0mM NADPH over the course of 100 generations
+that doesn't mean that evolutionary pressure builds up over 100 generations and linearly gets stronger.
+_E.g._ maybe cells are still fine with 0.01mM NADPH.
+In that case evolutionary pressure would only start at the very end of this linear slope.
+Then, cells would only have a few generations left to adapt before 0mM NADPH.
+So, if I start removing some important molecule from the medium,
+I generally must assume that I don't know at what point cells are actually impacted by that loss.
+
+One way of estimating whether cells are actually impacted could be by looking at their growth rate.
+If the growth rate suddenly drops, the medium change probably had an effect on them.
+In later runs I always included a stage gate process.
+Cells had to first regain a certain minimum growth rate before the adaption process continued.
+
+### Cells Throw Away Genes
+
+This is somewhat related to the above.
+In early runs I gave cells some genes they would need, and then started to linearly adjust the medium.
+_E.g._ I would give them a gene to catalyze $\text{NADP} + \text{E} \rightleftharpoons \text{NADPH}$,
+and then start reducing NADPH to 0mM, assuming they would start using that gene.
+The problem is, cells are quick to throw away genes they don't need (or inactivate the CDS).
+Now, cells get this new gene, but NADPH is still high enough (say 0.01mM).
+They rather throw this gene away and get more efficient and using the remaining NADPH.
+I saw that a few steps after I gave them the gene >80% of cells already lost it.
+
+In later simulations I always immediately removed the associated additive when I gave them the new gene.
+This means cells don't have a lot of time (steps) to adjust their proteome (and many cells immediately die)
+but the overall success rate is much higher.
+
+### Careful with Mutation Rates
+
+In [prep.ipynb](./prep.ipynb) I tried to get good starting estimates for all hyperparameters.
+The basic mutation rate was set to 1 mutation per million base pairs per step.
+This seems reasonable.
+However, for a high mutation rate (as used during training) I though a 100 times higher mutation rate would be good.
+For most simulation I kept this high mutation rate.
+It worked during easy training stages.
+However, during difficult training stages, cells would always die.
+After investigating how cells proteomes evolved during the adaption phases I realized that their proteomes are just all over the place.
+Every gene gets mutatated almost every step.
+They often loose entire genes.
+It's a miracle they even got through the easy stages.
+I was more successful with only a 10 times higher mutation rate.
+Maybe even reducing the base rate by 10 times might be good, too.
+
 
 ([back to top](#carbon-fixation))

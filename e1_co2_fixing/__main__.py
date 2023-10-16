@@ -12,6 +12,7 @@ from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.init_cells import run_trial as init_cells_trial
 from .src.train_pathway import run_trial as train_pathway_trial
 from .src.validate_cells import run_trial as validate_cells_trial
+from .src.shrink_genomes import run_trial as shrink_genomes_trial
 
 _RUNS_DIR = Path(__file__).parent / "runs"
 
@@ -90,8 +91,56 @@ def validate_cells_cmd(kwargs: dict):
         )
 
 
+def shrink_genomes_cmd(kwargs: dict):
+    kwargs.pop("func")
+    device = kwargs.pop("device")
+    n_workers = kwargs.pop("n_workers")
+    n_trials = kwargs.pop("n_trials")
+    n_steps = kwargs.pop("n_steps")
+    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
+    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+    for trial_i in range(n_trials):
+        shrink_genomes_trial(
+            device=device,
+            n_workers=n_workers,
+            runs_dir=_RUNS_DIR,
+            run_name=f"{ts}_{trial_i}",
+            n_steps=n_steps,
+            trial_max_time_s=trial_max_time_s,
+            hparams=kwargs,
+        )
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        type=str,
+        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
+    )
+    parser.add_argument(
+        "--n-workers",
+        default=4,
+        type=int,
+        help="How many processes to use for transcription and translation"
+        " (default %(default)s)",
+    )
+    parser.add_argument(
+        "--n-steps",
+        default=100_000,
+        type=int,
+        help="Maxmimum number of steps (=virtual seconds) for each trial"
+        " (default %(default)s)",
+    )
+    parser.add_argument(
+        "--trial-max-time-h",
+        default=3,
+        type=int,
+        help="Interrupt and stop trial after that many hours (default %(default)s)",
+    )
+
     subparsers = parser.add_subparsers()
 
     # init world
@@ -160,32 +209,6 @@ if __name__ == "__main__":
         default=1,
         type=int,
         help="How many times to try the training (default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--n-steps",
-        default=1_000,
-        type=int,
-        help="Maxmimum number of steps (=virtual seconds) for each trial"
-        " (default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--device",
-        default="cpu",
-        type=str,
-        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--n-workers",
-        default=4,
-        type=int,
-        help="How many processes to use for transcription and translation"
-        " (default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--trial-max-time-h",
-        default=1,
-        type=int,
-        help="Interrupt and stop trial after that many hours (default %(default)s)",
     )
 
     # train pathway
@@ -289,32 +312,6 @@ if __name__ == "__main__":
         type=int,
         help="How many times to try train this stage (default %(default)s)",
     )
-    train_parser.add_argument(
-        "--n-steps",
-        default=1_000_000,
-        type=int,
-        help="Maxmimum number of steps (=virtual seconds) for each trial"
-        " (default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--device",
-        default="cpu",
-        type=str,
-        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--n-workers",
-        default=4,
-        type=int,
-        help="How many processes to use for transcription and translation"
-        " (default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--trial-max-time-h",
-        default=6,
-        type=int,
-        help="Interrupt and stop trial after that many hours (default %(default)s)",
-    )
 
     # validate cells
     val_parser = subparsers.add_parser(
@@ -356,31 +353,47 @@ if __name__ == "__main__":
         type=int,
         help="How many times to repeat this experiment (default %(default)s)",
     )
-    val_parser.add_argument(
-        "--n-steps",
-        default=1_000,
-        type=int,
-        help="Maxmimum number of steps (=virtual seconds) for each trial"
-        " (default %(default)s)",
+
+    # shrink genomes
+    shr_parser = subparsers.add_parser(
+        "shrink-genomes",
+        help="Grow cells in ChemoStat with E and CO2"
+        " while reducing genome-size-controlling k."
+        " The ChemoStat will create a horizontal gradient with high E- and CO2-levels"
+        " in the middle and 0 E and CO2 at the edges.",
     )
-    val_parser.add_argument(
-        "--device",
-        default="cpu",
+    shr_parser.set_defaults(func=shrink_genomes_cmd)
+    shr_parser.add_argument(
+        "init-label",
         type=str,
-        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
+        help="Describes from where initial genomes are loaded."
+        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
+        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
     )
-    val_parser.add_argument(
-        "--n-workers",
-        default=4,
-        type=int,
-        help="How many processes to use for transcription and translation"
+    shr_parser.add_argument(
+        "--substrates-init",
+        default=100.0,
+        type=float,
+        help="Substrate concentration in feed medium (default %(default)s)",
+    )
+    shr_parser.add_argument(
+        "--additives-init",
+        default=10.0,
+        type=float,
+        help="Additives concentration in feed medium (default %(default)s)",
+    )
+    shr_parser.add_argument(
+        "--n-divisions",
+        default=10_000.0,
+        type=float,
+        help="How many average cell divisions to let cells grow"
         " (default %(default)s)",
     )
-    val_parser.add_argument(
-        "--trial-max-time-h",
-        default=1,
+    shr_parser.add_argument(
+        "--n-trials",
+        default=3,
         type=int,
-        help="Interrupt and stop trial after that many hours (default %(default)s)",
+        help="How many times to repeat this experiment (default %(default)s)",
     )
 
     args = parser.parse_args()
