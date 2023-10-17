@@ -24,6 +24,37 @@ class AdvanceByCellDivisions(ProgressController):
         return min(1.0, mean_divis.item() / self.n_divisions)
 
 
+class AdjustGenomeSizeK:
+    """Adjust genome-size-controller's k depending on progress"""
+
+    def __init__(
+        self,
+        n_divisions: float,
+        init_divisions=10,
+        final_divisions=10,
+        high=3000.0,
+        low=1000.0,
+        alpha=5,
+    ):
+        self.n = n_divisions
+        self.pl = init_divisions / self.n
+        self.pr = (n_divisions - final_divisions) / self.n
+        self.a = high - low
+        self.c = low
+        self.alpha = alpha
+
+    def _get_x(self, progress: float) -> float:
+        if progress <= self.pl:
+            return 0.0
+        if progress >= self.pr:
+            return 1.0
+        return (progress - self.pl) / (self.pr - self.pl)
+
+    def __call__(self, progress: float) -> float:
+        x = self._get_x(progress=progress)
+        return self.c + self.a * 0.5 ** (self.alpha * x)
+
+
 class XGradient(MediumFact):
     """
     A 1D gradient is created over the X axis of the map.
@@ -72,11 +103,6 @@ class XGradient(MediumFact):
         return self.molmap
 
 
-def _adjust_genome_size_k(progress: float, high=3000.0, low=800.0) -> float:
-    x = max(min(progress, 1.0), 0.0)
-    return x * low + (1 - x) * high
-
-
 def run_trial(
     device: str,
     n_workers: int,
@@ -92,6 +118,7 @@ def run_trial(
 
     # factories
     progress_controller = AdvanceByCellDivisions(n_divisions=hparams["n_divisions"])
+    k_controller = AdjustGenomeSizeK(n_divisions=hparams["n_divisions"])
 
     medium_fact = XGradient(
         substrates=SUBSTRATES,
@@ -143,7 +170,7 @@ def run_trial(
                 break
 
             # shrink genome size k
-            exp.genome_size_controller.k = _adjust_genome_size_k(progress=exp.progress)
+            exp.genome_size_controller.k = k_controller(exp.progress)
 
             if step_i % 5 == 0:
                 logger.log_scalars(
