@@ -140,6 +140,12 @@ if __name__ == "__main__":
         type=int,
         help="Interrupt and stop trial after that many hours (default %(default)s)",
     )
+    parser.add_argument(
+        "--n-trials",
+        default=1,
+        type=int,
+        help="How many times to try experiment (default %(default)s)",
+    )
 
     subparsers = parser.add_subparsers()
 
@@ -203,12 +209,6 @@ if __name__ == "__main__":
         type=float,
         help="Ratio of map covered in cells that will trigger passage"
         " (should be below 0.8, default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--n-trials",
-        default=1,
-        type=int,
-        help="How many times to try the training (default %(default)s)",
     )
 
     # train pathway
@@ -306,12 +306,6 @@ if __name__ == "__main__":
         help="Ratio of map covered in cells that will trigger passage"
         " (should be below 0.8, default %(default)s)",
     )
-    train_parser.add_argument(
-        "--n-trials",
-        default=3,
-        type=int,
-        help="How many times to try train this stage (default %(default)s)",
-    )
 
     # validate cells
     val_parser = subparsers.add_parser(
@@ -347,20 +341,13 @@ if __name__ == "__main__":
         help="How many average cell divisions to let cells grow"
         " (default %(default)s)",
     )
-    val_parser.add_argument(
-        "--n-trials",
-        default=1,
-        type=int,
-        help="How many times to repeat this experiment (default %(default)s)",
-    )
 
     # shrink genomes
     shr_parser = subparsers.add_parser(
         "shrink-genomes",
-        help="Grow cells in ChemoStat with E and CO2"
-        " while reducing genome-size-controlling k."
-        " The ChemoStat will create a horizontal gradient with high E- and CO2-levels"
-        " in the middle and 0 E and CO2 at the edges.",
+        help="Grow cells in batch culture with E and CO2 while reducing genome-size-controlling k."
+        " There are 3 phases: Init, with low mutation rate and high k;"
+        " Adapt, with high mutation rate and decreasing k; Final, with low k and low mutation rate.",
     )
     shr_parser.set_defaults(func=shrink_genomes_cmd)
     shr_parser.add_argument(
@@ -371,29 +358,65 @@ if __name__ == "__main__":
         " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
     )
     shr_parser.add_argument(
+        "--n-init-splits",
+        default=10.0,
+        type=float,
+        help="Number of passages in initial phase (default %(default)s)."
+        " Only passages with high enough growth rate are counted (see min_gr).",
+    )
+    shr_parser.add_argument(
+        "--n-adapt-splits",
+        default=100.0,
+        type=float,
+        help="Number of passages in adaption phase (default %(default)s)."
+        " Only passages with high enough growth rate are counted (see min_gr).",
+    )
+    shr_parser.add_argument(
+        "--n-final-splits",
+        default=10.0,
+        type=float,
+        help="Number of passages in final phase (default %(default)s)."
+        " Only passages with high enough growth rate are counted (see min_gr).",
+    )
+    shr_parser.add_argument(
+        "--min-gr",
+        default=0.05,
+        type=float,
+        help="Minimum average growth rate during passage for it to be considered"
+        " successful (max. possible is 0.1, default %(default)s).",
+    )
+    shr_parser.add_argument(
         "--substrates-init",
         default=100.0,
         type=float,
-        help="Substrate concentration in feed medium (default %(default)s)",
+        help="Substrate concentration in fresh medium (default %(default)s)",
     )
     shr_parser.add_argument(
         "--additives-init",
         default=10.0,
         type=float,
-        help="Additives concentration in feed medium (default %(default)s)",
+        help="Additives concentration in fresh medium (default %(default)s)",
     )
     shr_parser.add_argument(
-        "--n-divisions",
-        default=10_000.0,
+        "--mutation-rate-mult",
+        default=10.0,
         type=float,
-        help="How many average cell divisions to let cells grow"
+        help="By how much to multiply mutation rate during adaption phase"
         " (default %(default)s)",
     )
     shr_parser.add_argument(
-        "--n-trials",
-        default=3,
-        type=int,
-        help="How many times to repeat this experiment (default %(default)s)",
+        "--split-ratio",
+        default=0.2,
+        type=float,
+        help="Fraction of cells (to fully covered map) carried over during passage"
+        " (theoretically 0.13-0.2 should be best, default %(default)s)",
+    )
+    shr_parser.add_argument(
+        "--split-thresh",
+        default=0.7,
+        type=float,
+        help="Ratio of map covered in cells that will trigger passage"
+        " (should be below 0.8, default %(default)s)",
     )
 
     args = parser.parse_args()

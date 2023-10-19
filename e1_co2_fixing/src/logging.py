@@ -66,9 +66,7 @@ class BatchCultureLogger(Logger):
         self.log_imgs(step=0)
 
     def log_scalars(
-        self,
-        step: int,
-        dtime: float,
+        self, step: int, dtime: float, kwargs: dict[str, float] | None = None
     ):
         n_cells = self.exp.world.n_cells
         molecule_map = self.exp.world.molecule_map
@@ -96,6 +94,10 @@ class BatchCultureLogger(Logger):
         self.writer.add_scalar("Other/Split", self.exp.split_i, step)
         self.writer.add_scalar("Other/Progress", self.exp.progress, step)
         self.writer.add_scalar("Other/MutationRate", self.exp.mutation_rate, step)
+
+        if kwargs is not None:
+            for key, val in kwargs.items():
+                self.writer.add_scalar(key, val, step)
 
     def log_imgs(self, step: int):
         self.writer.add_image(
