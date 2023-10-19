@@ -130,7 +130,7 @@ def run_trial(
         at_progress=adaption_start,
         to_progress=adaption_end,
         high=3000.0,
-        low=1000.0,
+        low=hparams["genome_size_k"],
         alpha=5.0,
     )
 

@@ -418,6 +418,13 @@ if __name__ == "__main__":
         help="Ratio of map covered in cells that will trigger passage"
         " (should be below 0.8, default %(default)s)",
     )
+    shr_parser.add_argument(
+        "--genome-size-k",
+        default=1000.0,
+        type=float,
+        help="To which value genome-size-controlling k will be reduced"
+        " (starts at 3000, default %(default)s)",
+    )
 
     args = parser.parse_args()
     args.func(vars(args))
