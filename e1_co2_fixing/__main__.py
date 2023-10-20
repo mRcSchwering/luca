@@ -17,7 +17,7 @@ from .src.shrink_genomes import run_trial as shrink_genomes_trial
 _RUNS_DIR = Path(__file__).parent / "runs"
 
 
-def init_world_cmd(kwargs: dict):
+def _init_world_cmd(kwargs: dict):
     map_size = kwargs["map_size"]
     print(f"Initialing world with map_size={map_size}")
     world = ms.World(
@@ -28,7 +28,7 @@ def init_world_cmd(kwargs: dict):
     world.save(rundir=_RUNS_DIR)
 
 
-def init_cells_cmd(kwargs: dict):
+def _init_cells_cmd(kwargs: dict):
     kwargs.pop("func")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
@@ -49,7 +49,7 @@ def init_cells_cmd(kwargs: dict):
         )
 
 
-def train_pathway_cmd(kwargs: dict):
+def _train_pathway_cmd(kwargs: dict):
     kwargs.pop("func")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
@@ -70,7 +70,7 @@ def train_pathway_cmd(kwargs: dict):
         )
 
 
-def validate_cells_cmd(kwargs: dict):
+def _validate_cells_cmd(kwargs: dict):
     kwargs.pop("func")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
@@ -91,7 +91,7 @@ def validate_cells_cmd(kwargs: dict):
         )
 
 
-def shrink_genomes_cmd(kwargs: dict):
+def _shrink_genomes_cmd(kwargs: dict):
     kwargs.pop("func")
     device = kwargs.pop("device")
     n_workers = kwargs.pop("n_workers")
@@ -110,6 +110,23 @@ def shrink_genomes_cmd(kwargs: dict):
             trial_max_time_s=trial_max_time_s,
             hparams=kwargs,
         )
+
+
+def _add_batch_culture_args(subparser: ArgumentParser):
+    subparser.add_argument(
+        "--split-ratio",
+        default=0.2,
+        type=float,
+        help="Fraction of cells (to fully covered map) carried over during passage"
+        " (theoretically 0.13-0.2 should be best, default %(default)s)",
+    )
+    subparser.add_argument(
+        "--split-thresh",
+        default=0.7,
+        type=float,
+        help="Ratio of map covered in cells that will trigger passage"
+        " (should be below 0.8, default %(default)s)",
+    )
 
 
 if __name__ == "__main__":
@@ -146,6 +163,18 @@ if __name__ == "__main__":
         type=int,
         help="How many times to try experiment (default %(default)s)",
     )
+    parser.add_argument(
+        "--substrates-init",
+        default=100.0,
+        type=float,
+        help="Substrate concentration in medium (default %(default)s)",
+    )
+    parser.add_argument(
+        "--additives-init",
+        default=10.0,
+        type=float,
+        help="Additives concentration in medium (default %(default)s)",
+    )
 
     subparsers = parser.add_subparsers()
 
@@ -155,7 +184,7 @@ if __name__ == "__main__":
         help="Initialize new world object."
         " This object will be used as a basis for all other runs.",
     )
-    world_parser.set_defaults(func=init_world_cmd)
+    world_parser.set_defaults(func=_init_world_cmd)
     world_parser.add_argument(
         "--map-size",
         default=128,
@@ -171,7 +200,8 @@ if __name__ == "__main__":
         " These cells will have transporters for X and E and"
         " are cultivated in X- and E-rich medium.",
     )
-    cells_parser.set_defaults(func=init_cells_cmd)
+    cells_parser.set_defaults(func=_init_cells_cmd)
+    _add_batch_culture_args(subparser=cells_parser)
     cells_parser.add_argument(
         "--init-cell-cover",
         default=0.2,
@@ -185,30 +215,10 @@ if __name__ == "__main__":
         help="Initial genome size (default %(default)s).",
     )
     cells_parser.add_argument(
-        "--substrates-init",
-        default=100.0,
-        type=float,
-        help="Substrate concentration in medium (default %(default)s)",
-    )
-    cells_parser.add_argument(
         "--n-splits",
         default=5.0,
         type=float,
         help="How many passages to let cells grow" " (default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--split-ratio",
-        default=0.2,
-        type=float,
-        help="Fraction of cells (to fully covered map) carried over during passage"
-        " (theoretically 0.13-0.2 is best, default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--split-thresh",
-        default=0.7,
-        type=float,
-        help="Ratio of map covered in cells that will trigger passage"
-        " (should be below 0.8, default %(default)s)",
     )
 
     # train pathway
@@ -221,7 +231,7 @@ if __name__ == "__main__":
         " Init grows cells in previous medium, adapt changes to target medium and"
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
-    train_parser.set_defaults(func=train_pathway_cmd)
+    train_parser.set_defaults(func=_train_pathway_cmd)
     train_parser.add_argument(
         "pathway-label",
         type=str,
@@ -238,6 +248,7 @@ if __name__ == "__main__":
         " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
         " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
     )
+    _add_batch_culture_args(subparser=train_parser)
     train_parser.add_argument(
         "--gene-size",
         type=int,
@@ -274,37 +285,11 @@ if __name__ == "__main__":
         " successful (max. possible is 0.1, default %(default)s).",
     )
     train_parser.add_argument(
-        "--substrates-init",
-        default=100.0,
-        type=float,
-        help="Substrate concentration in fresh medium (default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--additives-init",
-        default=10.0,
-        type=float,
-        help="Additives concentration in fresh medium (default %(default)s)",
-    )
-    train_parser.add_argument(
         "--mutation-rate-mult",
         default=10.0,
         type=float,
         help="By how much to multiply mutation rate during adaption phase"
         " (default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--split-ratio",
-        default=0.2,
-        type=float,
-        help="Fraction of cells (to fully covered map) carried over during passage"
-        " (theoretically 0.13-0.2 should be best, default %(default)s)",
-    )
-    train_parser.add_argument(
-        "--split-thresh",
-        default=0.7,
-        type=float,
-        help="Ratio of map covered in cells that will trigger passage"
-        " (should be below 0.8, default %(default)s)",
     )
 
     # validate cells
@@ -314,25 +299,13 @@ if __name__ == "__main__":
         " The ChemoStat will create a horizontal gradient with high E- and CO2-levels"
         " in the middle and 0 E and CO2 at the edges.",
     )
-    val_parser.set_defaults(func=validate_cells_cmd)
+    val_parser.set_defaults(func=_validate_cells_cmd)
     val_parser.add_argument(
         "init-label",
         type=str,
         help="Describes from where initial genomes are loaded."
         " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
         " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
-    )
-    val_parser.add_argument(
-        "--substrates-init",
-        default=100.0,
-        type=float,
-        help="Substrate concentration in feed medium (default %(default)s)",
-    )
-    val_parser.add_argument(
-        "--additives-init",
-        default=10.0,
-        type=float,
-        help="Additives concentration in feed medium (default %(default)s)",
     )
     val_parser.add_argument(
         "--n-divisions",
@@ -349,7 +322,7 @@ if __name__ == "__main__":
         " There are 3 phases: Init, with low mutation rate and high k;"
         " Adapt, with high mutation rate and decreasing k; Final, with low k and low mutation rate.",
     )
-    shr_parser.set_defaults(func=shrink_genomes_cmd)
+    shr_parser.set_defaults(func=_shrink_genomes_cmd)
     shr_parser.add_argument(
         "init-label",
         type=str,
@@ -357,6 +330,7 @@ if __name__ == "__main__":
         " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
         " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
     )
+    _add_batch_culture_args(subparser=shr_parser)
     shr_parser.add_argument(
         "--n-init-splits",
         default=10.0,
@@ -366,7 +340,7 @@ if __name__ == "__main__":
     )
     shr_parser.add_argument(
         "--n-adapt-splits",
-        default=100.0,
+        default=50.0,
         type=float,
         help="Number of passages in adaption phase (default %(default)s)."
         " Only passages with high enough growth rate are counted (see min_gr).",
@@ -386,18 +360,6 @@ if __name__ == "__main__":
         " successful (max. possible is 0.1, default %(default)s).",
     )
     shr_parser.add_argument(
-        "--substrates-init",
-        default=100.0,
-        type=float,
-        help="Substrate concentration in fresh medium (default %(default)s)",
-    )
-    shr_parser.add_argument(
-        "--additives-init",
-        default=10.0,
-        type=float,
-        help="Additives concentration in fresh medium (default %(default)s)",
-    )
-    shr_parser.add_argument(
         "--mutation-rate-mult",
         default=10.0,
         type=float,
@@ -405,25 +367,16 @@ if __name__ == "__main__":
         " (default %(default)s)",
     )
     shr_parser.add_argument(
-        "--split-ratio",
-        default=0.2,
+        "--from-k",
+        default=3000.0,
         type=float,
-        help="Fraction of cells (to fully covered map) carried over during passage"
-        " (theoretically 0.13-0.2 should be best, default %(default)s)",
+        help="Starting value of genome-size-reducing k (default %(default)s)",
     )
     shr_parser.add_argument(
-        "--split-thresh",
-        default=0.7,
+        "--to-k",
+        default=1500.0,
         type=float,
-        help="Ratio of map covered in cells that will trigger passage"
-        " (should be below 0.8, default %(default)s)",
-    )
-    shr_parser.add_argument(
-        "--genome-size-k",
-        default=1000.0,
-        type=float,
-        help="To which value genome-size-controlling k will be reduced"
-        " (starts at 3000, default %(default)s)",
+        help="Final value of genome-size-reducing k default %(default)s)",
     )
 
     args = parser.parse_args()

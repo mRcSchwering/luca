@@ -71,13 +71,11 @@ class AdjustGenomeSizeK:
         to_progress: float,
         high: float,
         low: float,
-        alpha: float,
     ):
         self.at_progress = at_progress
         self.to_progress = to_progress
-        self.a = high - low
-        self.c = low
-        self.alpha = alpha
+        self.a = low - high
+        self.c = high
 
     def _get_x(self, progress: float) -> float:
         if progress <= self.at_progress:
@@ -88,7 +86,7 @@ class AdjustGenomeSizeK:
 
     def __call__(self, progress: float) -> float:
         x = self._get_x(progress=progress)
-        return self.c + self.a * 0.5 ** (self.alpha * x)
+        return self.c + self.a * x
 
 
 def run_trial(
@@ -122,16 +120,15 @@ def run_trial(
         ]
     )
 
-    progress_controller = AdvanceBySplitsAndGrowthRate(
+    progress_cntrlr = AdvanceBySplitsAndGrowthRate(
         n_total_splits=n_total_splits, min_gr=hparams["min_gr"]
     )
 
-    k_controller = AdjustGenomeSizeK(
+    k_cntrlr = AdjustGenomeSizeK(
         at_progress=adaption_start,
         to_progress=adaption_end,
-        high=3000.0,
-        low=hparams["genome_size_k"],
-        alpha=5.0,
+        high=hparams["from_k"],
+        low=hparams["to_k"],
     )
 
     medium_fact = DefinedMedium(
@@ -152,14 +149,15 @@ def run_trial(
     print("Medium:")
     print(f"  substrates: {', '.join(d.name for d in SUBSTRATES)}")
     print(f"  additives: {', '.join(d.name for d in ADDITIVES)}")
-    print(f"Genome size k is reduced to {k_controller.c:.2f}")
-    print(f"from progress {adaption_start:.2f} to {adaption_end:.2f}")
+    print("Genome size k:")
+    print(f"  k shrinks from {k_cntrlr.c} to {k_cntrlr.c + k_cntrlr.a:.2f}")
+    print(f"  during progress {adaption_start:.2f} to {adaption_end:.2f}")
 
     # init experiment with fresh medium
     exp = BatchCulture(
         world=world,
         passager=passager,
-        progress_controller=progress_controller,
+        progress_controller=progress_cntrlr,
         medium_fact=medium_fact,
         mutation_rate_fact=mutation_rate_fact,
     )
@@ -199,7 +197,7 @@ def run_trial(
                 break
 
             # shrink genome size k
-            exp.genome_size_controller.k = k_controller(exp.progress)
+            exp.genome_size_controller.k = k_cntrlr(exp.progress)
 
             if step_i % 5 == 0:
                 logger.log_scalars(
