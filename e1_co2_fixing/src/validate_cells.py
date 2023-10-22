@@ -103,6 +103,10 @@ def run_trial(
         medium_fact=medium_fact,
     )
 
+    if "genome_size_k" in hparams:
+        exp.genome_size_controller.k = hparams["genome_size_k"]
+        print(f"genome-size-k set to {exp.genome_size_controller.k:.2f}")
+
     # load initial cells
     load_cells(world=world, label=hparams["init-label"], runsdir=runs_dir)
 

@@ -314,6 +314,13 @@ if __name__ == "__main__":
         help="How many average cell divisions to let cells grow"
         " (default %(default)s)",
     )
+    val_parser.add_argument(
+        "--genome-size-k",
+        default=3000.0,
+        type=float,
+        help="M.M. constant that penalizes genome size (default %(default)s)"
+        " (default %(default)s)",
+    )
 
     # shrink genomes
     shr_parser = subparsers.add_parser(
