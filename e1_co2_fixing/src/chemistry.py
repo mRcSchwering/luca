@@ -143,10 +143,8 @@ I would like to add more transformations that are not described in these
 pathway but I don't know enough about this topic.
 E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
-from magicsoup.containers import (
-    Molecule,
-    Chemistry,
-    ProteinFact as ProtF,
+from magicsoup.containers import Molecule, Chemistry
+from magicsoup.factories import (
     CatalyticDomainFact as CatDF,
     TransporterDomainFact as TrnDF,
 )
@@ -427,13 +425,16 @@ CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 
 # building up pathway from end to start
 # stage: (new genes, substrates a, substrates b, additives)
-WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule]]] = [
+ProtFType = list[CatDF | TrnDF]
+StageType = tuple[list[ProtFType], list[Molecule], list[Molecule], list[Molecule]]
+# fmt: off
+WL_STAGES: list[StageType] = [
     (
         [
-            ProtF(CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))),
-            ProtF(TrnDF(_acetylCoA)),
-            ProtF(TrnDF(_HSCoA)),
-            ProtF(TrnDF(_E)),
+            [CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))],
+            [TrnDF(_acetylCoA)],
+            [TrnDF(_HSCoA)],
+            [TrnDF(_E)],
         ],
         [_E, _X],
         [_E, _acetylCoA],
@@ -441,10 +442,10 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
     ),
     (
         [
-            ProtF(CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))),
-            ProtF(TrnDF(_methylFH4)),
-            ProtF(TrnDF(_HSCoA)),
-            ProtF(TrnDF(_FH4)),
+            [CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))],
+            [TrnDF(_methylFH4)],
+            [TrnDF(_HSCoA)],
+            [TrnDF(_FH4)],
         ],
         [_E, _acetylCoA],
         [_co, _E, _methylFH4],
@@ -452,11 +453,11 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
     ),
     (
         [
-            ProtF(CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))),
-            ProtF(CatDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))),
-            ProtF(TrnDF(_formylFH4)),
-            ProtF(TrnDF(_NADPH)),
-            ProtF(TrnDF(_NADP)),
+            [CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))],
+            [CatDF(([_methylenFH4, _NADPH], [_methylFH4, _NADP]))],
+            [TrnDF(_formylFH4)],
+            [TrnDF(_NADPH)],
+            [TrnDF(_NADP)],
         ],
         [_co, _E, _methylFH4],
         [_co, _E, _NADPH, _formylFH4],
@@ -464,10 +465,10 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
     ),
     (
         [
-            ProtF(CatDF(([_formate, _FH4], [_formylFH4]))),
-            ProtF(CatDF(([_co2, _NADPH], [_co, _NADP]))),
-            ProtF(CatDF(([_co2, _NADPH], [_formate, _NADP]))),
-            ProtF(TrnDF(_NADPH)),
+            [CatDF(([_formate, _FH4], [_formylFH4]))],
+            [CatDF(([_co2, _NADPH], [_co, _NADP]))],
+            [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
+            [TrnDF(_NADPH)],
         ],
         [_co, _E, _NADPH, _formylFH4],
         [_co2, _E, _NADPH],
@@ -475,15 +476,16 @@ WL_STAGES: list[tuple[list[ProtF], list[Molecule], list[Molecule], list[Molecule
     ),
     (
         [
-            ProtF(CatDF(([_NADP, _E], [_NADPH]))),
-            ProtF(TrnDF(_NADP)),
-            ProtF(TrnDF(_E)),
+            [CatDF(([_NADP, _E], [_NADPH]))],
+            [TrnDF(_NADP)],
+            [TrnDF(_E)],
         ],
         [_co2, _E, _NADPH],
         [_co2, _E],
         [_HSCoA, _FH4, _NADP],
     ),
 ]
+# fmt: on
 
 WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
 
