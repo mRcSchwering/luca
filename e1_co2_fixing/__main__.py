@@ -13,6 +13,8 @@ from .src.init_cells import run_trial as init_cells_trial
 from .src.train_pathway import run_trial as train_pathway_trial
 from .src.validate_cells import run_trial as validate_cells_trial
 from .src.shrink_genomes import run_trial as shrink_genomes_trial
+from .src.util import Config
+from .src import cli
 
 _RUNS_DIR = Path(__file__).parent / "runs"
 
@@ -29,24 +31,10 @@ def _init_world_cmd(kwargs: dict):
 
 
 def _init_cells_cmd(kwargs: dict):
-    kwargs.pop("func")
-    device = kwargs.pop("device")
-    n_workers = kwargs.pop("n_workers")
-    n_trials = kwargs.pop("n_trials")
-    n_steps = kwargs.pop("n_steps")
-    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
+    config = Config.pop_from(kwargs)
     ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
-
-    for trial_i in range(n_trials):
-        init_cells_trial(
-            device=device,
-            n_workers=n_workers,
-            runs_dir=_RUNS_DIR,
-            run_name=f"{ts}_{trial_i}",
-            n_steps=n_steps,
-            trial_max_time_s=trial_max_time_s,
-            hparams=kwargs,
-        )
+    for trial_i in range(config.n_trials):
+        init_cells_trial(run_name=f"{ts}_{trial_i}", config=config, hparams=kwargs)
 
 
 def _train_pathway_cmd(kwargs: dict):
@@ -130,52 +118,7 @@ def _add_batch_culture_args(subparser: ArgumentParser):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--device",
-        default="cpu",
-        type=str,
-        help="Device for tensors ('cpu', 'cuda', ..., default %(default)s)",
-    )
-    parser.add_argument(
-        "--n-workers",
-        default=4,
-        type=int,
-        help="How many processes to use for transcription and translation"
-        " (default %(default)s)",
-    )
-    parser.add_argument(
-        "--n-steps",
-        default=100_000,
-        type=int,
-        help="Maxmimum number of steps (=virtual seconds) for each trial"
-        " (default %(default)s)",
-    )
-    parser.add_argument(
-        "--trial-max-time-h",
-        default=3,
-        type=int,
-        help="Interrupt and stop trial after that many hours (default %(default)s)",
-    )
-    parser.add_argument(
-        "--n-trials",
-        default=1,
-        type=int,
-        help="How many times to try experiment (default %(default)s)",
-    )
-    parser.add_argument(
-        "--substrates-init",
-        default=100.0,
-        type=float,
-        help="Substrate concentration in medium (default %(default)s)",
-    )
-    parser.add_argument(
-        "--additives-init",
-        default=10.0,
-        type=float,
-        help="Additives concentration in medium (default %(default)s)",
-    )
-
+    parser = cli.get_argparser()
     subparsers = parser.add_subparsers()
 
     # init world
@@ -201,19 +144,7 @@ if __name__ == "__main__":
         " are cultivated in X- and E-rich medium.",
     )
     cells_parser.set_defaults(func=_init_cells_cmd)
-    _add_batch_culture_args(subparser=cells_parser)
-    cells_parser.add_argument(
-        "--init-cell-cover",
-        default=0.2,
-        type=float,
-        help="Ratio of map initially covered by cells (default %(default)s)",
-    )
-    cells_parser.add_argument(
-        "--genome-size",
-        type=int,
-        default=500,
-        help="Initial genome size (default %(default)s).",
-    )
+    cli.add_batch_culture_args(parser=cells_parser)
     cells_parser.add_argument(
         "--n-splits",
         default=5.0,
@@ -241,56 +172,9 @@ if __name__ == "__main__":
         " In the adaption phase genomes are edited and medium is changed to B."
         " In the final phase cells grow in medium B.",
     )
-    train_parser.add_argument(
-        "init-label",
-        type=str,
-        help="Describes from where initial genomes are loaded."
-        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
-        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
-    )
-    _add_batch_culture_args(subparser=train_parser)
-    train_parser.add_argument(
-        "--gene-size",
-        type=int,
-        default=200,
-        help="Size of nucleotide sequence in which new genes will be added"
-        " (default %(default)s).",
-    )
-    train_parser.add_argument(
-        "--n-init-splits",
-        default=5.0,
-        type=float,
-        help="Number of passages in initial phase (default %(default)s)."
-        " Only passages with high enough growth rate are counted (see min_gr).",
-    )
-    train_parser.add_argument(
-        "--n-adapt-splits",
-        default=5.0,
-        type=float,
-        help="Number of passages in adaption phase (default %(default)s)."
-        " Only passages with high enough growth rate are counted (see min_gr).",
-    )
-    train_parser.add_argument(
-        "--n-final-splits",
-        default=5.0,
-        type=float,
-        help="Number of passages in final phase (default %(default)s)."
-        " Only passages with high enough growth rate are counted (see min_gr).",
-    )
-    train_parser.add_argument(
-        "--min-gr",
-        default=0.05,
-        type=float,
-        help="Minimum average growth rate during passage for it to be considered"
-        " successful (max. possible is 0.1, default %(default)s).",
-    )
-    train_parser.add_argument(
-        "--mutation-rate-mult",
-        default=10.0,
-        type=float,
-        help="By how much to multiply mutation rate during adaption phase"
-        " (default %(default)s)",
-    )
+    cli.add_init_label_args(parser=train_parser)
+    cli.add_batch_culture_args(parser=train_parser)
+    cli.add_batch_culture_training_args(parser=train_parser)
 
     # validate cells
     val_parser = subparsers.add_parser(
@@ -300,25 +184,12 @@ if __name__ == "__main__":
         " in the middle and 0 E and CO2 at the edges.",
     )
     val_parser.set_defaults(func=_validate_cells_cmd)
-    val_parser.add_argument(
-        "init-label",
-        type=str,
-        help="Describes from where initial genomes are loaded."
-        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
-        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
-    )
+    cli.add_init_label_args(parser=val_parser)
     val_parser.add_argument(
         "--n-divisions",
         default=100.0,
         type=float,
         help="How many average cell divisions to let cells grow"
-        " (default %(default)s)",
-    )
-    val_parser.add_argument(
-        "--genome-size-k",
-        default=3000.0,
-        type=float,
-        help="M.M. constant that penalizes genome size (default %(default)s)"
         " (default %(default)s)",
     )
 
@@ -330,49 +201,9 @@ if __name__ == "__main__":
         " Adapt, with high mutation rate and decreasing k; Final, with low k and low mutation rate.",
     )
     shr_parser.set_defaults(func=_shrink_genomes_cmd)
-    shr_parser.add_argument(
-        "init-label",
-        type=str,
-        help="Describes from where initial genomes are loaded."
-        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
-        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
-    )
-    _add_batch_culture_args(subparser=shr_parser)
-    shr_parser.add_argument(
-        "--n-init-splits",
-        default=10.0,
-        type=float,
-        help="Number of passages in initial phase (default %(default)s)."
-        " Only passages with high enough growth rate are counted (see min_gr).",
-    )
-    shr_parser.add_argument(
-        "--n-adapt-splits",
-        default=50.0,
-        type=float,
-        help="Number of passages in adaption phase (default %(default)s)."
-        " Only passages with high enough growth rate are counted (see min_gr).",
-    )
-    shr_parser.add_argument(
-        "--n-final-splits",
-        default=10.0,
-        type=float,
-        help="Number of passages in final phase (default %(default)s)."
-        " Only passages with high enough growth rate are counted (see min_gr).",
-    )
-    shr_parser.add_argument(
-        "--min-gr",
-        default=0.05,
-        type=float,
-        help="Minimum average growth rate during passage for it to be considered"
-        " successful (max. possible is 0.1, default %(default)s).",
-    )
-    shr_parser.add_argument(
-        "--mutation-rate-mult",
-        default=10.0,
-        type=float,
-        help="By how much to multiply mutation rate during adaption phase"
-        " (default %(default)s)",
-    )
+    cli.add_init_label_args(parser=shr_parser)
+    cli.add_batch_culture_args(parser=shr_parser)
+    cli.add_batch_culture_training_args(parser=shr_parser)
     shr_parser.add_argument(
         "--from-k",
         default=3000.0,

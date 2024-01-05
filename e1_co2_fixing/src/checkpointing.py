@@ -6,14 +6,22 @@ import magicsoup as ms
 from .culture import BatchCulture, ChemoStat
 
 
-class Logger:
-    """Tensorboard logger base"""
+class Checkpointer:
+    """Checkpointing base"""
 
     def __init__(
         self,
         trial_dir: Path,
         hparams: dict,
+        scalar_freq=5,
+        img_freq=50,
+        save_freq=50,
     ):
+        self.scalar_freq = scalar_freq
+        self.img_freq = img_freq
+        self.save_freq = save_freq
+        self.trial_dir = trial_dir
+
         metrics = {"Other/Progress": 0.0}
         self.writer = SummaryWriter(log_dir=trial_dir)
         exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict=metrics)
@@ -27,14 +35,13 @@ class Logger:
     def close(self):
         self.writer.close()
 
-    def log_scalars(
-        self,
-        step: int,
-        dtime: float,
-    ):
+    def log_scalars(self, dtime: float):
         raise NotImplementedError
 
-    def log_imgs(self, step: int):
+    def log_imgs(self):
+        raise NotImplementedError
+
+    def save_state(self):
         raise NotImplementedError
 
     def __enter__(self):
@@ -44,26 +51,23 @@ class Logger:
         self.writer.close()
 
 
-class BatchCultureLogger(Logger):
-    """Tensorboard logger for batch culture"""
+class BatchCultureCheckpointer(Checkpointer):
+    """Checkpointing for batch culture"""
 
-    def __init__(
-        self,
-        trial_dir: Path,
-        hparams: dict,
-        cltr: BatchCulture,
-        watch_mols: list[ms.Molecule],
-    ):
-        super().__init__(trial_dir=trial_dir, hparams=hparams)
+    def __init__(self, cltr: BatchCulture, watch_mols: list[ms.Molecule], **kwargs):
+        super().__init__(**kwargs)
         mol_2_idx = cltr.world.chemistry.mol_2_idx
         self.molecules = {f"Molecules/{d.name}": mol_2_idx[d] for d in watch_mols}
         self.cltr = cltr
-        self.log_scalars(step=0, dtime=0.0)
-        self.log_imgs(step=0)
+        self.log_scalars(dtime=0.0)
+        self.log_imgs()
+        self.save_state()
 
-    def log_scalars(
-        self, step: int, dtime: float, kwargs: dict[str, float] | None = None
-    ):
+    def log_scalars(self, dtime: float, kwargs: dict[str, float] | None = None):
+        step = self.cltr.step_i
+        if step % self.scalar_freq != 0:
+            return
+
         n_cells = self.cltr.world.n_cells
         molecule_map = self.cltr.world.molecule_map
         cell_molecules = self.cltr.world.cell_molecules
@@ -92,31 +96,39 @@ class BatchCultureLogger(Logger):
             for key, val in kwargs.items():
                 self.writer.add_scalar(key, val, step)
 
-    def log_imgs(self, step: int):
+    def log_imgs(self):
+        step = self.cltr.step_i
+        if step % self.img_freq != 0:
+            return
+
         cell_map = self.cltr.world.cell_map
         self.writer.add_image("Maps/Cells", cell_map, step, dataformats="WH")
 
+    def save_state(self):
+        step = self.cltr.step_i
+        if step % self.save_freq != 0:
+            return
 
-class ChemoStatLogger(Logger):
-    """Tensorboard logger for ChemoStat"""
+        self.cltr.world.save_state(statedir=self.trial_dir / f"step={step}")
 
-    def __init__(
-        self,
-        trial_dir: Path,
-        hparams: dict,
-        cltr: ChemoStat,
-        watch_mols: list[ms.Molecule],
-    ):
-        super().__init__(trial_dir=trial_dir, hparams=hparams)
+
+class ChemoStatCheckpointer(Checkpointer):
+    """Checkpointing for ChemoStat"""
+
+    def __init__(self, cltr: ChemoStat, watch_mols: list[ms.Molecule], **kwargs):
+        super().__init__(**kwargs)
         mol_2_idx = cltr.world.chemistry.mol_2_idx
         self.molecules = {f"Molecules/{d.name}": mol_2_idx[d] for d in watch_mols}
         self.cltr = cltr
-        self.log_scalars(step=0, dtime=0.0)
-        self.log_imgs(step=0)
+        self.log_scalars(dtime=0.0)
+        self.log_imgs()
+        self.save_state()
 
-    def log_scalars(
-        self, step: int, dtime: float, kwargs: dict[str, float] | None = None
-    ):
+    def log_scalars(self, dtime: float, kwargs: dict[str, float] | None = None):
+        step = self.cltr.step_i
+        if step % self.scalar_freq != 0:
+            return
+
         n_cells = self.cltr.world.n_cells
         molecule_map = self.cltr.world.molecule_map
         cell_molecules = self.cltr.world.cell_molecules
@@ -142,6 +154,17 @@ class ChemoStatLogger(Logger):
             for key, val in kwargs.items():
                 self.writer.add_scalar(key, val, step)
 
-    def log_imgs(self, step: int):
+    def log_imgs(self):
+        step = self.cltr.step_i
+        if step % self.img_freq != 0:
+            return
+
         cell_map = self.cltr.world.cell_map
         self.writer.add_image("Maps/Cells", cell_map, step, dataformats="WH")
+
+    def save_state(self):
+        step = self.cltr.step_i
+        if step % self.save_freq != 0:
+            return
+
+        self.cltr.world.save_state(statedir=self.trial_dir / f"step={step}")
