@@ -5,6 +5,8 @@ from torch.utils.tensorboard.summary import hparams as get_summary
 import magicsoup as ms
 from .culture import BatchCulture, ChemoStat
 
+# TODO: write checkpointer, so that it can save automatically at exit
+
 
 class Checkpointer:
     """Checkpointing base"""

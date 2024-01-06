@@ -15,7 +15,7 @@ class GenomeEditor:
         self.at_progress = at_progress
 
     def __call__(self, cltr: Culture):
-        if not self.is_edited and cltr.progress > self.at_progress:
+        if not self.is_edited and cltr.progress >= self.at_progress:
             updates = [
                 (cltr.world.cell_genomes[d] + self.fact.generate(), d)
                 for d in range(cltr.world.n_cells)

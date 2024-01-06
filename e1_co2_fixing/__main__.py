@@ -38,24 +38,11 @@ def _init_cells_cmd(kwargs: dict):
 
 
 def _train_pathway_cmd(kwargs: dict):
-    kwargs.pop("func")
-    device = kwargs.pop("device")
-    n_workers = kwargs.pop("n_workers")
-    n_trials = kwargs.pop("n_trials")
-    n_steps = kwargs.pop("n_steps")
-    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
-    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
-
-    for trial_i in range(n_trials):
-        train_pathway_trial(
-            device=device,
-            n_workers=n_workers,
-            runs_dir=_RUNS_DIR,
-            run_name=f"{ts}_{trial_i}",
-            n_steps=n_steps,
-            trial_max_time_s=trial_max_time_s,
-            hparams=kwargs,
-        )
+    config = Config.pop_from(kwargs)
+    for trial_i in range(config.n_trials):
+        run_name = f"train_pathway_{config.timestamp}_{trial_i}"
+        print(f"Starting trial {run_name} on {config.device}")
+        train_pathway_trial(run_name=run_name, config=config, hparams=kwargs)
 
 
 def _validate_cells_cmd(kwargs: dict):
