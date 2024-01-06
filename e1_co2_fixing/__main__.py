@@ -5,7 +5,6 @@ Entrypoint for simulation. Run with:
 
 """
 import datetime as dt
-from argparse import ArgumentParser
 from pathlib import Path
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
@@ -32,9 +31,10 @@ def _init_world_cmd(kwargs: dict):
 
 def _init_cells_cmd(kwargs: dict):
     config = Config.pop_from(kwargs)
-    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
     for trial_i in range(config.n_trials):
-        init_cells_trial(run_name=f"{ts}_{trial_i}", config=config, hparams=kwargs)
+        run_name = f"init_cells_{config.timestamp}_{trial_i}"
+        print(f"Starting trial {run_name} on {config.device}")
+        init_cells_trial(run_name=run_name, config=config, hparams=kwargs)
 
 
 def _train_pathway_cmd(kwargs: dict):
@@ -59,24 +59,11 @@ def _train_pathway_cmd(kwargs: dict):
 
 
 def _validate_cells_cmd(kwargs: dict):
-    kwargs.pop("func")
-    device = kwargs.pop("device")
-    n_workers = kwargs.pop("n_workers")
-    n_trials = kwargs.pop("n_trials")
-    n_steps = kwargs.pop("n_steps")
-    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
-    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
-
-    for trial_i in range(n_trials):
-        validate_cells_trial(
-            device=device,
-            n_workers=n_workers,
-            runs_dir=_RUNS_DIR,
-            run_name=f"{ts}_{trial_i}",
-            n_steps=n_steps,
-            trial_max_time_s=trial_max_time_s,
-            hparams=kwargs,
-        )
+    config = Config.pop_from(kwargs)
+    for trial_i in range(config.n_trials):
+        run_name = f"validate_cells_{config.timestamp}_{trial_i}"
+        print(f"Starting trial {run_name} on {config.device}")
+        validate_cells_trial(run_name=run_name, config=config, hparams=kwargs)
 
 
 def _shrink_genomes_cmd(kwargs: dict):
@@ -100,23 +87,6 @@ def _shrink_genomes_cmd(kwargs: dict):
         )
 
 
-def _add_batch_culture_args(subparser: ArgumentParser):
-    subparser.add_argument(
-        "--split-ratio",
-        default=0.2,
-        type=float,
-        help="Fraction of cells (to fully covered map) carried over during passage"
-        " (theoretically 0.13-0.2 should be best, default %(default)s)",
-    )
-    subparser.add_argument(
-        "--split-thresh",
-        default=0.7,
-        type=float,
-        help="Ratio of map covered in cells that will trigger passage"
-        " (should be below 0.8, default %(default)s)",
-    )
-
-
 if __name__ == "__main__":
     parser = cli.get_argparser()
     subparsers = parser.add_subparsers()
@@ -130,7 +100,7 @@ if __name__ == "__main__":
     world_parser.set_defaults(func=_init_world_cmd)
     world_parser.add_argument(
         "--map-size",
-        default=128,
+        default=256,
         type=int,
         help="Number of pixels of 2D map in each direction (default %(default)s)",
     )
@@ -189,8 +159,7 @@ if __name__ == "__main__":
         "--n-divisions",
         default=100.0,
         type=float,
-        help="How many average cell divisions to let cells grow"
-        " (default %(default)s)",
+        help="How many average cell divisions to let cells grow (default %(default)s)",
     )
 
     # shrink genomes

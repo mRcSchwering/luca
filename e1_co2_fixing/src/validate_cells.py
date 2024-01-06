@@ -1,154 +1,99 @@
-from pathlib import Path
 import time
 import torch
 import magicsoup as ms
-from .chemistry import SUBSTRATES, ADDITIVES
-from .util import load_cells
-from .experiment import (
-    Experiment,
-    ChemoStat,
-    ProgressController,
-    MediumFact,
+from .util import Config, load_cells
+from .checkpointing import ChemoStatCheckpointer
+from .chemistry import SUBSTRATES, ADDITIVES, _E, _X
+from .culture import Culture, ChemoStat
+from .generators import (
+    Progressor,
+    Killer,
+    Replicator,
+    Mutator,
+    Stopper,
 )
-from .logging import ChemoStatLogger
 
 
-class AdvanceByCellDivisions(ProgressController):
-    """Increment progress by average cell divisions up to `n_divisions`"""
-
-    def __init__(self, n_divisions: float):
-        self.n_divisions = n_divisions
-
-    def __call__(self, exp: ChemoStat) -> float:  # type: ignore[override]
-        mean_divis = exp.world.cell_divisions.float().mean()
-        return min(1.0, mean_divis.item() / self.n_divisions)
-
-
-class XGradient(MediumFact):
-    """
-    A 1D gradient is created over the X axis of the map.
-    In the middle there is an area where fresh medium is added,
-    at the borders there is an area where medium is removed.
-    The total area where medium is added and where medium is removed
-    is 10% each. Fresh medium contains substrates at `substrates_init`
-    and additives at `additives_init`.
-    """
+class MediumRefresher:
+    """1D gradient by adding molecules in middle and removing at edges"""
 
     def __init__(
         self,
+        world: ms.World,
         substrates: list[ms.Molecule],
         additives: list[ms.Molecule],
-        substrates_init: float,
-        additives_init: float,
-        world: ms.World,
+        substrates_val: float,
+        additives_val: float,
     ):
-        mol_2_idx = {d.name: i for i, d in enumerate(world.chemistry.molecules)}
-
-        self.substrates_init = substrates_init
-        self.additives_init = additives_init
-        self.subs_idxs = [mol_2_idx[d.name] for d in substrates]
-        self.add_idxs = [mol_2_idx[d.name] for d in additives]
-        self.molmap = world.molecule_map
+        self.substrates_val = substrates_val
+        self.additives_val = additives_val
+        self.subs_idxs = [world.chemistry.mol_2_idx[d] for d in substrates]
+        self.add_idxs = [world.chemistry.mol_2_idx[d] for d in additives]
 
         s = world.map_size
         m = int(s / 2)
         w = int(s * 0.05)
 
-        self.subs_mask = torch.zeros_like(world.molecule_map).bool()
+        self.set_mask = torch.zeros_like(world.molecule_map).bool()
         for idx in self.subs_idxs:
-            self.subs_mask[idx, list(range(m - w, m + w))] = True
+            self.set_mask[idx, list(range(m - w, m + w))] = True
 
-        self.add_mask = torch.zeros_like(world.molecule_map).bool()
-        for idx in self.add_idxs:
-            self.add_mask[idx, list(range(m - w, m + w))] = True
+        self.rm_mask = torch.zeros_like(world.molecule_map).bool()
+        self.rm_mask[:, list(range(0, w)) + list(range(s - w, s))] = True
 
-        self.extract_mask = torch.zeros_like(world.molecule_map).bool()
-        self.extract_mask[:, list(range(0, w)) + list(range(s - w, s))] = True
-
-    def __call__(self, exp: Experiment) -> torch.Tensor:
-        self.molmap[self.subs_mask] = self.substrates_init
-        self.molmap[self.add_mask] = self.additives_init
-        self.molmap[self.extract_mask] = 0.0
-        return self.molmap
+    def __call__(self, cltr: Culture):
+        cltr.world.molecule_map[self.set_mask] = self.substrates_val
+        cltr.world.molecule_map[self.set_mask] = self.additives_val
+        cltr.world.molecule_map[self.rm_mask] = 0.0
 
 
-def run_trial(
-    device: str,
-    n_workers: int,
-    runs_dir: Path,
-    run_name: str,
-    n_steps: int,
-    trial_max_time_s: int,
-    hparams: dict,
-):
-    # runs reference
-    trial_dir = runs_dir / run_name
-    world = ms.World.from_file(rundir=runs_dir, device=device, workers=n_workers)
+def run_trial(run_name: str, config: Config, hparams: dict):
+    trial_dir = config.runs_dir / run_name
+    world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
 
-    # factories
-    progress_controller = AdvanceByCellDivisions(n_divisions=hparams["n_divisions"])
+    mutator = Mutator()
+    stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
+    killer = Killer(world=world, mol=_E)
+    replicator = Replicator(world=world, mol=_X)
+    progressor = Progressor(n_avg_divisions=hparams["n_divisions"])
 
-    medium_fact = XGradient(
+    medium_refresher = MediumRefresher(
+        world=world,
         substrates=SUBSTRATES,
         additives=ADDITIVES,
-        substrates_init=hparams["substrates_init"],
-        additives_init=hparams["additives_init"],
-        world=world,
+        substrates_val=hparams["substrates_init"],
+        additives_val=hparams["additives_init"],
     )
 
-    # init experiment with fresh medium
-    exp = ChemoStat(
+    cltr = ChemoStat(
         world=world,
-        progress_controller=progress_controller,
-        medium_fact=medium_fact,
+        medium_refresher=medium_refresher,
+        killer=killer,
+        replicator=replicator,
+        mutator=mutator,
+        progressor=progressor,
+        stopper=stopper,
     )
 
-    if "genome_size_k" in hparams:
-        exp.genome_size_controller.k = hparams["genome_size_k"]
-        print(f"genome-size-k set to {exp.genome_size_controller.k:.2f}")
+    # load previous cells
+    load_cells(world=world, label=hparams["init_label"], runsdir=config.runs_dir)
 
-    # load initial cells
-    load_cells(world=world, label=hparams["init-label"], runsdir=runs_dir)
-
-    trial_t0 = time.time()
-    print(f"Starting trial {run_name}")
-    print(f"on {exp.world.device} with {exp.world.workers} workers")
-
-    # start logging
-    with ChemoStatLogger(
+    manager = ChemoStatCheckpointer(
         trial_dir=trial_dir,
         hparams=hparams,
-        exp=exp,
+        cltr=cltr,
         watch_mols=list(set(SUBSTRATES + ADDITIVES)),
-    ) as logger:
-        exp.world.save_state(statedir=trial_dir / "step=0")
+        scalar_freq=1,
+        img_freq=5,
+        save_freq=5,
+    )
 
-        # start steps
-        min_cells = int(exp.world.map_size**2 * 0.01)
-        for step_i in exp.run(max_steps=n_steps):
-            step_t0 = time.time()
-
-            exp.step_1s()
-            dtime = time.time() - step_t0
-
-            if exp.progress >= 1.0:
-                print(f"target reached after {step_i + 1} steps")
-                exp.world.save_state(statedir=trial_dir / f"step={step_i}")
-                logger.log_scalars(step=step_i, dtime=dtime)
-                break
-
-            logger.log_scalars(step=step_i, dtime=dtime)
-
-            if step_i % 5 == 0:
-                exp.world.save_state(statedir=trial_dir / f"step={step_i}")
-                logger.log_imgs(step=step_i)
-
-            if exp.world.n_cells < min_cells:
-                print(f"after {step_i} steps less than {min_cells} cells left")
-                break
-
-            if (time.time() - trial_t0) > trial_max_time_s:
-                print(f"{trial_max_time_s} hours have passed")
-                break
-
-    print(f"Finishing trial {run_name}")
+    with manager:
+        manager.save_state()
+        t0 = time.time()
+        for _ in cltr:
+            t1 = time.time()
+            manager.log_scalars(dtime=t1 - t0)
+            manager.log_imgs()
+            manager.save_state()
+            t0 = t1

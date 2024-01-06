@@ -55,7 +55,16 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         passager=passager,
     )
 
-    logger = BatchCultureCheckpointer(
+    # add initial cells
+    ggen = ms.GenomeFact(
+        world=world,
+        proteome=[[ms.TransporterDomainFact(_X)], [ms.TransporterDomainFact(_E)]],
+        target_size=500,
+    )
+    genomes = [ggen.generate() for _ in range(passager.min_cells)]
+    cltr.world.spawn_cells(genomes=genomes)
+
+    manager = BatchCultureCheckpointer(
         trial_dir=trial_dir,
         hparams=hparams,
         cltr=cltr,
@@ -65,12 +74,12 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         save_freq=100,
     )
 
-    with logger as log:
-        log.save_state()
+    with manager:
+        manager.save_state()
         t0 = time.time()
         for _ in cltr:
             t1 = time.time()
-            log.log_scalars(dtime=t1 - t0)
-            log.log_imgs()
-            log.save_state()
+            manager.log_scalars(dtime=t1 - t0)
+            manager.log_imgs()
+            manager.save_state()
             t0 = t1
