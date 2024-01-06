@@ -5,8 +5,6 @@ from torch.utils.tensorboard.summary import hparams as get_summary
 import magicsoup as ms
 from .culture import BatchCulture, ChemoStat
 
-# TODO: write checkpointer, so that it can save automatically at exit
-
 
 class Checkpointer:
     """Checkpointing base"""
@@ -15,13 +13,13 @@ class Checkpointer:
         self,
         trial_dir: Path,
         hparams: dict,
-        scalar_freq=5,
-        img_freq=50,
-        save_freq=50,
+        throttle_scalars=5,
+        throttle_imgs=50,
+        throttle_saves=50,
     ):
-        self.scalar_freq = scalar_freq
-        self.img_freq = img_freq
-        self.save_freq = save_freq
+        self.throttle_scalars = throttle_scalars
+        self.throttle_imgs = throttle_imgs
+        self.throttle_saves = throttle_saves
         self.trial_dir = trial_dir
 
         metrics = {"Other/Progress": 0.0}
@@ -37,19 +35,37 @@ class Checkpointer:
     def close(self):
         self.writer.close()
 
-    def log_scalars(self, dtime: float):
+    def log_scalars(self, kwargs: dict[str, float] | None = None):
         raise NotImplementedError
+
+    def throttled_log_scalars(self, step: int, kwargs: dict[str, float] | None = None):
+        if step % self.throttle_scalars == 0:
+            self.log_scalars(kwargs=kwargs)
 
     def log_imgs(self):
         raise NotImplementedError
 
+    def throttled_log_imgs(self, step: int):
+        if step % self.throttle_imgs == 0:
+            self.log_imgs()
+
     def save_state(self):
         raise NotImplementedError
 
+    def throttled_save_state(self, step: int):
+        if step % self.throttle_saves == 0:
+            self.save_state()
+
     def __enter__(self):
+        self.log_scalars()
+        self.log_imgs()
+        self.save_state()
         return self
 
     def __exit__(self, *exc):
+        self.log_scalars()
+        self.log_imgs()
+        self.save_state()
         self.writer.close()
 
 
@@ -61,15 +77,9 @@ class BatchCultureCheckpointer(Checkpointer):
         mol_2_idx = cltr.world.chemistry.mol_2_idx
         self.molecules = {f"Molecules/{d.name}": mol_2_idx[d] for d in watch_mols}
         self.cltr = cltr
-        self.log_scalars(dtime=0.0)
-        self.log_imgs()
-        self.save_state()
 
-    def log_scalars(self, dtime: float, kwargs: dict[str, float] | None = None):
+    def log_scalars(self, kwargs: dict[str, float] | None = None):
         step = self.cltr.step_i
-        if step % self.scalar_freq != 0:
-            return
-
         n_cells = self.cltr.world.n_cells
         molecule_map = self.cltr.world.molecule_map
         cell_molecules = self.cltr.world.cell_molecules
@@ -91,7 +101,6 @@ class BatchCultureCheckpointer(Checkpointer):
                 tag = f"{scalar}[int]"
                 self.writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
 
-        self.writer.add_scalar("Other/TimePerStep[s]", dtime, step)
         self.writer.add_scalar("Other/Split", self.cltr.split_i, step)
         self.writer.add_scalar("Other/Progress", self.cltr.progress, step)
         if kwargs is not None:
@@ -100,17 +109,11 @@ class BatchCultureCheckpointer(Checkpointer):
 
     def log_imgs(self):
         step = self.cltr.step_i
-        if step % self.img_freq != 0:
-            return
-
         cell_map = self.cltr.world.cell_map
         self.writer.add_image("Maps/Cells", cell_map, step, dataformats="WH")
 
     def save_state(self):
         step = self.cltr.step_i
-        if step % self.save_freq != 0:
-            return
-
         self.cltr.world.save_state(statedir=self.trial_dir / f"step={step}")
 
 
@@ -122,15 +125,9 @@ class ChemoStatCheckpointer(Checkpointer):
         mol_2_idx = cltr.world.chemistry.mol_2_idx
         self.molecules = {f"Molecules/{d.name}": mol_2_idx[d] for d in watch_mols}
         self.cltr = cltr
-        self.log_scalars(dtime=0.0)
-        self.log_imgs()
-        self.save_state()
 
-    def log_scalars(self, dtime: float, kwargs: dict[str, float] | None = None):
+    def log_scalars(self, kwargs: dict[str, float] | None = None):
         step = self.cltr.step_i
-        if step % self.scalar_freq != 0:
-            return
-
         n_cells = self.cltr.world.n_cells
         molecule_map = self.cltr.world.molecule_map
         cell_molecules = self.cltr.world.cell_molecules
@@ -150,7 +147,6 @@ class ChemoStatCheckpointer(Checkpointer):
                 tag = f"{scalar}[int]"
                 self.writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
 
-        self.writer.add_scalar("Other/TimePerStep[s]", dtime, step)
         self.writer.add_scalar("Other/Progress", self.cltr.progress, step)
         if kwargs is not None:
             for key, val in kwargs.items():
@@ -158,15 +154,9 @@ class ChemoStatCheckpointer(Checkpointer):
 
     def log_imgs(self):
         step = self.cltr.step_i
-        if step % self.img_freq != 0:
-            return
-
         cell_map = self.cltr.world.cell_map
         self.writer.add_image("Maps/Cells", cell_map, step, dataformats="WH")
 
     def save_state(self):
         step = self.cltr.step_i
-        if step % self.save_freq != 0:
-            return
-
         self.cltr.world.save_state(statedir=self.trial_dir / f"step={step}")

@@ -163,11 +163,10 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     )
 
     with manager:
-        manager.save_state()
         t0 = time.time()
-        for _ in cltr:
+        for step in cltr:
             t1 = time.time()
-            manager.log_scalars(dtime=t1 - t0)
-            manager.log_imgs()
-            manager.save_state()
+            manager.throttled_log_scalars(step, {"Other/TimePerStep[s]": t1 - t0})
+            manager.throttled_log_imgs(step)
+            manager.throttled_save_state(step)
             t0 = t1

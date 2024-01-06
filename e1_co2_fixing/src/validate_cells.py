@@ -85,15 +85,14 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         watch_mols=list(set(SUBSTRATES + ADDITIVES)),
         scalar_freq=1,
         img_freq=5,
-        save_freq=5,
+        save_freq=10,
     )
 
     with manager:
-        manager.save_state()
         t0 = time.time()
-        for _ in cltr:
+        for step in cltr:
             t1 = time.time()
-            manager.log_scalars(dtime=t1 - t0)
-            manager.log_imgs()
-            manager.save_state()
+            manager.throttled_log_scalars(step, {"Other/TimePerStep[s]": t1 - t0})
+            manager.throttled_log_imgs(step)
+            manager.throttled_save_state(step)
             t0 = t1
