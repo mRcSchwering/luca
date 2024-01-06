@@ -33,15 +33,12 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=hparams["n_splits"])
+    passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
 
     medium_refresher = MediumRefresher(
         world=world,
-        val=hparams["substrates_init"],
-        molecules=WL_STAGES_MAP["WL-0"][1],
-    )
-
-    passager = Passager(
-        world=world, min_confl=hparams["min_confl"], max_confl=hparams["max_confl"]
+        substrates_val=hparams["substrates_init"],
+        substrates=WL_STAGES_MAP["WL-0"][1],
     )
 
     cltr = BatchCulture(

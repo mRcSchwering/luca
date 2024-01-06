@@ -4,7 +4,7 @@ Entrypoint for simulation. Run with:
   python -m e1_co2_fixing --help
 
 """
-import datetime as dt
+from typing import Callable
 from pathlib import Path
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
@@ -29,54 +29,36 @@ def _init_world_cmd(kwargs: dict):
     world.save(rundir=_RUNS_DIR)
 
 
-def _init_cells_cmd(kwargs: dict):
+def _run_trials_cmd(
+    trialfun: Callable[[str, Config, dict], None], cmd: str, kwargs: dict
+):
     config = Config.pop_from(kwargs)
     for trial_i in range(config.n_trials):
-        run_name = f"init_cells_{config.timestamp}_{trial_i}"
+        run_name = f"{cmd}_{config.timestamp}_{trial_i}"
         print(f"Starting trial {run_name} on {config.device}")
-        init_cells_trial(run_name=run_name, config=config, hparams=kwargs)
+        trialfun(run_name, config, kwargs)
 
 
-def _train_pathway_cmd(kwargs: dict):
-    config = Config.pop_from(kwargs)
-    for trial_i in range(config.n_trials):
-        run_name = f"train_pathway_{config.timestamp}_{trial_i}"
-        print(f"Starting trial {run_name} on {config.device}")
-        train_pathway_trial(run_name=run_name, config=config, hparams=kwargs)
+_MAP: dict[str, Callable[[str, Config, dict], None]] = {
+    "shrink-genomes": shrink_genomes_trial,
+    "validate-cells": validate_cells_trial,
+    "train-pathway": train_pathway_trial,
+    "init-cells": init_cells_trial,
+}
 
 
-def _validate_cells_cmd(kwargs: dict):
-    config = Config.pop_from(kwargs)
-    for trial_i in range(config.n_trials):
-        run_name = f"validate_cells_{config.timestamp}_{trial_i}"
-        print(f"Starting trial {run_name} on {config.device}")
-        validate_cells_trial(run_name=run_name, config=config, hparams=kwargs)
-
-
-def _shrink_genomes_cmd(kwargs: dict):
-    kwargs.pop("func")
-    device = kwargs.pop("device")
-    n_workers = kwargs.pop("n_workers")
-    n_trials = kwargs.pop("n_trials")
-    n_steps = kwargs.pop("n_steps")
-    trial_max_time_s = kwargs.pop("trial_max_time_h") * 60 * 60
-    ts = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
-
-    for trial_i in range(n_trials):
-        shrink_genomes_trial(
-            device=device,
-            n_workers=n_workers,
-            runs_dir=_RUNS_DIR,
-            run_name=f"{ts}_{trial_i}",
-            n_steps=n_steps,
-            trial_max_time_s=trial_max_time_s,
-            hparams=kwargs,
-        )
+def main(kwargs: dict):
+    cmd = kwargs.pop("cmd")
+    if cmd == "init-world":
+        _init_world_cmd(kwargs)
+    trialfun = _MAP[cmd]
+    _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
+    print("done")
 
 
 if __name__ == "__main__":
     parser = cli.get_argparser()
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest="cmd")
 
     # init world
     world_parser = subparsers.add_parser(
@@ -84,13 +66,7 @@ if __name__ == "__main__":
         help="Initialize new world object."
         " This object will be used as a basis for all other runs.",
     )
-    world_parser.set_defaults(func=_init_world_cmd)
-    world_parser.add_argument(
-        "--map-size",
-        default=256,
-        type=int,
-        help="Number of pixels of 2D map in each direction (default %(default)s)",
-    )
+    cli.add_mapsize_arg(parser=world_parser)
 
     # init cells
     cells_parser = subparsers.add_parser(
@@ -100,14 +76,8 @@ if __name__ == "__main__":
         " These cells will have transporters for X and E and"
         " are cultivated in X- and E-rich medium.",
     )
-    cells_parser.set_defaults(func=_init_cells_cmd)
     cli.add_batch_culture_args(parser=cells_parser)
-    cells_parser.add_argument(
-        "--n-splits",
-        default=5.0,
-        type=float,
-        help="How many passages to let cells grow" " (default %(default)s)",
-    )
+    cli.add_n_splits_arg(parser=cells_parser)
 
     # train pathway
     train_parser = subparsers.add_parser(
@@ -119,17 +89,8 @@ if __name__ == "__main__":
         " Init grows cells in previous medium, adapt changes to target medium and"
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
-    train_parser.set_defaults(func=_train_pathway_cmd)
-    train_parser.add_argument(
-        "pathway-label",
-        type=str,
-        choices=WL_STAGES_MAP,
-        help="Label for the stage that should be trained."
-        " Each stage starts with an initial phase in which cells grow in medium A."
-        " In the adaption phase genomes are edited and medium is changed to B."
-        " In the final phase cells grow in medium B.",
-    )
-    cli.add_init_label_args(parser=train_parser)
+    cli.add_pathway_label_arg(parser=train_parser, choices=WL_STAGES_MAP)
+    cli.add_init_label_arg(parser=train_parser)
     cli.add_batch_culture_args(parser=train_parser)
     cli.add_batch_culture_training_args(parser=train_parser)
 
@@ -140,14 +101,8 @@ if __name__ == "__main__":
         " The ChemoStat will create a horizontal gradient with high E- and CO2-levels"
         " in the middle and 0 E and CO2 at the edges.",
     )
-    val_parser.set_defaults(func=_validate_cells_cmd)
-    cli.add_init_label_args(parser=val_parser)
-    val_parser.add_argument(
-        "--n-divisions",
-        default=100.0,
-        type=float,
-        help="How many average cell divisions to let cells grow (default %(default)s)",
-    )
+    cli.add_init_label_arg(parser=val_parser)
+    cli.add_n_divisions_arg(parser=val_parser)
 
     # shrink genomes
     shr_parser = subparsers.add_parser(
@@ -156,23 +111,10 @@ if __name__ == "__main__":
         " There are 3 phases: Init, with low mutation rate and high k;"
         " Adapt, with high mutation rate and decreasing k; Final, with low k and low mutation rate.",
     )
-    shr_parser.set_defaults(func=_shrink_genomes_cmd)
-    cli.add_init_label_args(parser=shr_parser)
+    cli.add_init_label_arg(parser=shr_parser)
     cli.add_batch_culture_args(parser=shr_parser)
     cli.add_batch_culture_training_args(parser=shr_parser)
-    shr_parser.add_argument(
-        "--from-k",
-        default=3000.0,
-        type=float,
-        help="Starting value of genome-size-reducing k (default %(default)s)",
-    )
-    shr_parser.add_argument(
-        "--to-k",
-        default=1500.0,
-        type=float,
-        help="Final value of genome-size-reducing k default %(default)s)",
-    )
+    cli.add_shrink_genome_args(parser=shr_parser)
 
     args = parser.parse_args()
-    args.func(vars(args))
-    print("done")
+    main(vars(args))

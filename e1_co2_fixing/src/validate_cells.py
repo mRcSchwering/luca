@@ -76,7 +76,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     )
 
     # load previous cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=config.runs_dir)
+    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     manager = ChemoStatCheckpointer(
         trial_dir=trial_dir,

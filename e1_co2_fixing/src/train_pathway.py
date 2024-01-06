@@ -56,15 +56,14 @@ class Mutator:
 
     def __init__(
         self,
-        from_progress: float,
-        to_progress: float,
+        progress_range: tuple[float, float],
         by: float,
         snp_p=1e-6,
         lgt_p=1e-7,
         lgt_age=10,
     ):
-        self.from_progress = from_progress
-        self.to_progress = to_progress
+        self.start = min(progress_range)
+        self.end = max(progress_range)
         self.by = by
         self.snp_p = snp_p
         self.lgt_p = lgt_p
@@ -73,7 +72,7 @@ class Mutator:
     def __call__(self, cltr: Culture):
         snp_p = self.snp_p
         lgt_p = self.lgt_p
-        if self.from_progress > cltr.progress >= self.from_progress:
+        if self.start < cltr.progress < self.end:
             snp_p *= self.by
             lgt_p *= self.by
         cltr.world.mutate_cells(p=snp_p)
@@ -83,7 +82,7 @@ class Mutator:
 
 
 def run_trial(run_name: str, config: Config, hparams: dict):
-    genes, subs_a, subs_b, add = WL_STAGES_MAP[hparams["pathway_label"]]
+    genes, subs_a, subs_b, add = WL_STAGES_MAP[hparams["pathway-label"]]
     n_init_splits = hparams["n_init_splits"]
     n_init_adapt_splits = n_init_splits + hparams["n_adapt_splits"]
     n_total_splits = n_init_adapt_splits + hparams["n_final_splits"]
@@ -102,6 +101,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
+    passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
 
     medium_refresher = MediumRefresher(
         world=world,
@@ -114,17 +114,12 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     )
 
     mutator = Mutator(
-        from_progress=adaption_start,
-        to_progress=adaption_end,
+        progress_range=(adaption_start, adaption_end),
         by=hparams["mutation_rate_mult"],
     )
 
     ggen = ms.GenomeFact(world=world, proteome=genes)  # type: ignore
     genome_editor = GenomeEditor(at_progress=adaption_start, fact=ggen)
-
-    passager = Passager(
-        world=world, min_confl=hparams["min_confl"], max_confl=hparams["max_confl"]
-    )
 
     cltr = BatchCulture(
         world=world,
@@ -139,7 +134,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     )
 
     # load previous cells
-    load_cells(world=world, label=hparams["init_label"], runsdir=config.runs_dir)
+    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     manager = BatchCultureCheckpointer(
         trial_dir=trial_dir,

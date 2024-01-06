@@ -1,3 +1,4 @@
+from typing import Iterable
 from argparse import ArgumentParser
 
 
@@ -60,16 +61,6 @@ def add_batch_culture_args(parser: ArgumentParser):
     )
 
 
-def add_init_label_args(parser: ArgumentParser):
-    parser.add_argument(
-        "init-label",
-        type=str,
-        help="Describes from where initial genomes are loaded."
-        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
-        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
-    )
-
-
 def add_batch_culture_training_args(parser: ArgumentParser):
     parser.add_argument(
         "--n-init-splits",
@@ -105,4 +96,68 @@ def add_batch_culture_training_args(parser: ArgumentParser):
         type=float,
         help="By how much to multiply mutation and recombination rate during adaption phase"
         " (default %(default)s)",
+    )
+
+
+def add_shrink_genome_args(parser: ArgumentParser):
+    parser.add_argument(
+        "--from-k",
+        default=3000.0,
+        type=float,
+        help="Starting value of genome-size-reducing k (default %(default)s)",
+    )
+    parser.add_argument(
+        "--to-k",
+        default=1500.0,
+        type=float,
+        help="Final value of genome-size-reducing k default %(default)s)",
+    )
+
+
+def add_init_label_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "init-label",
+        type=str,
+        help="Describes from where initial genomes are loaded."
+        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
+        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
+    )
+
+
+def add_mapsize_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--map-size",
+        default=256,
+        type=int,
+        help="Number of pixels of 2D map in each direction (default %(default)s)",
+    )
+
+
+def add_n_splits_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--n-splits",
+        default=5.0,
+        type=float,
+        help="How many passages to let cells grow" " (default %(default)s)",
+    )
+
+
+def add_pathway_label_arg(parser: ArgumentParser, choices: Iterable):
+    parser.add_argument(
+        "pathway-label",
+        type=str,
+        choices=choices,
+        help="Label for the stage that should be trained."
+        " Each stage starts with an initial phase in which cells grow in medium A."
+        " In the adaption phase genomes are edited and medium is changed to B."
+        " In the final phase cells grow in medium B.",
+    )
+
+
+def add_n_divisions_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--n-divisions",
+        default=100.0,
+        type=float,
+        help="How many average cell divisions to let cells grow (default %(default)s)",
     )

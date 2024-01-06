@@ -25,24 +25,35 @@ class GenomeEditor:
 
 
 class MediumRefresher:
-    """Set molecule species concentrations in medium to value"""
+    """Set substrate and additive concentrations in medium"""
 
-    def __init__(self, world: ms.World, val: float, molecules: list[ms.Molecule]):
-        mol_2_idx = world.chemistry.mol_2_idx
-        self.mol_idxs = [mol_2_idx[d] for d in molecules]
-        self.val = val
+    def __init__(
+        self,
+        world: ms.World,
+        substrates: list[ms.Molecule],
+        additives: list[ms.Molecule] | None = None,
+        substrates_val=1.0,
+        additives_val=1.0,
+    ):
+        if additives is None:
+            additives = []
+        self.subs_idxs = [world.chemistry.mol_2_idx[d] for d in substrates]
+        self.add_idxs = [world.chemistry.mol_2_idx[d] for d in additives]
+        self.subs_val = substrates_val
+        self.add_val = additives_val
 
     def __call__(self, cltr: Culture):
-        cltr.world.molecule_map[self.mol_idxs] = self.val
+        cltr.world.molecule_map[self.subs_idxs] = self.subs_val
+        cltr.world.molecule_map[self.add_idxs] = self.add_val
 
 
 class Passager:
     """Passage cells between min and max confluency"""
 
-    def __init__(self, world: ms.World, min_confl=0.2, max_confl=0.7):
+    def __init__(self, world: ms.World, cnfls=(0.2, 0.7)):
         n_max = world.map_size**2
-        self.min_cells = int(n_max * min_confl)
-        self.max_cells = int(n_max * max_confl)
+        self.min_cells = int(n_max * min(cnfls))
+        self.max_cells = int(n_max * max(cnfls))
 
     def __call__(self, cltr: BatchCulture) -> bool:
         if cltr.world.n_cells < self.max_cells:
