@@ -18,7 +18,7 @@ def get_argparser() -> ArgumentParser:
         " (default %(default)s)",
     )
     parser.add_argument(
-        "--trial-max-time-m",
+        "--max-time-m",
         default=180,
         type=int,
         help="Interrupt and stop trial after that many minutes (default %(default)s)",
@@ -92,7 +92,7 @@ def add_batch_culture_training_args(parser: ArgumentParser):
     )
     parser.add_argument(
         "--mutation-rate-mult",
-        default=10.0,
+        default=100.0,
         type=float,
         help="By how much to multiply mutation and recombination rate during adaption phase"
         " (default %(default)s)",

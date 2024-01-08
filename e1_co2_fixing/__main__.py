@@ -10,7 +10,8 @@ import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.init_cells import run_trial as init_cells_trial
 from .src.train_pathway import run_trial as train_pathway_trial
-from .src.validate_cells import run_trial as validate_cells_trial
+from .src.grow_batch import run_trial as grow_batch_trial
+from .src.grow_chemostat import run_trial as grow_chemostat_trial
 from .src.shrink_genomes import run_trial as shrink_genomes_trial
 from .src.util import Config
 from .src import cli
@@ -32,6 +33,7 @@ def _init_world_cmd(kwargs: dict):
 def _run_trials_cmd(
     trialfun: Callable[[str, Config, dict], None], cmd: str, kwargs: dict
 ):
+    kwargs["runs_dir"] = _RUNS_DIR
     config = Config.pop_from(kwargs)
     for trial_i in range(config.n_trials):
         run_name = f"{cmd}_{config.timestamp}_{trial_i}"
@@ -40,10 +42,11 @@ def _run_trials_cmd(
 
 
 _MAP: dict[str, Callable[[str, Config, dict], None]] = {
-    "shrink-genomes": shrink_genomes_trial,
-    "validate-cells": validate_cells_trial,
-    "train-pathway": train_pathway_trial,
     "init-cells": init_cells_trial,
+    "train-pathway": train_pathway_trial,
+    "shrink-genomes": shrink_genomes_trial,
+    "grow-chemostat": grow_chemostat_trial,
+    "grow-batch": grow_batch_trial,
 }
 
 
@@ -51,8 +54,9 @@ def main(kwargs: dict):
     cmd = kwargs.pop("cmd")
     if cmd == "init-world":
         _init_world_cmd(kwargs)
-    trialfun = _MAP[cmd]
-    _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
+    else:
+        trialfun = _MAP[cmd]
+        _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
     print("done")
 
 
@@ -94,15 +98,24 @@ if __name__ == "__main__":
     cli.add_batch_culture_args(parser=train_parser)
     cli.add_batch_culture_training_args(parser=train_parser)
 
-    # validate cells
-    val_parser = subparsers.add_parser(
-        "validate-cells",
-        help="Validate cell viability by growing them in ChemoStat with E and CO2."
+    # grow cells in chemostat
+    chemo_parser = subparsers.add_parser(
+        "grow-chemostat",
+        help="Grow cells in ChemoStat with E and CO2."
         " The ChemoStat will create a horizontal gradient with high E- and CO2-levels"
         " in the middle and 0 E and CO2 at the edges.",
     )
-    cli.add_init_label_arg(parser=val_parser)
-    cli.add_n_divisions_arg(parser=val_parser)
+    cli.add_init_label_arg(parser=chemo_parser)
+    cli.add_n_divisions_arg(parser=chemo_parser)
+
+    # grow cells in batch culture
+    batch_parser = subparsers.add_parser(
+        "grow-batch",
+        help="Grow cells in batch culture with E and CO2.",
+    )
+    cli.add_init_label_arg(parser=batch_parser)
+    cli.add_n_divisions_arg(parser=batch_parser)
+    cli.add_batch_culture_args(parser=batch_parser)
 
     # shrink genomes
     shr_parser = subparsers.add_parser(

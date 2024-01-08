@@ -2,7 +2,7 @@ import time
 import torch
 import magicsoup as ms
 from .util import Config, load_cells
-from .checkpointing import ChemoStatCheckpointer
+from .managing import ChemoStatManager
 from .chemistry import SUBSTRATES, ADDITIVES, _E, _X
 from .culture import Culture, ChemoStat
 from .generators import (
@@ -34,22 +34,27 @@ class MediumRefresher:
         m = int(s / 2)
         w = int(s * 0.05)
 
-        self.set_mask = torch.zeros_like(world.molecule_map).bool()
+        self.subs_mask = torch.zeros_like(world.molecule_map).bool()
         for idx in self.subs_idxs:
-            self.set_mask[idx, list(range(m - w, m + w))] = True
+            self.subs_mask[idx, list(range(m - w, m + w))] = True
+
+        self.add_mask = torch.zeros_like(world.molecule_map).bool()
+        for idx in self.add_idxs:
+            self.add_mask[idx, list(range(m - w, m + w))] = True
 
         self.rm_mask = torch.zeros_like(world.molecule_map).bool()
         self.rm_mask[:, list(range(0, w)) + list(range(s - w, s))] = True
 
     def __call__(self, cltr: Culture):
-        cltr.world.molecule_map[self.set_mask] = self.substrates_val
-        cltr.world.molecule_map[self.set_mask] = self.additives_val
+        cltr.world.molecule_map[self.subs_mask] = self.substrates_val
+        cltr.world.molecule_map[self.add_mask] = self.additives_val
         cltr.world.molecule_map[self.rm_mask] = 0.0
 
 
 def run_trial(run_name: str, config: Config, hparams: dict):
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
+    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     mutator = Mutator()
     stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
@@ -75,24 +80,24 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         stopper=stopper,
     )
 
-    # load previous cells
-    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
+    # prepare gradient
+    cltr.world.molecule_map[:] = 0.0
+    for _ in range(100):
+        cltr.medium_refresher(cltr)
+        cltr.world.diffuse_molecules()
 
-    manager = ChemoStatCheckpointer(
+    manager = ChemoStatManager(
         trial_dir=trial_dir,
         hparams=hparams,
         cltr=cltr,
         watch_mols=list(set(SUBSTRATES + ADDITIVES)),
-        scalar_freq=1,
-        img_freq=5,
-        save_freq=10,
     )
 
     with manager:
         t0 = time.time()
         for step in cltr:
             t1 = time.time()
-            manager.throttled_log_scalars(step, {"Other/TimePerStep[s]": t1 - t0})
-            manager.throttled_log_imgs(step)
+            manager.throttled_light_log(step, {"Other/TimePerStep[s]": t1 - t0})
+            manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1

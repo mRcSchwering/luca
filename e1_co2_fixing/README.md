@@ -155,10 +155,8 @@ The other cells rely on external $CO$ production and passive $CO$ import.
 
 - [\_\_main\_\_.py](./__main__.py) entrypoint for the simulation
 - [src/chemistry.py](./src/chemistry.py) world's chemistry definition
-- [src/experiment.py](./src/experiment.py) common experimental procedures
-- [src/init_cells.py](./src/init_cells.py) initialize cells to grow in medium containing X (batch culture)
-- [src/train_pathway.py](./src/train_pathway.py) stage-wise pathway training teaching cells to fix CO2 (batch culture)
-- [src/validate_cells.py](./src/validate_cells.py) validate viability by growing cells in CO2 and E (ChemoStat)
+- [src/culture.py](./src/culture.py) cell culturing algorithms
+- [src/generators.py](./src/generators.py) generators to influence culturing conditions
 - [runs/](./runs/) saved runs (in gitignore)
 - [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
 

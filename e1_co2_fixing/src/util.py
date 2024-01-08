@@ -5,13 +5,15 @@ import magicsoup as ms
 
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
-    """$t^n / (t^n + k^n)$"""
-    return t**n / (t**n + k**n)
+    """Sample bernoulli with $t^n / (t^n + k^n)$ return bool tensor"""
+    p = t**n / (t**n + k**n)
+    return torch.bernoulli(p).bool()
 
 
 def rev_sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
-    """$k^n / (t^n + k^n)$"""
-    return k**n / (t**n + k**n)
+    """Sample bernoulli with $k^n / (t^n + k^n)$ return bool tensor"""
+    p = k**n / (t**n + k**n)
+    return torch.bernoulli(p).bool()
 
 
 def find_steps(rundir: Path) -> list[int]:

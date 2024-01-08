@@ -41,8 +41,14 @@ class MediumRefresher:
         self.add_idxs = [world.chemistry.mol_2_idx[d] for d in additives]
         self.subs_val = substrates_val
         self.add_val = additives_val
+        self.other_idxs = list(
+            set(world.chemistry.mol_2_idx.values())
+            - set(self.subs_idxs)
+            - set(self.add_idxs)
+        )
 
     def __call__(self, cltr: Culture):
+        cltr.world.molecule_map[self.other_idxs] = 0.0
         cltr.world.molecule_map[self.subs_idxs] = self.subs_val
         cltr.world.molecule_map[self.add_idxs] = self.add_val
 
@@ -60,7 +66,7 @@ class Passager:
             return False
 
         n_old = cltr.world.n_cells
-        kill_n = max(n_old - self.max_cells, 0)
+        kill_n = max(n_old - self.min_cells, 0)
         idxs = random.sample(range(n_old), k=kill_n)
         cltr.world.kill_cells(cell_idxs=idxs)
         cltr.world.reposition_cells()
@@ -79,17 +85,17 @@ class Progressor:
 
 
 class Mutator:
-    """Mutate cells and recombinate old cells"""
+    """Mutate cells and recombinate cells"""
 
-    def __init__(self, snp_p=1e-6, lgt_p=1e-7, lgt_age=10):
+    def __init__(self, snp_p=1e-6, lgt_p=1e-7, lgt_rate=0.1):
         self.snp_p = snp_p
         self.lgt_p = lgt_p
-        self.lgt_age = lgt_age
+        self.lgt_rate = lgt_rate
 
     def __call__(self, cltr: Culture):
         cltr.world.mutate_cells(p=self.snp_p)
-        is_old = cltr.world.cell_lifetimes > self.lgt_age
-        idxs = torch.argwhere(is_old).flatten().tolist()
+        n_cells = cltr.world.n_cells
+        idxs = random.sample(range(n_cells), k=int(n_cells * self.lgt_rate))
         cltr.world.recombinate_cells(cell_idxs=idxs, p=self.lgt_p)
 
 
@@ -131,20 +137,28 @@ class Killer:
     """Kill cells for low molecule concentration and high genome size"""
 
     def __init__(
-        self, world: ms.World, mol: ms.Molecule, k_x=0.04, n_x=1, k_g=3_000.0, n_g=7
+        self,
+        world: ms.World,
+        mol: ms.Molecule,
+        k_x=0.04,
+        n_x=1,
+        k_g=2_000.0,
+        n_g=7,
+        spare_age=3,
     ):
         self.k_x = k_x
         self.n_x = n_x
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.k_g = k_g
         self.n_g = n_g
+        self.spare_age = spare_age
 
     def __call__(self, cltr: Culture):
         x = cltr.world.cell_molecules[:, self.mol_i]
         g = torch.tensor([len(d) for d in cltr.world.cell_genomes])
         x_sample = rev_sigm(t=x, k=self.k_x, n=self.n_x)
         g_sample = sigm(t=g.float(), k=self.k_g, n=self.n_g)
-        is_old = cltr.world.cell_lifetimes <= 3
+        is_old = cltr.world.cell_lifetimes <= self.spare_age
         idxs = torch.argwhere(x_sample & g_sample & is_old).flatten().tolist()
         cltr.world.kill_cells(cell_idxs=idxs)
 
@@ -152,11 +166,14 @@ class Killer:
 class Stopper:
     """Stop iteration on different conditions"""
 
-    def __init__(self, max_steps=100_000, max_time_m=180, max_progress=1.0):
+    def __init__(
+        self, max_steps=100_000, max_time_m=180, max_progress=1.0, min_cells=100
+    ):
         self.max_steps = max_steps
         self.max_time_s = max_time_m * 60
         self.start_time = time.time()
         self.max_progress = max_progress
+        self.min_cells = min_cells
 
     def __call__(self, cltr: Culture):
         if cltr.step_i >= self.max_steps:
@@ -167,4 +184,7 @@ class Stopper:
             raise StopIteration
         if cltr.progress >= self.max_progress:
             print(f"Maximum progress of {self.max_progress:.2f} reached")
+            raise StopIteration
+        if cltr.world.n_cells <= self.min_cells:
+            print(f"Minimum number of cells {self.min_cells:,} reached")
             raise StopIteration

@@ -2,7 +2,7 @@ import time
 import torch
 import magicsoup as ms
 from .util import Config, load_cells, sigm, rev_sigm
-from .checkpointing import BatchCultureCheckpointer
+from .managing import BatchCultureManager
 from .chemistry import ADDITIVES, SUBSTRATES, _X, _E
 from .culture import Culture, BatchCulture
 from .generators import (
@@ -112,6 +112,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
 
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
+    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
     replicator = Replicator(world=world, mol=_X)
@@ -149,24 +150,18 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         passager=passager,
     )
 
-    # load previous cells
-    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
-
-    manager = BatchCultureCheckpointer(
+    manager = BatchCultureManager(
         trial_dir=trial_dir,
         hparams=hparams,
         cltr=cltr,
-        watch_mols=[_X, _E],
-        scalar_freq=5,
-        img_freq=50,
-        save_freq=100,
+        watch_mols=list(set(SUBSTRATES + ADDITIVES)),
     )
 
     with manager:
         t0 = time.time()
         for step in cltr:
             t1 = time.time()
-            manager.throttled_log_scalars(step, {"Other/TimePerStep[s]": t1 - t0})
-            manager.throttled_log_imgs(step)
+            manager.throttled_light_log(step, {"Other/TimePerStep[s]": t1 - t0})
+            manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1

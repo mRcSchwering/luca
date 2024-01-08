@@ -2,7 +2,7 @@ import time
 import torch
 import magicsoup as ms
 from .util import Config, load_cells
-from .checkpointing import BatchCultureCheckpointer
+from .managing import BatchCultureManager
 from .chemistry import WL_STAGES_MAP, _X, _E
 from .culture import Culture, BatchCulture
 from .generators import Killer, Replicator, Stopper, Passager, GenomeEditor
@@ -35,18 +35,31 @@ class MediumRefresher:
         substrates_val: float,
         additives_val: float,
     ):
+        self.at_progress = at_progress
         self.substrates_val = substrates_val
         self.additives_val = additives_val
         self.subs_a_idxs = [world.chemistry.mol_2_idx[d] for d in substrates_a]
         self.subs_b_idxs = [world.chemistry.mol_2_idx[d] for d in substrates_b]
         self.add_idxs = [world.chemistry.mol_2_idx[d] for d in additives]
-        self.at_progress = at_progress
+        self.other_a_idxs = list(
+            set(world.chemistry.mol_2_idx.values())
+            - set(self.subs_a_idxs)
+            - set(self.add_idxs)
+        )
+        self.other_b_idxs = list(
+            set(world.chemistry.mol_2_idx.values())
+            - set(self.subs_b_idxs)
+            - set(self.add_idxs)
+        )
 
     def __call__(self, cltr: Culture):
         if cltr.progress < self.at_progress:
             subs_idxs = self.subs_a_idxs
+            other_idxs = self.other_a_idxs
         else:
             subs_idxs = self.subs_b_idxs
+            other_idxs = self.other_b_idxs
+        cltr.world.molecule_map[other_idxs] = 0.0
         cltr.world.molecule_map[self.add_idxs] = self.additives_val
         cltr.world.molecule_map[subs_idxs] = self.substrates_val
 
@@ -96,6 +109,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
 
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
+    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
     killer = Killer(world=world, mol=_E)
@@ -118,7 +132,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         by=hparams["mutation_rate_mult"],
     )
 
-    ggen = ms.GenomeFact(world=world, proteome=genes)  # type: ignore
+    ggen = ms.GenomeFact(world=world, proteome=genes)
     genome_editor = GenomeEditor(at_progress=adaption_start, fact=ggen)
 
     cltr = BatchCulture(
@@ -133,24 +147,18 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         genome_editor=genome_editor,
     )
 
-    # load previous cells
-    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
-
-    manager = BatchCultureCheckpointer(
+    manager = BatchCultureManager(
         trial_dir=trial_dir,
         hparams=hparams,
         cltr=cltr,
-        watch_mols=[_X, _E],
-        scalar_freq=5,
-        img_freq=50,
-        save_freq=100,
+        watch_mols=list(set(subs_a + subs_b + add)),
     )
 
     with manager:
         t0 = time.time()
         for step in cltr:
             t1 = time.time()
-            manager.throttled_log_scalars(step, {"Other/TimePerStep[s]": t1 - t0})
-            manager.throttled_log_imgs(step)
+            manager.throttled_light_log(step, {"Other/TimePerStep[s]": t1 - t0})
+            manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1

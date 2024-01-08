@@ -60,8 +60,6 @@ class Culture:
         self.replicator(self)
         self.post_replication()
         self.world.increment_cell_lifetimes()
-
-        self.progress = self.progressor(self)
         return self.step_i
 
 
@@ -70,6 +68,7 @@ class ChemoStat(Culture):
 
     def post_replication(self):
         self.medium_refresher(self)
+        self.progress = self.progressor(self)
 
 
 class BatchCulture(Culture):
@@ -102,6 +101,7 @@ class BatchCulture(Culture):
             self.split_i += 1
             self.split_start_step = self.step_i
             self.split_start_cells = self.world.n_cells
+            self.progress = self.progressor(self)
 
         if self.genome_editor is not None:
             self.genome_editor(self)

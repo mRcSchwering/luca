@@ -6,19 +6,19 @@ import magicsoup as ms
 from .culture import BatchCulture, ChemoStat
 
 
-class Checkpointer:
-    """Checkpointing base"""
+class Manager:
+    """Boilerplate base"""
 
     def __init__(
         self,
         trial_dir: Path,
         hparams: dict,
-        throttle_scalars=5,
-        throttle_imgs=50,
-        throttle_saves=50,
+        throttle_light_log=2,
+        throttle_fat_log=5,
+        throttle_saves=1000,
     ):
-        self.throttle_scalars = throttle_scalars
-        self.throttle_imgs = throttle_imgs
+        self.throttle_light_log = throttle_light_log
+        self.throttle_fat_log = throttle_fat_log
         self.throttle_saves = throttle_saves
         self.trial_dir = trial_dir
 
@@ -35,19 +35,19 @@ class Checkpointer:
     def close(self):
         self.writer.close()
 
-    def log_scalars(self, kwargs: dict[str, float] | None = None):
+    def light_log(self, kwargs: dict[str, float] | None = None):
         raise NotImplementedError
 
-    def throttled_log_scalars(self, step: int, kwargs: dict[str, float] | None = None):
-        if step % self.throttle_scalars == 0:
-            self.log_scalars(kwargs=kwargs)
+    def throttled_light_log(self, step: int, kwargs: dict[str, float] | None = None):
+        if step % self.throttle_light_log == 0:
+            self.light_log(kwargs=kwargs)
 
-    def log_imgs(self):
+    def fat_log(self):
         raise NotImplementedError
 
-    def throttled_log_imgs(self, step: int):
-        if step % self.throttle_imgs == 0:
-            self.log_imgs()
+    def throttled_fat_log(self, step: int):
+        if step % self.throttle_fat_log == 0:
+            self.fat_log()
 
     def save_state(self):
         raise NotImplementedError
@@ -57,46 +57,50 @@ class Checkpointer:
             self.save_state()
 
     def __enter__(self):
-        self.log_scalars()
-        self.log_imgs()
+        self.light_log()
+        self.fat_log()
         self.save_state()
         return self
 
     def __exit__(self, *exc):
-        self.log_scalars()
-        self.log_imgs()
+        self.light_log()
+        self.fat_log()
         self.save_state()
         self.writer.close()
 
 
-class BatchCultureCheckpointer(Checkpointer):
-    """Checkpointing for batch culture"""
+class BatchCultureManager(Manager):
+    """Boilerplate for batch culture"""
 
-    def __init__(self, cltr: BatchCulture, watch_mols: list[ms.Molecule], **kwargs):
+    def __init__(
+        self, cltr: BatchCulture, watch_mols: list[ms.Molecule] | None = None, **kwargs
+    ):
         super().__init__(**kwargs)
+        if watch_mols is None:
+            watch_mols = []
         mol_2_idx = cltr.world.chemistry.mol_2_idx
         self.molecules = {f"Molecules/{d.name}": mol_2_idx[d] for d in watch_mols}
         self.cltr = cltr
 
-    def log_scalars(self, kwargs: dict[str, float] | None = None):
+    def light_log(self, kwargs: dict[str, float] | None = None):
         step = self.cltr.step_i
         n_cells = self.cltr.world.n_cells
         molecule_map = self.cltr.world.molecule_map
-        cell_molecules = self.cltr.world.cell_molecules
         for scalar, idx in self.molecules.items():
             tag = f"{scalar}[ext]"
             self.writer.add_scalar(tag, molecule_map[idx].mean(), step)
 
         if n_cells > 0:
-            self.writer.add_scalar("Cells/Total", n_cells, step)
             mean_surv = self.cltr.world.cell_lifetimes.float().mean()
             mean_divis = self.cltr.world.cell_divisions.float().mean()
             genome_lens = [len(d) for d in self.cltr.world.cell_genomes]
+            self.writer.add_scalar("Cells/Total", n_cells, step)
             self.writer.add_scalar("Cells/Survival", mean_surv, step)
             self.writer.add_scalar("Cells/Divisions", mean_divis, step)
             self.writer.add_scalar("Cells/cPD", self.cltr.cpd, step)
             self.writer.add_scalar("Cells/GrowthRate", self.cltr.growth_rate, step)
             self.writer.add_scalar("Cells/GenomeSize", sum(genome_lens) / n_cells, step)
+            cell_molecules = self.cltr.world.cell_molecules
             for scalar, idx in self.molecules.items():
                 tag = f"{scalar}[int]"
                 self.writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
@@ -107,7 +111,7 @@ class BatchCultureCheckpointer(Checkpointer):
             for key, val in kwargs.items():
                 self.writer.add_scalar(key, val, step)
 
-    def log_imgs(self):
+    def fat_log(self):
         step = self.cltr.step_i
         cell_map = self.cltr.world.cell_map
         self.writer.add_image("Maps/Cells", cell_map, step, dataformats="WH")
@@ -117,32 +121,36 @@ class BatchCultureCheckpointer(Checkpointer):
         self.cltr.world.save_state(statedir=self.trial_dir / f"step={step}")
 
 
-class ChemoStatCheckpointer(Checkpointer):
-    """Checkpointing for ChemoStat"""
+class ChemoStatManager(Manager):
+    """Boilerplate for ChemoStat"""
 
-    def __init__(self, cltr: ChemoStat, watch_mols: list[ms.Molecule], **kwargs):
+    def __init__(
+        self, cltr: ChemoStat, watch_mols: list[ms.Molecule] | None = None, **kwargs
+    ):
         super().__init__(**kwargs)
+        if watch_mols is None:
+            watch_mols = []
         mol_2_idx = cltr.world.chemistry.mol_2_idx
         self.molecules = {f"Molecules/{d.name}": mol_2_idx[d] for d in watch_mols}
         self.cltr = cltr
 
-    def log_scalars(self, kwargs: dict[str, float] | None = None):
+    def light_log(self, kwargs: dict[str, float] | None = None):
         step = self.cltr.step_i
         n_cells = self.cltr.world.n_cells
         molecule_map = self.cltr.world.molecule_map
-        cell_molecules = self.cltr.world.cell_molecules
         for scalar, idx in self.molecules.items():
             tag = f"{scalar}[ext]"
             self.writer.add_scalar(tag, molecule_map[idx].mean(), step)
 
         if n_cells > 0:
-            self.writer.add_scalar("Cells/Total", n_cells, step)
             mean_surv = self.cltr.world.cell_lifetimes.float().mean()
             mean_divis = self.cltr.world.cell_divisions.float().mean()
             genome_lens = [len(d) for d in self.cltr.world.cell_genomes]
+            self.writer.add_scalar("Cells/Total", n_cells, step)
             self.writer.add_scalar("Cells/Survival", mean_surv, step)
             self.writer.add_scalar("Cells/Divisions", mean_divis, step)
             self.writer.add_scalar("Cells/GenomeSize", sum(genome_lens) / n_cells, step)
+            cell_molecules = self.cltr.world.cell_molecules
             for scalar, idx in self.molecules.items():
                 tag = f"{scalar}[int]"
                 self.writer.add_scalar(tag, cell_molecules[:, idx].mean(), step)
@@ -152,7 +160,7 @@ class ChemoStatCheckpointer(Checkpointer):
             for key, val in kwargs.items():
                 self.writer.add_scalar(key, val, step)
 
-    def log_imgs(self):
+    def fat_log(self):
         step = self.cltr.step_i
         cell_map = self.cltr.world.cell_map
         self.writer.add_image("Maps/Cells", cell_map, step, dataformats="WH")

@@ -145,6 +145,7 @@ E.g. shoudln't there be a hydroxybutyrate <-> malate (or similar)?
 """
 from magicsoup.containers import Molecule, Chemistry
 from magicsoup.factories import (
+    DomainFactType,
     CatalyticDomainFact as CatDF,
     TransporterDomainFact as TrnDF,
 )
@@ -425,9 +426,8 @@ CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 
 # building up pathway from end to start
 # stage: (new genes, substrates a, substrates b, additives)
-ProtFType = list[CatDF | TrnDF]
-StageType = tuple[list[ProtFType], list[Molecule], list[Molecule], list[Molecule]]
 # fmt: off
+StageType = tuple[list[list[DomainFactType]], list[Molecule], list[Molecule], list[Molecule]]
 WL_STAGES: list[StageType] = [
     (
         [
