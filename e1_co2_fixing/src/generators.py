@@ -172,15 +172,29 @@ class Stopper:
     """Stop iteration on different conditions"""
 
     def __init__(
-        self, max_steps=100_000, max_time_m=180, max_progress=1.0, min_cells=100
+        self,
+        max_steps=100_000,
+        max_time_m=180,
+        max_progress=1.0,
+        min_cells=100,
+        steps_without_progress=1000,
     ):
         self.max_steps = max_steps
         self.max_time_s = max_time_m * 60
         self.start_time = time.time()
         self.max_progress = max_progress
         self.min_cells = min_cells
+        self.steps_wo_progress = steps_without_progress
+        self.last_progress = 0.0
+        self.last_progress_step = 0
 
     def __call__(self, cltr: Culture):
+        if cltr.progress > self.last_progress:
+            self.last_progress_step = cltr.step_i
+            self.last_progress = cltr.progress
+        if cltr.step_i - self.last_progress_step > self.steps_wo_progress:
+            print(f"Maximum steps without progress {self.steps_wo_progress:,} reached")
+            raise StopIteration
         if cltr.step_i >= self.max_steps:
             print(f"Maximum steps {self.max_steps:,} reached")
             raise StopIteration
