@@ -114,13 +114,16 @@ def add_shrink_genome_args(parser: ArgumentParser):
     )
 
 
-def add_init_label_arg(parser: ArgumentParser):
+def add_init_label_arg(
+    parser: ArgumentParser, extra="Use 'random' to spawn random cells"
+):
     parser.add_argument(
         "init-label",
         type=str,
         help="Describes from where initial genomes are loaded."
         " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
-        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150.",
+        " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150."
+        f" {extra}.",
     )
 
 
@@ -130,15 +133,6 @@ def add_mapsize_arg(parser: ArgumentParser):
         default=256,
         type=int,
         help="Number of pixels of 2D map in each direction (default %(default)s)",
-    )
-
-
-def add_n_splits_arg(parser: ArgumentParser):
-    parser.add_argument(
-        "--n-splits",
-        default=5.0,
-        type=float,
-        help="How many passages to let cells grow" " (default %(default)s)",
     )
 
 

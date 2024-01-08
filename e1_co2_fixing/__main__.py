@@ -8,7 +8,6 @@ from typing import Callable
 from pathlib import Path
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
-from .src.init_cells import run_trial as init_cells_trial
 from .src.train_pathway import run_trial as train_pathway_trial
 from .src.grow_batch import run_trial as grow_batch_trial
 from .src.grow_chemostat import run_trial as grow_chemostat_trial
@@ -22,11 +21,7 @@ _RUNS_DIR = Path(__file__).parent / "runs"
 def _init_world_cmd(kwargs: dict):
     map_size = kwargs["map_size"]
     print(f"Initialing world with map_size={map_size}")
-    world = ms.World(
-        chemistry=CHEMISTRY,
-        map_size=map_size,
-        mol_map_init="zeros",
-    )
+    world = ms.World(chemistry=CHEMISTRY, map_size=map_size)
     world.save(rundir=_RUNS_DIR)
 
 
@@ -42,7 +37,6 @@ def _run_trials_cmd(
 
 
 _MAP: dict[str, Callable[[str, Config, dict], None]] = {
-    "init-cells": init_cells_trial,
     "train-pathway": train_pathway_trial,
     "shrink-genomes": shrink_genomes_trial,
     "grow-chemostat": grow_chemostat_trial,
@@ -72,17 +66,6 @@ if __name__ == "__main__":
     )
     cli.add_mapsize_arg(parser=world_parser)
 
-    # init cells
-    cells_parser = subparsers.add_parser(
-        "init-cells",
-        help="Initialize mostly random cells"
-        " that are able to grow on X in batch culture."
-        " These cells will have transporters for X and E and"
-        " are cultivated in X- and E-rich medium.",
-    )
-    cli.add_batch_culture_args(parser=cells_parser)
-    cli.add_n_splits_arg(parser=cells_parser)
-
     # train pathway
     train_parser = subparsers.add_parser(
         "train-pathway",
@@ -94,7 +77,7 @@ if __name__ == "__main__":
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
     cli.add_pathway_label_arg(parser=train_parser, choices=WL_STAGES_MAP)
-    cli.add_init_label_arg(parser=train_parser)
+    cli.add_init_label_arg(parser=train_parser, extra="Use 'init' to spawn new cells")
     cli.add_batch_culture_args(parser=train_parser)
     cli.add_batch_culture_training_args(parser=train_parser)
 

@@ -109,7 +109,16 @@ def run_trial(run_name: str, config: Config, hparams: dict):
 
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
-    load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
+
+    if hparams["init-label"] == "init":
+        ggen = ms.GenomeFact(
+            world=world,
+            proteome=[[ms.TransporterDomainFact(_X)], [ms.TransporterDomainFact(_E)]],
+        )
+        genomes = [ggen.generate() for _ in range(int(0.5 * world.map_size**2))]
+        world.spawn_cells(genomes=genomes)
+    else:
+        load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
     killer = Killer(world=world, mol=_E)
