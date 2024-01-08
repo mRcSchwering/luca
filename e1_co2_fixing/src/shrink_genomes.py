@@ -69,7 +69,7 @@ class Killer:
         k_x=0.04,
         n_x=1,
         n_g=7,
-        max_g_size=4_000,
+        max_g_size=3_000,
     ):
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.k_x = k_x
@@ -99,7 +99,7 @@ class Killer:
         x_sample = rev_sigm(t=x, k=self.k_x, n=self.n_x)
         g_sample = sigm(t=g.float(), k=k_g, n=self.n_g)
         is_old = cltr.world.cell_lifetimes <= 3
-        is_too_big = g > self.max_g_size
+        is_too_big = g > self.max_g_size  # avoid wasting memory
         mask = (x_sample & g_sample & is_old) | is_too_big
         idxs = torch.argwhere(mask).flatten().tolist()
         cltr.world.kill_cells(cell_idxs=idxs)
