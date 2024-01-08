@@ -154,8 +154,9 @@ class Killer:
         self.spare_age = spare_age
 
     def __call__(self, cltr: Culture):
+        device = cltr.world.device
         x = cltr.world.cell_molecules[:, self.mol_i]
-        g = torch.tensor([len(d) for d in cltr.world.cell_genomes])
+        g = torch.tensor([len(d) for d in cltr.world.cell_genomes], device=device)
         x_sample = rev_sigm(t=x, k=self.k_x, n=self.n_x)
         g_sample = sigm(t=g.float(), k=self.k_g, n=self.n_g)
         is_old = cltr.world.cell_lifetimes <= self.spare_age
