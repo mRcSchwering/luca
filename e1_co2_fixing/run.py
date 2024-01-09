@@ -18,8 +18,11 @@ import pandas as pd
 
 
 df = pd.DataFrame({"a": [1, 2], "b": [1.0, 2.0], "c": ["asd", "adf"]})
+formats = ["plain", "simple", "github", "presto", "pretty"]
 with open("asd.md", "w", encoding="utf-8") as fh:
-    fh.write(df.to_markdown())
+    for tformat in formats:
+        fh.write(f"\n\n### {tformat}\n\n")
+        fh.write(df.to_markdown(tablefmt=tformat))
 
 
 def _init_world_cmd(kwargs: dict):
