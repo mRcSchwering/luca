@@ -1,34 +1,38 @@
 """
 Entrypoint for simulation. Run with:
 
-  python -m e1_co2_fixing --help
+  python -m e1_co2_fixing.run --help
 
 """
 from typing import Callable
-from pathlib import Path
+from plotnine import theme_minimal, theme_set
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.train_pathway import run_trial as train_pathway_trial
 from .src.grow_batch import run_trial as grow_batch_trial
 from .src.grow_chemostat import run_trial as grow_chemostat_trial
 from .src.shrink_genomes import run_trial as shrink_genomes_trial
-from .src.util import Config
+from .src.util import Config, RUNS_DIR
 from .src import cli
+import pandas as pd
 
-_RUNS_DIR = Path(__file__).parent / "runs"
+
+df = pd.DataFrame({"a": [1, 2], "b": [1.0, 2.0], "c": ["asd", "adf"]})
+with open("asd.md", "w", encoding="utf-8") as fh:
+    fh.write(df.to_markdown())
 
 
 def _init_world_cmd(kwargs: dict):
     map_size = kwargs["map_size"]
     print(f"Initialing world with map_size={map_size}")
     world = ms.World(chemistry=CHEMISTRY, map_size=map_size)
-    world.save(rundir=_RUNS_DIR)
+    world.save(rundir=RUNS_DIR)
 
 
 def _run_trials_cmd(
     trialfun: Callable[[str, Config, dict], None], cmd: str, kwargs: dict
 ):
-    kwargs["runs_dir"] = _RUNS_DIR
+    kwargs["runs_dir"] = RUNS_DIR
     config = Config.pop_from(kwargs)
     for trial_i in range(config.n_trials):
         run_name = f"{cmd}_{config.timestamp}_{trial_i}"
@@ -45,6 +49,7 @@ _MAP: dict[str, Callable[[str, Config, dict], None]] = {
 
 
 def main(kwargs: dict):
+    theme_set(theme_minimal())
     cmd = kwargs.pop("cmd")
     if cmd == "init-world":
         _init_world_cmd(kwargs)
@@ -55,7 +60,7 @@ def main(kwargs: dict):
 
 
 if __name__ == "__main__":
-    parser = cli.get_argparser()
+    parser = cli.get_run_argparser()
     subparsers = parser.add_subparsers(dest="cmd")
 
     # init world

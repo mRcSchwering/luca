@@ -153,7 +153,7 @@ The other cells rely on external $CO$ production and passive $CO$ import.
 
 ## Run
 
-- [\_\_main\_\_.py](./__main__.py) entrypoint for the simulation
+- [run.py](./run.py) entrypoint for the simulation
 - [src/chemistry.py](./src/chemistry.py) world's chemistry definition
 - [src/culture.py](./src/culture.py) cell culturing algorithms
 - [src/generators.py](./src/generators.py) generators to influence culturing conditions
@@ -161,7 +161,7 @@ The other cells rely on external $CO$ production and passive $CO$ import.
 - [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
 
 ```
-python -m e1_co2_fixing --help  # follow help texts
+python -m e1_co2_fixing.main --help  # follow help texts
 ...
 tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
 ```

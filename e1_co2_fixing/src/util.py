@@ -3,6 +3,8 @@ import datetime as dt
 import torch
 import magicsoup as ms
 
+RUNS_DIR = Path(__file__).parent.parent / "runs"
+
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     """Sample bernoulli with $t^n / (t^n + k^n)$ return bool tensor"""
@@ -23,7 +25,10 @@ def find_steps(rundir: Path) -> list[int]:
 
 
 def load_cells(
-    world: ms.World, label: str, runsdir: Path, reposition_cells: bool = True
+    world: ms.World,
+    label: str,
+    runsdir: Path,
+    reset_cells: bool = True,
 ):
     """
     Use label to load a world's genomes:
@@ -42,10 +47,10 @@ def load_cells(
         raise ValueError(f"Label {label} not recognized")
 
     world.load_state(statedir=statedir)
-    if reposition_cells:
+    if reset_cells:
         world.reposition_cells(cell_idxs=list(range(world.n_cells)))
-    world.cell_divisions[:] = 0
-    world.cell_labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
+        world.cell_divisions[:] = 0
+        world.cell_labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
 
 
 class Config:
@@ -56,12 +61,14 @@ class Config:
         device: str,
         runs_dir: Path | str,
         max_steps: int,
+        max_steps_without_progress: int,
         max_time_m: int,
         n_trials: int,
     ):
         self.device = device
         self.runs_dir = runs_dir if isinstance(runs_dir, Path) else Path(runs_dir)
         self.max_steps = max_steps
+        self.max_steps_without_progress = max_steps_without_progress
         self.max_time_m = max_time_m
         self.n_trials = n_trials
         self.timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -73,6 +80,7 @@ class Config:
             device=kwargs.pop("device"),
             runs_dir=kwargs.pop("runs_dir"),
             max_steps=kwargs.pop("max_steps"),
+            max_steps_without_progress=kwargs.pop("max_steps_without_progress"),
             max_time_m=kwargs.pop("max_time_m"),
             n_trials=kwargs.pop("n_trials"),
         )

@@ -177,14 +177,15 @@ class Stopper:
         max_time_m=180,
         max_progress=1.0,
         min_cells=100,
-        steps_without_progress=1000,
+        max_steps_without_progress=1000,
+        **_,
     ):
         self.max_steps = max_steps
         self.max_time_s = max_time_m * 60
         self.start_time = time.time()
         self.max_progress = max_progress
         self.min_cells = min_cells
-        self.steps_wo_progress = steps_without_progress
+        self.steps_wo_progress = max_steps_without_progress
         self.last_progress = 0.0
         self.last_progress_step = 0
 

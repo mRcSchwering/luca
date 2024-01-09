@@ -2,7 +2,10 @@ from typing import Iterable
 from argparse import ArgumentParser
 
 
-def get_argparser() -> ArgumentParser:
+# run
+
+
+def get_run_argparser() -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument(
         "--device",
@@ -15,6 +18,13 @@ def get_argparser() -> ArgumentParser:
         default=100_000,
         type=int,
         help="Maxmimum number of steps (=virtual seconds) for each trial"
+        " (default %(default)s)",
+    )
+    parser.add_argument(
+        "--max-steps-without-progress",
+        default=1000,
+        type=int,
+        help="Maxmimum number of steps (=virtual seconds) without any progress advancement"
         " (default %(default)s)",
     )
     parser.add_argument(
@@ -154,4 +164,22 @@ def add_n_divisions_arg(parser: ArgumentParser):
         default=100.0,
         type=float,
         help="How many average cell divisions to let cells grow (default %(default)s)",
+    )
+
+
+# analysis
+
+
+def get_analysis_argparser() -> ArgumentParser:
+    parser = ArgumentParser()
+    return parser
+
+
+def add_state_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "state",
+        type=str,
+        help="Which state should be loaded?"
+        " E.g.  '2023-05-09_14-08_0:-1' to load the last step from run '2023-05-09_14-08_0',"
+        " or '2023-05-09_14-08_0/step=150' to load step 150.",
     )

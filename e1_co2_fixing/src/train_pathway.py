@@ -1,6 +1,5 @@
 import time
 import random
-import torch
 import magicsoup as ms
 from .util import Config, load_cells
 from .managing import BatchCultureManager
@@ -121,7 +120,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     else:
         load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
-    stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
+    stopper = Stopper(vars(config))
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])

@@ -124,7 +124,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
     else:
         load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
-    stopper = Stopper(max_steps=config.max_steps, max_time_m=config.max_time_m)
+    stopper = Stopper(vars(config))
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
     passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
