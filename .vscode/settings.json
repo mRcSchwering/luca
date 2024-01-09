@@ -1,0 +1,12 @@
+{
+  "pylint.args": ["--generated-members", "torch.*"],
+  "[markdown]": {
+    "editor.formatOnSave": false
+  },
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    }
+  },
+  "ruff.lint.args": ["--ignore=E501"]
+}

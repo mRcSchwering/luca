@@ -1,60 +1,55 @@
-import multiprocessing as mp
-import numpy as np
 import pandas as pd
-from Levenshtein import distance as ls_dist
 import magicsoup as ms
 from .src import cli
-from .src import tables
 from .src import plots
-from .src.util import load_cells, RUNS_DIR
+from .src import tables
+from .src.util import load_cells, RUNS_DIR, save_img, genome_distances, cluster_cells
 
 
-# label = "train-pathway_2024-01-08_21-59_2:-1"
-# world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
-# load_cells(world=world, label=label, runsdir=RUNS_DIR, reset_cells=False)
-
-
-def _genome_dists_row(i: int, genomes: list[str], minlen=1) -> np.ndarray:
-    n = len(genomes)
-    gi = genomes[i]
-    ni = len(gi)
-    if ni < minlen:
-        return np.full((n,), float("nan"))
-    Di = np.zeros((n,))
-    for j in range(i + 1, n):
-        gj = genomes[j]
-        nj = len(gj)
-        if nj > minlen:
-            Di[j] = ls_dist(gi, gj) / max(ni, nj)
-        else:
-            Di[j] = float("nan")
-    return Di
-
-
-def genome_distances(world: ms.World) -> np.ndarray:
-    args = [(d, world.cell_genomes) for d in range(world.n_cells)]
-    with mp.Pool() as pool:
-        arrs = pool.starmap(_genome_dists_row, args)
-    return np.stack(arrs)
-
-
-def _calc_genomic_distance_matrix(world: ms.World):
-    D = genome_distances(world=world)
-    i_min = D.sum(axis=0).argmin()
-    D[i_min]
-    cell = world.get_cell(by_idx=1500)
-    for protein in cell.proteome:
-        print(str(protein))
-
-
-def _describe_cells_cmd(kwargs: dict):
+def _describe_state(kwargs: dict):
     label = kwargs["state"]
     world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
-    load_cells(world=world, label=label, runsdir=RUNS_DIR, reset_cells=False)
+    statedir = load_cells(world=world, label=label, runsdir=RUNS_DIR, reset_cells=False)
+    title = f"{statedir.parent.name}_{statedir.name}"
+
+    # cell statistics
+    img = plots.state_cell_stats(
+        divisions=world.cell_divisions.tolist(),
+        lifetimes=world.cell_lifetimes.tolist(),
+        genome_sizes=[len(d) for d in world.cell_genomes],
+    )
+    save_img(img=img, name=f"{title}_cell_stats.png")
+
+    # cell labels
+    labels_df = pd.DataFrame(
+        {
+            "label": world.cell_labels,
+            "x": world.cell_positions[:, 0].tolist(),
+            "y": world.cell_positions[:, 1].tolist(),
+        }
+    )
+    img = plots.marked_cellmap(df=labels_df, top_n=10, map_size=world.map_size)
+    save_img(img=img, name=f"{title}_cell_labels.png")
+
+    # genome clustering
+    kill_idxs = [i for i, d in enumerate(world.cell_genomes) if len(d) < 100]
+    world.kill_cells(cell_idxs=kill_idxs)
+    D = genome_distances(world=world)
+    labels = cluster_cells(D=D)
+    clusters_df = pd.DataFrame(
+        {
+            "label": [f"c{d}" if d >= 0 else "other" for d in labels],
+            "x": world.cell_positions[:, 0].tolist(),
+            "y": world.cell_positions[:, 1].tolist(),
+        }
+    )
+    tables.write_table(df=clusters_df, name=f"{title}_genome_clusters.csv")
+    img = plots.marked_cellmap(df=clusters_df, map_size=world.map_size)
+    save_img(img=img, name=f"{title}_genome_clusters.png")
 
 
 _CMDS = {
-    "describe-cells": _describe_cells_cmd,
+    "describe-state": _describe_state,
 }
 
 
@@ -66,21 +61,15 @@ def main(kwargs: dict):
 
 
 if __name__ == "__main__":
-    df = pd.DataFrame({"a": [1, 2], "b": [3.4, 2.3], "c": ["asd", "asf"]})
-    md = tables.save_and_markdown(df=df, name="1.1 test", descr="a test table")
-    with open("asd.md", "w") as fh:
-        fh.write(f"\n{md}\n")
-    exit()
     parser = cli.get_analysis_argparser()
     subparsers = parser.add_subparsers(dest="cmd")
 
     # 1
-    cells_parser = subparsers.add_parser(
-        "describe-cells",
+    state_parser = subparsers.add_parser(
+        "describe-state",
         help="Describe cells in state",
     )
-    cli.add_state_arg(parser=cells_parser)
+    cli.add_state_arg(parser=state_parser)
 
-    args = parser.parse_args()
-    main(vars(args))
+    main(vars(parser.parse_args()))
     print("done")
