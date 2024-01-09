@@ -5,7 +5,6 @@ Entrypoint for simulation. Run with:
 
 """
 from typing import Callable
-from plotnine import theme_minimal, theme_set
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.train_pathway import run_trial as train_pathway_trial
@@ -14,15 +13,6 @@ from .src.grow_chemostat import run_trial as grow_chemostat_trial
 from .src.shrink_genomes import run_trial as shrink_genomes_trial
 from .src.util import Config, RUNS_DIR
 from .src import cli
-import pandas as pd
-
-
-df = pd.DataFrame({"a": [1, 2], "b": [1.0, 2.0], "c": ["asd", "adf"]})
-formats = ["plain", "simple", "github", "presto", "pretty"]
-with open("asd.md", "w", encoding="utf-8") as fh:
-    for tformat in formats:
-        fh.write(f"\n\n### {tformat}\n\n")
-        fh.write(df.to_markdown(tablefmt=tformat))
 
 
 def _init_world_cmd(kwargs: dict):
@@ -52,7 +42,6 @@ _MAP: dict[str, Callable[[str, Config, dict], None]] = {
 
 
 def main(kwargs: dict):
-    theme_set(theme_minimal())
     cmd = kwargs.pop("cmd")
     if cmd == "init-world":
         _init_world_cmd(kwargs)

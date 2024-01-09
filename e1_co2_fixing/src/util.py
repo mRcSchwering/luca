@@ -3,7 +3,10 @@ import datetime as dt
 import torch
 import magicsoup as ms
 
-RUNS_DIR = Path(__file__).parent.parent / "runs"
+EXP_DIR = Path(__file__).parent.parent
+RUNS_DIR = EXP_DIR / "runs"
+IMGS_DIR = EXP_DIR / "imgs"
+TABLES_DIR = EXP_DIR / "tables"
 
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:

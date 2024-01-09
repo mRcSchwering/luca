@@ -1,15 +1,17 @@
 import multiprocessing as mp
-from functools import partial
 import numpy as np
+import pandas as pd
 from Levenshtein import distance as ls_dist
 import magicsoup as ms
 from .src import cli
+from .src import tables
+from .src import plots
 from .src.util import load_cells, RUNS_DIR
 
 
-label = "train-pathway_2024-01-08_21-59_2:-1"
-world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
-load_cells(world=world, label=label, runsdir=RUNS_DIR, reset_cells=False)
+# label = "train-pathway_2024-01-08_21-59_2:-1"
+# world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
+# load_cells(world=world, label=label, runsdir=RUNS_DIR, reset_cells=False)
 
 
 def _genome_dists_row(i: int, genomes: list[str], minlen=1) -> np.ndarray:
@@ -19,8 +21,8 @@ def _genome_dists_row(i: int, genomes: list[str], minlen=1) -> np.ndarray:
     if ni < minlen:
         return np.full((n,), float("nan"))
     Di = np.zeros((n,))
-    for j in range(i + 1, world.n_cells):
-        gj = world.cell_genomes[j]
+    for j in range(i + 1, n):
+        gj = genomes[j]
         nj = len(gj)
         if nj > minlen:
             Di[j] = ls_dist(gi, gj) / max(ni, nj)
@@ -57,12 +59,18 @@ _CMDS = {
 
 
 def main(kwargs: dict):
+    plots.set_theme()
     cmd = kwargs.pop("cmd")
     cmd_fun = _CMDS[cmd]
     cmd_fun(kwargs)
 
 
 if __name__ == "__main__":
+    df = pd.DataFrame({"a": [1, 2], "b": [3.4, 2.3], "c": ["asd", "asf"]})
+    md = tables.save_and_markdown(df=df, name="1.1 test", descr="a test table")
+    with open("asd.md", "w") as fh:
+        fh.write(f"\n{md}\n")
+    exit()
     parser = cli.get_analysis_argparser()
     subparsers = parser.add_subparsers(dest="cmd")
 
