@@ -19,15 +19,10 @@ def read_table(name: str, index_col=False, header=0) -> pd.DataFrame:
     return df
 
 
-def to_markdown(df: pd.DataFrame, name: str, descr="") -> str:
+def to_markdown(df: pd.DataFrame, name: str, descr="", index=False) -> str:
     header = f"**{name}**"
     if len(descr) > 0:
         header += f" {descr}"
     header = "_" + header + "_"
-    tab = df.to_markdown(tablefmt="github")
+    tab = df.to_markdown(index=index)
     return f"\n{header}\n{tab}\n"
-
-
-def save_and_markdown(df: pd.DataFrame, name: str, descr="") -> str:
-    write_table(df=df, name=name)
-    return to_markdown(df=df, name=name, descr=descr)

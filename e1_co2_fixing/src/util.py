@@ -14,6 +14,7 @@ EXP_DIR = Path(__file__).parent.parent
 RUNS_DIR = EXP_DIR / "runs"
 IMGS_DIR = EXP_DIR / "imgs"
 TABLES_DIR = EXP_DIR / "tables"
+DOCS_DIR = EXP_DIR / "docs"
 
 
 def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
@@ -94,7 +95,7 @@ def cluster_cells(D: np.ndarray, n_clsts=10) -> np.ndarray:
     min_samples = [10, 20, 30, 40, 50]
     results = []
     for e, m in product(eps, min_samples):
-        model = DBSCAN(eps=e, min_samples=m, metric="euclidean")
+        model = DBSCAN(eps=e, min_samples=m, metric="precomputed")
         labels = model.fit(D).labels_
         top_clsts = Counter(labels[labels != -1]).most_common(n_clsts)
         if len(top_clsts) > 0:
@@ -105,6 +106,12 @@ def cluster_cells(D: np.ndarray, n_clsts=10) -> np.ndarray:
     _, e, m = sorted(results)[-1]
     model = DBSCAN(eps=e, min_samples=m, metric="euclidean")
     return model.fit(D).labels_
+
+
+def save_doc(content: list[str], name: str):
+    """Save utf-8 text file to docs dir"""
+    with open(DOCS_DIR / name, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(content))
 
 
 def save_img(img: Image, name: str, add_bkg=True):

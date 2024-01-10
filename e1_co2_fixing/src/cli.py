@@ -183,3 +183,11 @@ def add_state_arg(parser: ArgumentParser):
         " E.g.  '2023-05-09_14-08_0:-1' to load the last step from run '2023-05-09_14-08_0',"
         " or '2023-05-09_14-08_0/step=150' to load step 150.",
     )
+
+
+def add_genomic_clustering_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--genomic-clustering",
+        action="store_true",
+        help="Whether to also do a genomic-clustering (default %(default)s)",
+    )
