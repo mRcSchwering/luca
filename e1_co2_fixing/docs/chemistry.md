@@ -8,49 +8,49 @@
 
 
 _**1.1 Molecules** Definition of all molecules. Energy affects reaction equilibriums, diffusivity allows diffusion, permeability allows permeating cell membranes._
-|   index | name                |   energy[J] |   diffusivity |   permeability |
-|--------:|:--------------------|------------:|--------------:|---------------:|
-|       0 | CO2                 |       10000 |           1   |              1 |
-|       1 | NADPH               |      200000 |           0.1 |              0 |
-|       2 | NADP                |      130000 |           0.1 |              0 |
-|       3 | ATP                 |      100000 |           0.1 |              0 |
-|       4 | ADP                 |       65000 |           0.1 |              0 |
-|       5 | acetyl-CoA          |      475000 |           0.1 |              0 |
-|       6 | HS-CoA              |      190000 |           0.1 |              0 |
-|       7 | pyruvate            |      330000 |           0.1 |              0 |
-|       8 | G3P                 |      420000 |           0.1 |              0 |
-|       9 | X                   |       50000 |           0.1 |              0 |
-|      10 | E                   |      150000 |           0.1 |              0 |
-|      11 | RuBP                |      725000 |           0.1 |              0 |
-|      12 | 3PGA                |      350000 |           0.1 |              0 |
-|      13 | 1,3BPG              |      370000 |           0.1 |              0 |
-|      14 | Ru5P                |      695000 |           0.1 |              0 |
-|      15 | methyl-FH4          |      410000 |           0.1 |              0 |
-|      16 | methylen-FH4        |      355000 |           0.1 |              0 |
-|      17 | formyl-FH4          |      295000 |           0.1 |              0 |
-|      18 | FH4                 |      200000 |           0.1 |              0 |
-|      19 | formate             |       70000 |           0.1 |              0 |
-|      20 | CO                  |       75000 |           1   |              1 |
-|      21 | malonyl-CoA         |      495000 |           0.1 |              0 |
-|      22 | propionyl-CoA       |      675000 |           0.1 |              0 |
-|      23 | methylmalonyl-CoA   |      685000 |           0.1 |              0 |
-|      24 | succinyl-CoA        |      685000 |           0.1 |              0 |
-|      25 | succinate           |      485000 |           0.1 |              0 |
-|      26 | fumarate            |      415000 |           0.1 |              0 |
-|      27 | malate              |      415000 |           0.1 |              0 |
-|      28 | malyl-CoA           |      615000 |           0.1 |              0 |
-|      29 | glyoxylate          |      140000 |           0.1 |              0 |
-|      30 | methylmalyl-CoA     |      810000 |           0.1 |              0 |
-|      31 | citramalyl-CoA      |      810000 |           0.1 |              0 |
-|      32 | oxalacetate         |      350000 |           0.1 |              0 |
-|      33 | alpha-ketoglutarate |      540000 |           0.1 |              0 |
-|      34 | isocitrate          |      600000 |           0.1 |              0 |
-|      35 | citrate             |      600000 |           0.1 |              0 |
-|      36 | PEP                 |      350000 |           0.1 |              0 |
-|      37 | SSA                 |      535000 |           0.1 |              0 |
-|      38 | GHB                 |      600000 |           0.1 |              0 |
-|      39 | hydroxybutyryl-CoA  |      825000 |           0.1 |              0 |
-|      40 | acetoacetyl-CoA     |      760000 |           0.1 |              0 |
+|   index | name                |   energy[kJ] |   diffusivity |   permeability |
+|--------:|:--------------------|-------------:|--------------:|---------------:|
+|       0 | CO2                 |           10 |           1   |              1 |
+|       1 | NADPH               |          200 |           0.1 |              0 |
+|       2 | NADP                |          130 |           0.1 |              0 |
+|       3 | ATP                 |          100 |           0.1 |              0 |
+|       4 | ADP                 |           65 |           0.1 |              0 |
+|       5 | acetyl-CoA          |          475 |           0.1 |              0 |
+|       6 | HS-CoA              |          190 |           0.1 |              0 |
+|       7 | pyruvate            |          330 |           0.1 |              0 |
+|       8 | G3P                 |          420 |           0.1 |              0 |
+|       9 | X                   |           50 |           0.1 |              0 |
+|      10 | E                   |          150 |           0.1 |              0 |
+|      11 | RuBP                |          725 |           0.1 |              0 |
+|      12 | 3PGA                |          350 |           0.1 |              0 |
+|      13 | 1,3BPG              |          370 |           0.1 |              0 |
+|      14 | Ru5P                |          695 |           0.1 |              0 |
+|      15 | methyl-FH4          |          410 |           0.1 |              0 |
+|      16 | methylen-FH4        |          355 |           0.1 |              0 |
+|      17 | formyl-FH4          |          295 |           0.1 |              0 |
+|      18 | FH4                 |          200 |           0.1 |              0 |
+|      19 | formate             |           70 |           0.1 |              0 |
+|      20 | CO                  |           75 |           1   |              1 |
+|      21 | malonyl-CoA         |          495 |           0.1 |              0 |
+|      22 | propionyl-CoA       |          675 |           0.1 |              0 |
+|      23 | methylmalonyl-CoA   |          685 |           0.1 |              0 |
+|      24 | succinyl-CoA        |          685 |           0.1 |              0 |
+|      25 | succinate           |          485 |           0.1 |              0 |
+|      26 | fumarate            |          415 |           0.1 |              0 |
+|      27 | malate              |          415 |           0.1 |              0 |
+|      28 | malyl-CoA           |          615 |           0.1 |              0 |
+|      29 | glyoxylate          |          140 |           0.1 |              0 |
+|      30 | methylmalyl-CoA     |          810 |           0.1 |              0 |
+|      31 | citramalyl-CoA      |          810 |           0.1 |              0 |
+|      32 | oxalacetate         |          350 |           0.1 |              0 |
+|      33 | alpha-ketoglutarate |          540 |           0.1 |              0 |
+|      34 | isocitrate          |          600 |           0.1 |              0 |
+|      35 | citrate             |          600 |           0.1 |              0 |
+|      36 | PEP                 |          350 |           0.1 |              0 |
+|      37 | SSA                 |          535 |           0.1 |              0 |
+|      38 | GHB                 |          600 |           0.1 |              0 |
+|      39 | hydroxybutyryl-CoA  |          825 |           0.1 |              0 |
+|      40 | acetoacetyl-CoA     |          760 |           0.1 |              0 |
 
 
 

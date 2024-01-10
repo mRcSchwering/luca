@@ -20,7 +20,7 @@ def _describe_chemistry(_: dict):
         {
             "index": i,
             "name": d.name,
-            "energy[J]": d.energy,
+            "energy[kJ]": int(d.energy / 1000),
             "diffusivity": d.diffusivity,
             "permeability": d.permeability,
         }
