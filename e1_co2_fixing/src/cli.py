@@ -185,9 +185,19 @@ def add_state_arg(parser: ArgumentParser):
     )
 
 
-def add_genomic_clustering_arg(parser: ArgumentParser):
+def add_state_flags(parser: ArgumentParser):
     parser.add_argument(
-        "--genomic-clustering",
+        "--all-cells",
         action="store_true",
-        help="Whether to also do a genomic-clustering (default %(default)s)",
+        help="Analyze all cells together (default %(default)s)",
+    )
+    parser.add_argument(
+        "--by-cell-labels",
+        action="store_true",
+        help="Analyze cells grouped by label (default %(default)s)",
+    )
+    parser.add_argument(
+        "--by-genomic-clustering",
+        action="store_true",
+        help="Analyze cells grouped by genomic clusters (default %(default)s)",
     )

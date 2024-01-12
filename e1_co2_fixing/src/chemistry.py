@@ -465,24 +465,30 @@ WL_STAGES: list[StageType] = [
     ),
     (
         [
-            [CatDF(([_formate, _FH4], [_formylFH4]))],
-            [CatDF(([_co2, _NADPH], [_co, _NADP]))],
-            [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
-            [TrnDF(_NADPH)],
+            [CatDF(([_NADP, _E], [_NADPH]))],
+            [TrnDF(_E)],
         ],
         [_co, _E, _NADPH, _formylFH4],
-        [_co2, _E, _NADPH],
-        [_HSCoA, _FH4],
+        [_co, _E, _formylFH4],
+        [_HSCoA, _NADP],
     ),
     (
         [
-            [CatDF(([_NADP, _E], [_NADPH]))],
-            [TrnDF(_NADP)],
-            [TrnDF(_E)],
+            [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
+            [CatDF(([_formate, _FH4], [_formylFH4]))],
+            [TrnDF(_FH4)],
         ],
-        [_co2, _E, _NADPH],
+        [_co, _E, _formylFH4],
+        [_co2, _co, _E],
+        [_HSCoA, _NADP, _FH4],
+    ),
+    (
+        [
+            [CatDF(([_co2, _NADPH], [_co, _NADP]))],
+        ],
+        [_co2, _co, _E],
         [_co2, _E],
-        [_HSCoA, _FH4, _NADP],
+        [_HSCoA, _NADP, _FH4],
     ),
 ]
 # fmt: on
