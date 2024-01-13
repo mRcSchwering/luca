@@ -183,6 +183,7 @@ def molecule_concentrations(
     grp2col: dict[str, str],
     figsize=(7, 3),
     NA="other",
+    max_q=0.9,
 ):
     molnames = [d.name for d in molecules]
     mol_cats = [NA] + list(reversed([d for d in molnames if d != NA]))
@@ -218,6 +219,14 @@ def molecule_concentrations(
     df = pd.DataFrame.from_records(records)
     df["m"] = pd.Categorical(df["m"], categories=mol_cats, ordered=True)
     df["k"] = pd.Categorical(df["k"], categories=grp_cats, ordered=True)
+
+    if max_q < 1.0:
+        int_mask = df["l"] == "intracellular"
+        ext_mask = df["l"] == "extracellular"
+        t_int = df.loc[int_mask, "n"].quantile(max_q)
+        t_ext = df.loc[ext_mask, "n"].quantile(max_q)
+        df = df.loc[~((df["n"] > t_int) & int_mask)]
+        df = df.loc[~((df["n"] > t_ext) & ext_mask)]
 
     # fmt: off
     g = (ggplot(df, aes(x="m", y="n"))

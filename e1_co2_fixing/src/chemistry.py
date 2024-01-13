@@ -481,11 +481,12 @@ WL_STAGES: list[StageType] = [
         [_HSCoA, _NADP],
     ),
     # stage 4: formyl-FH4 from formate
-    # must import FH4
+    # must import FH4, formate
     (
         [
             [CatDF(([_formate, _FH4], [_formylFH4]))],
             [TrnDF(_FH4)],
+            [TrnDF(_formate)],
         ],
         [_co, _E, _formylFH4],
         [_co, _E, _formate],
