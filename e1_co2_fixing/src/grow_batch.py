@@ -26,7 +26,7 @@ def run_trial(run_name: str, config: Config, hparams: dict):
         load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
 
     mutator = Mutator()
-    stopper = Stopper(vars(config))
+    stopper = Stopper(**vars(config))
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_avg_divisions=hparams["n_divisions"])
