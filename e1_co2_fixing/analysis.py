@@ -87,7 +87,7 @@ def _describe_state(kwargs: dict):
         cellstats_img = plots.cellhists(world=world)
         mols_img = plots.molecule_concentrations(
             world=world,
-            molnames=["CO2", "NADPH", "NADP", "ATP", "ADP", "acetyl-CoA"],
+            molnames=["CO2", "NADPH", "NADP", "ATP", "ADP", "acetyl-CoA", "HS-CoA"],
             grp2idxs=grouping,
             grp2col=colors,
             figsize=(7, 2),

@@ -429,6 +429,8 @@ CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 # fmt: off
 StageType = tuple[list[list[DomainFactType]], list[Molecule], list[Molecule], list[Molecule]]
 WL_STAGES: list[StageType] = [
+    # stage 0: creating X from acetyl-CoA, E for survival
+    # must import acetyl-CoA, export HS-CoA
     (
         [
             [CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))],
@@ -440,6 +442,8 @@ WL_STAGES: list[StageType] = [
         [_E, _acetylCoA],
         [],
     ),
+    # stage 1: acetyl-CoA from methyl-FH4 + CO
+    # must import methyl-FH4, HS-CoA, export FH4
     (
         [
             [CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))],
@@ -451,6 +455,8 @@ WL_STAGES: list[StageType] = [
         [_co, _E, _methylFH4],
         [_HSCoA],
     ),
+    # stage 2: methyl-FH4 from formyl-FH4
+    # must import formyl-FH4, NADPH, export NADP
     (
         [
             [CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))],
@@ -463,6 +469,8 @@ WL_STAGES: list[StageType] = [
         [_co, _E, _NADPH, _formylFH4],
         [_HSCoA],
     ),
+    # stage 3: NADPH from E
+    # must import E, NADP
     (
         [
             [CatDF(([_NADP, _E], [_NADPH]))],
@@ -472,21 +480,24 @@ WL_STAGES: list[StageType] = [
         [_co, _E, _formylFH4],
         [_HSCoA, _NADP],
     ),
+    # stage 4: formyl-FH4 from formate
+    # must import FH4
     (
         [
-            [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
             [CatDF(([_formate, _FH4], [_formylFH4]))],
             [TrnDF(_FH4)],
         ],
         [_co, _E, _formylFH4],
-        [_co2, _co, _E],
+        [_co, _E, _formylFH4],
         [_HSCoA, _NADP, _FH4],
     ),
+    # stage 5: CO, formate from CO2
     (
         [
+            [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
             [CatDF(([_co2, _NADPH], [_co, _NADP]))],
         ],
-        [_co2, _co, _E],
+        [_co, _E, _formylFH4],
         [_co2, _E],
         [_HSCoA, _NADP, _FH4],
     ),
