@@ -188,7 +188,21 @@ def add_state_arg(parser: ArgumentParser):
 def add_state_flags(parser: ArgumentParser):
     parser.add_argument(
         "--molecules",
-        default=["CO2", "NADPH", "NADP", "ATP", "ADP"],
+        default=[
+            "CO2"
+            "CO"
+            "E"
+            "NADPH"
+            "NADP"
+            "HS-CoA"
+            "FH4"
+            "formate"
+            "formyl-FH4"
+            "methylen-FH4"
+            "methyl-FH4"
+            "acetyl-CoA"
+            "X"
+        ],
         nargs="+",
         help="Show these molecule concentrations (default %(default)s)",
     )

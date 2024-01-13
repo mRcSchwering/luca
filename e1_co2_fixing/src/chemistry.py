@@ -429,34 +429,20 @@ CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 # fmt: off
 StageType = tuple[list[list[DomainFactType]], list[Molecule], list[Molecule], list[Molecule]]
 WL_STAGES: list[StageType] = [
-    # stage 0: creating X from acetyl-CoA, E for survival
-    # must import acetyl-CoA, export HS-CoA
+    # stage 0: X from methyl-FH4
     (
         [
             [CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))],
-            [TrnDF(_acetylCoA)],
-            [TrnDF(_HSCoA)],
-            [TrnDF(_E)],
-        ],
-        [_E, _X],
-        [_E, _acetylCoA],
-        [],
-    ),
-    # stage 1: acetyl-CoA from methyl-FH4 + CO
-    # must import methyl-FH4, HS-CoA, export FH4
-    (
-        [
             [CatDF(([_methylFH4, _co, _HSCoA], [_acetylCoA, _FH4]))],
             [TrnDF(_methylFH4)],
             [TrnDF(_HSCoA)],
             [TrnDF(_FH4)],
         ],
-        [_E, _acetylCoA],
-        [_co, _E, _methylFH4],
+        [_E, _X],
+        [_E, _co, _methylFH4],
         [_HSCoA],
     ),
-    # stage 2: methyl-FH4 from formyl-FH4
-    # must import formyl-FH4, NADPH, export NADP
+    # stage 1: methyl-FH4 from formyl-FH4
     (
         [
             [CatDF(([_formylFH4, _NADPH], [_methylenFH4, _NADP]))],
@@ -465,42 +451,42 @@ WL_STAGES: list[StageType] = [
             [TrnDF(_NADPH)],
             [TrnDF(_NADP)],
         ],
-        [_co, _E, _methylFH4],
-        [_co, _E, _NADPH, _formylFH4],
+        [_E, _co, _methylFH4],
+        [_E, _co, _NADPH, _formylFH4],
         [_HSCoA],
     ),
-    # stage 3: NADPH from E
-    # must import E, NADP
+    # stage 2: formyl-FH4 from formate
+    (
+        [
+            [CatDF(([_formate, _FH4], [_formylFH4])), CatDF(([_ATP], [_ADP]))],
+            [TrnDF(_formate)],
+            [TrnDF(_ATP)],
+            [TrnDF(_ADP)],
+        ],
+        [_E, _co, _NADPH, _formylFH4],
+        [_E, _co, _NADPH, _ATP, _formate],
+        [_HSCoA, _FH4],
+    ),
+    # stage 3: NADPH and ATP from E
     (
         [
             [CatDF(([_NADP, _E], [_NADPH]))],
+            [CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))],
             [TrnDF(_E)],
         ],
-        [_co, _E, _NADPH, _formylFH4],
-        [_co, _E, _formylFH4],
-        [_HSCoA, _NADP],
+        [_E, _co, _NADPH, _ATP, _formate],
+        [_E, _co, _formate],
+        [_HSCoA, _FH4, _NADP, _ADP],
     ),
-    # stage 4: formyl-FH4 from formate
-    # must import FH4, formate
-    (
-        [
-            [CatDF(([_formate, _FH4], [_formylFH4]))],
-            [TrnDF(_FH4)],
-            [TrnDF(_formate)],
-        ],
-        [_co, _E, _formylFH4],
-        [_co, _E, _formate],
-        [_HSCoA, _NADP, _FH4],
-    ),
-    # stage 5: CO, formate from CO2
+    # stage 4: CO and formate from CO2
     (
         [
             [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
             [CatDF(([_co2, _NADPH], [_co, _NADP]))],
         ],
-        [_co, _E, _formate],
-        [_co2, _E],
-        [_HSCoA, _NADP, _FH4],
+        [_E, _co, _formate],
+        [_E, _co2],
+        [_HSCoA, _FH4, _NADP, _ADP],
     ),
 ]
 # fmt: on
