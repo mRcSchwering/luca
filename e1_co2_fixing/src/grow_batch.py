@@ -15,7 +15,7 @@ from .generators import (
 )
 
 
-def run_trial(run_name: str, config: Config, hparams: dict):
+def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
 
@@ -66,3 +66,5 @@ def run_trial(run_name: str, config: Config, hparams: dict):
             manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1
+
+    return cltr.progress

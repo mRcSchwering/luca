@@ -105,7 +105,7 @@ class Killer:
         cltr.world.kill_cells(cell_idxs=idxs)
 
 
-def run_trial(run_name: str, config: Config, hparams: dict):
+def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     n_init_splits = hparams["n_init_splits"]
     n_init_adapt_splits = n_init_splits + hparams["n_adapt_splits"]
     n_total_splits = n_init_adapt_splits + hparams["n_final_splits"]
@@ -175,3 +175,5 @@ def run_trial(run_name: str, config: Config, hparams: dict):
             manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1
+
+    return cltr.progress

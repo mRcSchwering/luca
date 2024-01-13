@@ -23,17 +23,20 @@ def _init_world_cmd(kwargs: dict):
 
 
 def _run_trials_cmd(
-    trialfun: Callable[[str, Config, dict], None], cmd: str, kwargs: dict
+    trialfun: Callable[[str, Config, dict], float], cmd: str, kwargs: dict
 ):
     kwargs["runs_dir"] = RUNS_DIR
     config = Config.pop_from(kwargs)
     for trial_i in range(config.n_trials):
         run_name = f"{cmd}_{config.timestamp}_{trial_i}"
         print(f"Starting trial {run_name} on {config.device}")
-        trialfun(run_name, config, kwargs)
+        progress = trialfun(run_name, config, kwargs)
+        if progress == 1.0:
+            print("Finished successfully. No further trials")
+            break
 
 
-_MAP: dict[str, Callable[[str, Config, dict], None]] = {
+_MAP: dict[str, Callable[[str, Config, dict], float]] = {
     "train-pathway": train_pathway_trial,
     "shrink-genomes": shrink_genomes_trial,
     "grow-chemostat": grow_chemostat_trial,
@@ -48,6 +51,7 @@ def main(kwargs: dict):
     else:
         trialfun = _MAP[cmd]
         _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
+
     print("done")
 
 
