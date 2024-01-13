@@ -71,6 +71,7 @@ def _describe_state(kwargs: dict):
     statedir = get_statedir(label=kwargs["state"], runsdir=RUNS_DIR)
     world.load_state(statedir=statedir, ignore_cell_params=True)
     title = f"{statedir.parent.name}_{statedir.name}"
+    molecules = [ms.Molecule.from_name(d) for d in kwargs["molecules"]]
 
     # cell statistics
     proteomes = []
@@ -87,10 +88,10 @@ def _describe_state(kwargs: dict):
         cellstats_img = plots.cellhists(world=world)
         mols_img = plots.molecule_concentrations(
             world=world,
-            molnames=["CO2", "NADPH", "NADP", "ATP", "ADP", "acetyl-CoA", "HS-CoA"],
+            molecules=molecules,
             grp2idxs=grouping,
             grp2col=colors,
-            figsize=(7, 2),
+            figsize=(7, len(molecules) * 0.5),
         )
         protcnts_img = plots.protein_counts(
             proteins=top_prots,
@@ -121,7 +122,8 @@ def _describe_state(kwargs: dict):
             world=world,
             grp2idxs={k: grouping[k] for k in top_labs[:3]},
             grp2col=colors,
-            molnames=["CO2", "NADPH", "NADP", "ATP", "ADP", "acetyl-CoA"],
+            molecules=molecules,
+            figsize=(7, len(molecules) * 0.5),
         )
         counts_img = plots.protein_counts(
             proteins=top_prots,
@@ -159,7 +161,8 @@ def _describe_state(kwargs: dict):
             world=world,
             grp2idxs={k: grouping[k] for k in list(grouping)[:3]},
             grp2col=colors,
-            molnames=["CO2", "NADPH", "NADP", "ATP", "ADP", "acetyl-CoA"],
+            molecules=molecules,
+            figsize=(7, len(molecules) * 0.5),
         )
         counts_img = plots.protein_counts(
             proteins=top_prots,

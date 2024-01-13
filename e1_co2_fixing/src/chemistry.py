@@ -488,7 +488,7 @@ WL_STAGES: list[StageType] = [
             [TrnDF(_FH4)],
         ],
         [_co, _E, _formylFH4],
-        [_co, _E, _formylFH4],
+        [_co, _E, _formate],
         [_HSCoA, _NADP, _FH4],
     ),
     # stage 5: CO, formate from CO2
@@ -497,7 +497,7 @@ WL_STAGES: list[StageType] = [
             [CatDF(([_co2, _NADPH], [_formate, _NADP]))],
             [CatDF(([_co2, _NADPH], [_co, _NADP]))],
         ],
-        [_co, _E, _formylFH4],
+        [_co, _E, _formate],
         [_co2, _E],
         [_HSCoA, _NADP, _FH4],
     ),

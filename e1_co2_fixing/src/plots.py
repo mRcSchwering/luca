@@ -178,12 +178,13 @@ def grp_counts(
 
 def molecule_concentrations(
     world: ms.World,
-    molnames: list[str],
+    molecules: list[ms.Molecule],
     grp2idxs: dict[str, list[int]],
     grp2col: dict[str, str],
     figsize=(7, 3),
     NA="other",
 ):
+    molnames = [d.name for d in molecules]
     mol_cats = [NA] + list(reversed([d for d in molnames if d != NA]))
     grp_cats = [NA] + list(reversed([d for d in grp2idxs if d != NA]))
 
@@ -193,12 +194,12 @@ def molecule_concentrations(
         if cell_i in idx2grp:
             label = idx2grp[cell_i]
             cell = world.get_cell(by_idx=cell_i)
-            for molname in molnames:
-                mol_i = world.chemistry.molname_2_idx[molname]
+            for mol in molecules:
+                mol_i = world.chemistry.mol_2_idx[mol]
                 records.append(
                     {
                         "c": cell_i,
-                        "m": molname,
+                        "m": mol.name,
                         "l": "intracellular",
                         "n": cell.int_molecules[mol_i].item(),
                         "k": label,
@@ -207,7 +208,7 @@ def molecule_concentrations(
                 records.append(
                     {
                         "c": cell_i,
-                        "m": molname,
+                        "m": mol.name,
                         "l": "extracellular",
                         "n": cell.ext_molecules[mol_i].item(),
                         "k": label,

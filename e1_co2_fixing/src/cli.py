@@ -187,6 +187,12 @@ def add_state_arg(parser: ArgumentParser):
 
 def add_state_flags(parser: ArgumentParser):
     parser.add_argument(
+        "--molecules",
+        default=["CO2", "NADPH", "NADP", "ATP", "ADP"],
+        nargs="+",
+        help="Show these molecule concentrations (default %(default)s)",
+    )
+    parser.add_argument(
         "--all-cells",
         action="store_true",
         help="Analyze all cells together (default %(default)s)",
