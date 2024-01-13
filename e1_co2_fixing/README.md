@@ -161,7 +161,7 @@ The other cells rely on external $CO$ production and passive $CO$ import.
 - [prep.ipynb](./prep.ipynb) estimating useful hyperparameter ranges
 
 ```
-python -m e1_co2_fixing.main --help  # follow help texts
+python -m e1_co2_fixing.run --help  # follow help texts
 ...
 tensorboard --host 0.0.0.0 --logdir=./e1_co2_fixing/runs
 ```

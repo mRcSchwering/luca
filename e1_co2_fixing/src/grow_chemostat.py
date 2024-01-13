@@ -32,7 +32,7 @@ class MediumRefresher:
 
         s = world.map_size
         m = int(s / 2)
-        w = int(s * 0.05)
+        w = int(s * 0.01)
 
         self.subs_mask = torch.zeros_like(world.molecule_map).bool()
         for idx in self.subs_idxs:
