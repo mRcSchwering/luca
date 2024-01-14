@@ -124,6 +124,13 @@ def save_doc(content: list[str], name: str):
     """Save utf-8 text file to docs dir"""
     with open(DOCS_DIR / name, "w", encoding="utf-8") as fh:
         fh.write("\n".join(content))
+    print(f"wrote {DOCS_DIR / name}")
+
+
+def read_doc(name: str) -> list[str]:
+    """Read utf-8 file from docs dir"""
+    with open(DOCS_DIR / name, "r", encoding="utf-8") as fh:
+        return fh.read().split("\n")
 
 
 def save_img(img: Image, name: str, add_bkg=True):
@@ -134,6 +141,7 @@ def save_img(img: Image, name: str, add_bkg=True):
         bkg.paste(img, (0, 0), img)
         img = bkg
     img.save(fp=str(IMGS_DIR / name))
+    print(f"wrote {IMGS_DIR / name}")
 
 
 def crop_img(img: Image, pad: tuple[int, ...]) -> Image:
@@ -186,6 +194,7 @@ def write_table(df: pd.DataFrame, name: str, index=False, header=True):
     df = df.copy()
     df.columns = [f"{c}[{t.name}]" for c, t in zip(df.columns, df.dtypes)]
     df.to_csv(TABLES_DIR / name, header=header, index=index)
+    print(f"wrote {TABLES_DIR / name}")
 
 
 def read_table(name: str, index_col=False, header=0) -> pd.DataFrame:

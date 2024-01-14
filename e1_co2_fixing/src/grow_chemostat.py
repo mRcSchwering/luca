@@ -24,6 +24,7 @@ class MediumRefresher:
         additives: list[ms.Molecule],
         substrates_val: float,
         additives_val: float,
+        width=0.01,
     ):
         self.substrates_val = substrates_val
         self.additives_val = additives_val
@@ -32,7 +33,7 @@ class MediumRefresher:
 
         s = world.map_size
         m = int(s / 2)
-        w = int(s * 0.01)
+        w = int(s * width)
 
         self.subs_mask = torch.zeros_like(world.molecule_map).bool()
         for idx in self.subs_idxs:

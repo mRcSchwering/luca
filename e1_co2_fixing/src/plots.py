@@ -2,6 +2,7 @@
 # type: ignore
 import io
 from PIL import Image
+import numpy as np
 import pandas as pd
 import matplotlib as mpl
 import magicsoup as ms
@@ -281,4 +282,62 @@ def cellboxes(
         + coord_flip())
     # fmt: on
 
+    return _plot_2_img(g, figsize=figsize)
+
+
+def sigm(
+    k: float, n: int, var: str, varlims=tuple[float, float], figsize=(2, 2)
+) -> Image:
+    def f(x: np.ndarray, k: float, n: int) -> np.ndarray:
+        return x**n / (k**n + x**n)
+
+    records = []
+    X = np.arange(start=varlims[0], stop=varlims[1], step=0.1)
+    Y = f(x=X, k=k, n=n)
+    for x, y in zip(X, Y):
+        records.append({var: x, "p": y})
+
+    df = pd.DataFrame.from_records(records)
+    m = f(x=k, k=k, n=n)
+
+    # fmt: off
+    g = (ggplot(df)
+        + geom_line(aes(x=var, y="p"), color=NA_COL)
+        + annotate("segment", x=k, y=0, xend=k, yend=m, linetype="dotted")
+        + annotate("segment", x=0, y=m, xend=k, yend=m, linetype="dotted")
+        + ylim(0.0, 1.0)
+        + theme(legend_position="none"))
+    # fmt: on
+    return _plot_2_img(g, figsize=figsize)
+
+
+def sampling(
+    k: float,
+    n: int,
+    var: str,
+    varlims=tuple[float, float],
+    n_ks=8,
+    n_steps=100,
+    figsize=(3, 2),
+) -> Image:
+    def f(x: np.ndarray, k: float, n: int, s: int) -> np.ndarray:
+        p = x**n / (k**n + x**n)
+        return 1 - (1 - p) ** s
+
+    records = []
+    X = np.linspace(start=varlims[0], stop=varlims[1], num=n_ks)
+    for step in range(n_steps):
+        Y = f(x=X, k=k, n=n, s=step)
+        for x, y in zip(X, Y):
+            records.append({var: x, "p": y, "step": step})
+
+    df = pd.DataFrame.from_records(records)
+    # m = f(x=k, k=k, n=n)
+
+    # fmt: off
+    g = (ggplot(df)
+        + geom_line(aes(x="step", y="p", color=var, group=var))
+        + theme(axis_title_y=element_blank(), axis_text_y=element_blank())
+        + ylim(0.0, 1.0))
+    # fmt: on
     return _plot_2_img(g, figsize=figsize)
