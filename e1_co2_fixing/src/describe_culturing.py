@@ -5,7 +5,8 @@ from .util import (
     vcat_imgs,
     write_table,
     table_to_markdown,
-    save_doc,
+    replace_doc_section,
+    write_doc,
     read_doc,
 )
 from . import plots
@@ -35,12 +36,6 @@ def create(_: dict):
     df = pd.DataFrame.from_records(records)
     write_table(df=df, name="cell_sampling.csv")
 
-    lines = read_doc(name="culturing.md")
-    starts = [i for i, d in enumerate(lines) if "### Cell Sampling" in d]
-    start = starts[0] if len(starts) > 0 else len(lines)
-    ends = [i for i, d in enumerate(lines) if i > start and d == "[//]: # (end)"]
-    end = ends[0] + 1 if len(ends) > 0 else len(lines)
-
     tab = table_to_markdown(
         df=df,
         name="2.1. Cell sampling",
@@ -48,6 +43,11 @@ def create(_: dict):
         " Replication probability depends on X concentration, killing probability on genome size and E concentration."
         " Probability p is calculated as $p_{k,n}(x) = x^n / (x^n + k^n)$.",
     )
-    smplng = f"### Cell Sampling\n{tab}\n[//]: # (end)"
-    lines = lines[:start] + [smplng] + lines[end:]
-    save_doc(content=lines, name="culturing.md")
+
+    lines = read_doc(name="culturing.md")
+    lines = replace_doc_section(
+        lines=lines,
+        startline="### Cell Sampling",
+        replace=[tab],
+    )
+    write_doc(content=lines, name="culturing.md")

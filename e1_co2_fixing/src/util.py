@@ -24,12 +24,6 @@ def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     return torch.bernoulli(p).bool()
 
 
-def rev_sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
-    """Sample bernoulli with $k^n / (t^n + k^n)$ return bool tensor"""
-    p = k**n / (t**n + k**n)
-    return torch.bernoulli(p).bool()
-
-
 def find_steps(rundir: Path) -> list[int]:
     """Get all sorted steps of rundir"""
     names = [d.name for d in rundir.glob("step=*")]
@@ -120,7 +114,7 @@ def cluster_cells(D: np.ndarray, n_clsts=10, max_d=1.0) -> dict[str, list[int]]:
     return {f"c{k}": d for k, d in clsts.items()}
 
 
-def save_doc(content: list[str], name: str):
+def write_doc(content: list[str], name: str):
     """Save utf-8 text file to docs dir"""
     with open(DOCS_DIR / name, "w", encoding="utf-8") as fh:
         fh.write("\n".join(content))
@@ -131,6 +125,18 @@ def read_doc(name: str) -> list[str]:
     """Read utf-8 file from docs dir"""
     with open(DOCS_DIR / name, "r", encoding="utf-8") as fh:
         return fh.read().split("\n")
+
+
+def replace_doc_section(
+    lines: list[str], replace: list[str], startline: str, endline="[//]: # (end)"
+) -> list[str]:
+    """Replace a section in lines of docs"""
+    starts = [i for i, d in enumerate(lines) if startline in d]
+    start = starts[0] if len(starts) > 0 else len(lines)
+    ends = [i for i, d in enumerate(lines) if i > start and d == endline]
+    end = ends[0] + 1 if len(ends) > 0 else len(lines)
+    content = [f"{startline}\n"] + replace + [f"\n{endline}"]
+    return lines[:start] + content + lines[end:]
 
 
 def save_img(img: Image, name: str, add_bkg=True):
@@ -216,7 +222,7 @@ def table_to_markdown(df: pd.DataFrame, name: str, descr="", index=False) -> str
         header += f" {descr}"
     header = "_" + header + "_"
     tab = df.to_markdown(index=index)
-    return f"\n{header}\n{tab}\n"
+    return f"{header}\n{tab}"
 
 
 class Config:

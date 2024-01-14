@@ -1,7 +1,7 @@
 import time
 import torch
 import magicsoup as ms
-from .util import Config, load_cells, sigm, rev_sigm
+from .util import Config, load_cells, sigm
 from .managing import BatchCultureManager
 from .chemistry import ADDITIVES, SUBSTRATES, _X, _E
 from .culture import Culture, BatchCulture
@@ -66,8 +66,8 @@ class Killer:
         mol: ms.Molecule,
         progress_range: tuple[float, float],
         k_g_range: tuple[float, float],
-        k_x=0.04,
-        n_x=1,
+        k_x=0.5,
+        n_x=-2,
         n_g=7,
         max_g_size=3_000,
     ):
@@ -96,7 +96,7 @@ class Killer:
         k_g = self._get_k_g(cltr.progress)
         x = cltr.world.cell_molecules[:, self.mol_i]
         g = torch.tensor([len(d) for d in cltr.world.cell_genomes], device=device)
-        x_sample = rev_sigm(t=x, k=self.k_x, n=self.n_x)
+        x_sample = sigm(t=x, k=self.k_x, n=self.n_x)
         g_sample = sigm(t=g.float(), k=k_g, n=self.n_g)
         is_old = cltr.world.cell_lifetimes <= 3
         is_too_big = g > self.max_g_size  # avoid wasting memory

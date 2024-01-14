@@ -332,7 +332,6 @@ def sampling(
             records.append({var: x, "p": y, "step": step})
 
     df = pd.DataFrame.from_records(records)
-    # m = f(x=k, k=k, n=n)
 
     # fmt: off
     g = (ggplot(df)

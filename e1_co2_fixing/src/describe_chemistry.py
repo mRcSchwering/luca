@@ -2,7 +2,7 @@ import pandas as pd
 from collections import Counter
 from .chemistry import CHEMISTRY
 from .util import (
-    save_doc,
+    write_doc,
     write_table,
     table_to_markdown,
 )
@@ -53,4 +53,4 @@ def create(_: dict):
     summary.append(molstab + "\n")
     summary.append("\n### Reactions\n\n")
     summary.append(reactstab + "\n")
-    save_doc(content=summary, name="chemistry.md")
+    write_doc(content=summary, name="chemistry.md")
