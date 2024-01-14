@@ -308,7 +308,7 @@ def sigm(
         + ylim(0.0, 1.0)
         + theme(legend_position="none"))
     # fmt: on
-    return _plot_2_img(g, figsize=figsize)
+    return _plot_2_img(g, figsize=figsize, dpi=100)
 
 
 def sampling(
@@ -340,4 +340,4 @@ def sampling(
         + theme(axis_title_y=element_blank(), axis_text_y=element_blank())
         + ylim(0.0, 1.0))
     # fmt: on
-    return _plot_2_img(g, figsize=figsize)
+    return _plot_2_img(g, figsize=figsize, dpi=100)
