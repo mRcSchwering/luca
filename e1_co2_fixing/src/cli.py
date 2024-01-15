@@ -207,3 +207,11 @@ def add_state_flags(parser: ArgumentParser):
         action="store_true",
         help="Analyze cells grouped by genomic clusters (default %(default)s)",
     )
+
+
+def add_runslist_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "runs",
+        nargs="+",
+        help="Which runs should be loaded? E.g. '2023-05-09_14-08_0' '2023-05-09_14-08_1'",
+    )

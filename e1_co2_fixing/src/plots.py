@@ -1,6 +1,7 @@
 # ruff: noqa: F405
 # type: ignore
 import io
+from itertools import product
 from PIL import Image
 import numpy as np
 import pandas as pd
@@ -340,3 +341,58 @@ def sampling(
         + ylim(0.0, 1.0))
     # fmt: on
     return _plot_2_img(g, figsize=figsize, dpi=100)
+
+
+def pathway_training(
+    df: pd.DataFrame,
+    grp2progress: dict[str, tuple[float, float]],
+    x="step",
+    y="value",
+    lab="stage",
+    var="variable",
+    trial="trial",
+    grp="runname",
+    progress="Progress",
+    figsize=(12, 10),
+) -> Image:
+    df = df.copy()
+    utrials = df[trial].unique()
+    uvars = df[var].unique()
+    df[trial] = pd.Categorical(df[trial], categories=utrials)
+    darkcols = tabcolors(vals=utrials)
+    lightcols = tabcolors(vals=[f"{d}-phase" for d in utrials], dark=False)
+
+    records = []
+    for run, rows in df.groupby(grp):
+        vars_ = rows[var].unique()
+        trials = rows[trial].unique()
+        grps = rows[grp].unique()
+        labs_ = rows[lab].unique()
+        for target in grp2progress[run]:
+            is_progress = rows[var] == progress
+            is_ge = rows[y] >= target
+            progress_delta = rows.loc[is_progress & is_ge, y] - target
+            is_min = progress_delta == progress_delta.min()
+            steps = rows.loc[is_progress & is_min, x]
+            s = sorted(steps.tolist())[0]
+            records.extend(
+                [
+                    {x: s, grp: r, var: v, lab: l_, trial: t, "phase": f"{t}-phase"}
+                    for r, v, t, l_ in product(grps, vars_, trials, labs_)
+                ]
+            )
+
+    df = pd.concat([df, pd.DataFrame.from_records(records)], ignore_index=True)
+    df[var] = pd.Categorical(df[var], categories=uvars)
+    df[trial] = pd.Categorical(df[trial], categories=utrials)
+
+    # fmt: off
+    g = (ggplot(df)
+        + geom_vline(aes(xintercept=x, color="phase"), data=df[~df["phase"].isna()], linetype="dotted")
+        + geom_line(aes(x=x, y=y, group=grp, color=trial), data=df[df["phase"].isna()])
+        + scale_color_manual({**darkcols, **lightcols})
+        + facet_grid(f"{var} ~ {lab}", scales="free")
+        + theme(axis_title_y=element_blank())
+        + theme(legend_position="none"))
+    # fmt: on
+    return _plot_2_img(g, figsize=figsize)

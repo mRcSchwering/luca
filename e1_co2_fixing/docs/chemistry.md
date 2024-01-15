@@ -1,13 +1,24 @@
-
 ## Chemistry
 
+The chemistry defines which molecule species and reactions exist in the simulation.
+All simulations use the same chemistry.
+See the [magicsoup docs](https://magic-soup.readthedocs.io/en/latest/mechanics/) for a more detailed explanation.
 
+The 6 CO2-fixing pathways described in [Gong, 2016](https://link.springer.com/article/10.1007/s11427-016-0304-2)
+were used as basis for reactions.
+The pathways were simplified in some cases to reduce the overall number of involved molecule species
+without limiting the diversity and possible interplay of these pathways.
+One such simplification was to only use NADPH and ATP as high-energy electron and phosphate donors.
 
 ### Molecules
 
+All molecule species are defined below.
+Energy affects reaction equilibriums.
+Diffusivity allows diffusion across the world map.
+Permeability allows permeation across cell membranes.
+X is a proxy molecule species for fixed carbon, E for energy.
 
-
-_**1.1 Molecules** Definition of all molecules. Energy affects reaction equilibriums, diffusivity allows diffusion, permeability allows permeating cell membranes._
+_**1.1 Molecules** Definition of all molecule species._
 |   index | name                |   energy[kJ] |   diffusivity |   permeability |
 |--------:|:--------------------|-------------:|--------------:|---------------:|
 |       0 | CO2                 |           10 |           1   |              1 |
@@ -52,13 +63,15 @@ _**1.1 Molecules** Definition of all molecules. Energy affects reaction equilibr
 |      39 | hydroxybutyryl-CoA  |          825 |           0.1 |              0 |
 |      40 | acetoacetyl-CoA     |          760 |           0.1 |              0 |
 
-
-
 ### Reactions
 
+All reactions are defined below.
+Each reaction is reversible.
+Energy defines the reaction's chemical equilibrium.
+Reactions involving X tie biologically fixed carbon to X.
+Reactions involving E allow restoration of energy carriers.
 
-
-_**1.2 Reactions** Definition of all reactions. Energy affects reaction equilibriums._
+_**1.2 Reactions** Definition of all reactions._
 | reaction                                                                                        |   energy [kJ] |
 |:------------------------------------------------------------------------------------------------|--------------:|
 | 1 NADPH $\rightleftharpoons$ 1 NADP                                                             |           -70 |

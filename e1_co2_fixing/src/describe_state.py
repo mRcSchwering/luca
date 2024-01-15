@@ -79,7 +79,7 @@ def _grouped_cells_plot(
     save_img(img=img, name=img_name)
 
 
-def create(kwargs: dict):
+def describe_state(kwargs: dict):
     world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
     statedir = get_statedir(label=kwargs["state"], runsdir=RUNS_DIR)
     world.load_state(statedir=statedir, ignore_cell_params=True)

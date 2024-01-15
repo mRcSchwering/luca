@@ -114,31 +114,6 @@ def cluster_cells(D: np.ndarray, n_clsts=10, max_d=1.0) -> dict[str, list[int]]:
     return {f"c{k}": d for k, d in clsts.items()}
 
 
-def write_doc(content: list[str], name: str):
-    """Save utf-8 text file to docs dir"""
-    with open(DOCS_DIR / name, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(content))
-    print(f"wrote {DOCS_DIR / name}")
-
-
-def read_doc(name: str) -> list[str]:
-    """Read utf-8 file from docs dir"""
-    with open(DOCS_DIR / name, "r", encoding="utf-8") as fh:
-        return fh.read().split("\n")
-
-
-def replace_doc_section(
-    lines: list[str], replace: list[str], startline: str, endline="[//]: # (end)"
-) -> list[str]:
-    """Replace a section in lines of docs"""
-    starts = [i for i, d in enumerate(lines) if startline in d]
-    start = starts[0] if len(starts) > 0 else len(lines)
-    ends = [i for i, d in enumerate(lines) if i > start and d == endline]
-    end = ends[0] + 1 if len(ends) > 0 else len(lines)
-    content = [f"{startline}\n"] + replace + [f"\n{endline}"]
-    return lines[:start] + content + lines[end:]
-
-
 def save_img(img: Image, name: str, add_bkg=True):
     """Save image, adding a white background"""
     if add_bkg:
@@ -223,6 +198,29 @@ def table_to_markdown(df: pd.DataFrame, name: str, descr="", index=False) -> str
     header = "_" + header + "_"
     tab = df.to_markdown(index=index)
     return f"{header}\n{tab}"
+
+
+def write_doc(content: list[str], name: str):
+    """Save utf-8 text file to docs dir"""
+    with open(DOCS_DIR / name, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(content))
+    print(f"wrote {DOCS_DIR / name}")
+
+
+def read_doc(name: str) -> list[str]:
+    """Read utf-8 file from docs dir"""
+    with open(DOCS_DIR / name, "r", encoding="utf-8") as fh:
+        return fh.read().split("\n")
+
+
+def replace_doc_tab(filename: str, tabname: str, tab: str):
+    """Replace md table in docs"""
+    lines = read_doc(name=filename)
+    starts = [i for i, d in enumerate(lines) if d.startswith(f"_**{tabname}**")]
+    start = starts[0] if len(starts) > 0 else len(lines)
+    ends = [i for i, d in enumerate(lines) if i > start and d == ""]
+    end = ends[0] + 1 if len(ends) > 0 else len(lines)
+    write_doc(content=lines[:start] + [tab, ""] + lines[end:], name=filename)
 
 
 class Config:
