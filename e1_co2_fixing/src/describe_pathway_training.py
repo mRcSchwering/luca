@@ -86,6 +86,7 @@ def describe_pathway_training(kwargs: dict):
         name="3.2 WL training stages",
         descr="Training WL pathway in multiple stages, start each stage with successful cells of the previous stage.",
     )
+    stages_tab = stages_tab.replace("<->", "$\\rightleftharpoons$")
     replace_doc_tab(
         filename="pathway_training.md",
         tabname="3.2 WL training stages",

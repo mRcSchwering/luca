@@ -22,13 +22,27 @@ At the same time genes were added to all cells that would give them the required
 enzymes and transporters to handle the new environment.
 
 _**3.2 WL training stages** Training WL pathway in multiple stages, start each stage with successful cells of the previous stage._
-| stage   | substrates A               | substrates B               | additives              | genes                                                                                                                                                                                                                                                                                                                                                     |
-|:--------|:---------------------------|:---------------------------|:-----------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| WL-0    | E, X                       | E, CO, methyl-FH4          | HS-CoA                 | <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1750>, <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1720>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1810>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1870>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac18d0>  |
-| WL-1    | E, CO, methyl-FH4          | E, CO, NADPH, formyl-FH4   | HS-CoA                 | <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1960>, <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac19c0>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1a20>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1a80>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1ae0>  |
-| WL-2    | E, CO, NADPH, formyl-FH4   | E, CO, NADPH, ATP, formate | HS-CoA, FH4            | <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1b70> | <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1bd0>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1c30>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1c90>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1cf0> |
-| WL-3    | E, CO, NADPH, ATP, formate | E, CO, formate             | HS-CoA, FH4, NADP, ADP | <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1d80>, <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1de0>, <magicsoup.factories.TransporterDomainFact object at 0x7fa69dac1e40>                                                                                                                                              |
-| WL-4    | E, CO, formate             | E, CO2                     | HS-CoA, FH4, NADP, ADP | <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1ed0>, <magicsoup.factories.CatalyticDomainFact object at 0x7fa69dac1f30>                                                                                                                                                                                                                    |
+| stage   | substrates A               | substrates B               | additives              | genes                                                    |
+|:--------|:---------------------------|:---------------------------|:-----------------------|:---------------------------------------------------------|
+| WL-0    | E, X                       | E, CO, methyl-FH4          | HS-CoA                 | 1 acetyl-CoA $\rightleftharpoons$ 1 HS-CoA + 5 X,                         |
+|         |                            |                            |                        | 1 CO + 1 HS-CoA + 1 methyl-FH4 $\rightleftharpoons$ 1 FH4 + 1 acetyl-CoA, |
+|         |                            |                            |                        | methyl-FH4 transporter,                                  |
+|         |                            |                            |                        | HS-CoA transporter,                                      |
+|         |                            |                            |                        | FH4 transporter                                          |
+| WL-1    | E, CO, methyl-FH4          | E, CO, NADPH, formyl-FH4   | HS-CoA                 | 1 NADPH + 1 formyl-FH4 $\rightleftharpoons$ 1 NADP + 1 methylen-FH4,      |
+|         |                            |                            |                        | 1 NADPH + 1 methylen-FH4 $\rightleftharpoons$ 1 NADP + 1 methyl-FH4,      |
+|         |                            |                            |                        | formyl-FH4 transporter,                                  |
+|         |                            |                            |                        | NADPH transporter,                                       |
+|         |                            |                            |                        | NADP transporter                                         |
+| WL-2    | E, CO, NADPH, formyl-FH4   | E, CO, NADPH, ATP, formate | HS-CoA, FH4            | 1 FH4 + 1 formate $\rightleftharpoons$ 1 formyl-FH4 | 1 ATP $\rightleftharpoons$ 1 ADP,    |
+|         |                            |                            |                        | formate transporter,                                     |
+|         |                            |                            |                        | ATP transporter,                                         |
+|         |                            |                            |                        | ADP transporter                                          |
+| WL-3    | E, CO, NADPH, ATP, formate | E, CO, formate             | HS-CoA, FH4, NADP, ADP | 1 E + 1 NADP $\rightleftharpoons$ 1 NADPH,                                |
+|         |                            |                            |                        | 2 ADP + 1 E $\rightleftharpoons$ 2 ATP,                                   |
+|         |                            |                            |                        | E transporter                                            |
+| WL-4    | E, CO, formate             | E, CO2                     | HS-CoA, FH4, NADP, ADP | 1 CO2 + 1 NADPH $\rightleftharpoons$ 1 NADP + 1 formate,                  |
+|         |                            |                            |                        | 1 CO2 + 1 NADPH $\rightleftharpoons$ 1 CO + 1 NADP                        |
 
 Each stage was divided into 3 phases.
 First, in an initial phase cells were grown in substrates A with base mutation rates.
