@@ -7,10 +7,10 @@ Entrypoint for simulation. Run with:
 from typing import Callable
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
-from .src.train_pathway import run_trial as train_pathway_trial
-from .src.grow_batch import run_trial as grow_batch_trial
-from .src.grow_chemostat import run_trial as grow_chemostat_trial
-from .src.shrink_genomes import run_trial as shrink_genomes_trial
+from .src.run_train_pathway import run_trial as train_pathway_trial
+from .src.run_grow_batch import run_trial as grow_batch_trial
+from .src.run_grow_chemostat import run_trial as grow_chemostat_trial
+from .src.run_shrink_genomes import run_trial as shrink_genomes_trial
 from .src.util import Config, RUNS_DIR
 from .src import cli
 
