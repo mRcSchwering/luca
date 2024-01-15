@@ -1,10 +1,10 @@
 black
 mypy
 plotnine
-ipykernel
 tensorboard
-magicsoup==0.4.3
 tabulate
 Leveshtein
 scikit-learn
+magicsoup==1.0.5
+
 

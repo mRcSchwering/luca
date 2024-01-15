@@ -22,7 +22,7 @@ def get_run_argparser() -> ArgumentParser:
     )
     parser.add_argument(
         "--max-steps-without-progress",
-        default=1000,
+        default=2000,
         type=int,
         help="Maxmimum number of steps (=virtual seconds) without any progress advancement"
         " (default %(default)s)",

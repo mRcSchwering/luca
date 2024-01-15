@@ -24,7 +24,7 @@ class MediumRefresher:
         additives: list[ms.Molecule],
         substrates_val: float,
         additives_val: float,
-        width=0.01,
+        width=0.05,
     ):
         self.substrates_val = substrates_val
         self.additives_val = additives_val

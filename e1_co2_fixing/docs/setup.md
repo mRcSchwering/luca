@@ -15,6 +15,8 @@ _**2.1. Cell sampling** Cells are sampled each step to be killed or replicated. 
 | [E]         |    0.5 |  -2 |
 | genome size | 2000   |   7 |
 
+To force cells to constantly regenerate X, they lost 4 X during division.
+This means in addition to the sampling described above a cell also needed to contain at least 4 X.
 Furthermore cells with genome size exceeding 3000 are killed.
 Cells of this genome size appear rarely, often after multiple genome duplications.
 They usually don't contribute much to the simulation outcome, but drastically increase memory usage.
