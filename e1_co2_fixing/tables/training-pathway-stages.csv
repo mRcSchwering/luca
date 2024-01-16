@@ -1,0 +1,20 @@
+stage[object],substrates A[object],substrates B[object],additives[object],genes[object]
+WL-0,"E, X","E, CO, methyl-FH4",HS-CoA,"1 acetyl-CoA <-> 1 HS-CoA + 5 X,
+1 CO + 1 HS-CoA + 1 methyl-FH4 <-> 1 FH4 + 1 acetyl-CoA,
+methyl-FH4 transporter,
+HS-CoA transporter,
+FH4 transporter"
+WL-1,"E, CO, methyl-FH4","E, CO, NADPH, formyl-FH4",HS-CoA,"1 NADPH + 1 formyl-FH4 <-> 1 NADP + 1 methylen-FH4,
+1 NADPH + 1 methylen-FH4 <-> 1 NADP + 1 methyl-FH4,
+formyl-FH4 transporter,
+NADPH transporter,
+NADP transporter"
+WL-2,"E, CO, NADPH, formyl-FH4","E, CO, NADPH, ATP, formate","HS-CoA, FH4","1 FH4 + 1 formate <-> 1 formyl-FH4 | 1 ATP <-> 1 ADP,
+formate transporter,
+ATP transporter,
+ADP transporter"
+WL-3,"E, CO, NADPH, ATP, formate","E, CO, formate","HS-CoA, FH4, NADP, ADP","1 E + 1 NADP <-> 1 NADPH,
+2 ADP + 1 E <-> 2 ATP,
+E transporter"
+WL-4,"E, CO, formate","E, CO2","HS-CoA, FH4, NADP, ADP","1 CO2 + 1 NADPH <-> 1 NADP + 1 formate,
+1 CO2 + 1 NADPH <-> 1 CO + 1 NADP"

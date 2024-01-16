@@ -2,7 +2,7 @@
 # type: ignore
 import io
 from itertools import product
-from PIL import Image
+from PIL import Image, ImageOps
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -17,6 +17,7 @@ MS_COLORS = {
     "reg": "#fed700",
 }
 NA_COL = "#595959"
+NA_COL_RGB = (89, 89, 89)
 
 
 def set_theme():
@@ -48,6 +49,20 @@ def tabcolors(vals: list[str], dark=True, NA="other") -> dict[str, str]:
         cols[d] = mpl.colors.rgb2hex(colormap(i * 2 + s))
     cols[NA] = NA_COL
     return cols
+
+
+def tensorboard_cellmap(imgstr: str, cellcol=NA_COL_RGB, border=1, margin=10) -> Image:
+    img = Image.open(io.BytesIO(imgstr))
+    arr = np.array(img.convert("RGBA"))
+    red, green, blue, _ = arr.T
+    is_white = (red == 255) & (blue == 255) & (green == 255)
+    is_black = (red == 0) & (blue == 0) & (green == 0)
+    arr[..., :-1][is_white.T] = cellcol
+    arr[..., :-1][is_black.T] = (255, 255, 255)
+    img = Image.fromarray(arr)
+    img = ImageOps.expand(image=img, border=border, fill="black")
+    img = ImageOps.expand(image=img, border=margin, fill="white")
+    return img
 
 
 def cellhists(
@@ -341,6 +356,24 @@ def sampling(
         + ylim(0.0, 1.0))
     # fmt: on
     return _plot_2_img(g, figsize=figsize, dpi=100)
+
+
+def run_scalars(
+    df: pd.DataFrame,
+    x="step",
+    y="value",
+    var="variable",
+    figsize=(10, 8),
+    color=NA_COL,
+) -> Image:
+    # fmt: off
+    g = (ggplot(df)
+        + geom_line(aes(x=x, y=y), color=color)
+        + facet_grid(f"{var} ~ .", scales="free")
+        + theme(axis_title_y=element_blank())
+        + theme(legend_position="none"))
+    # fmt: on
+    return _plot_2_img(g, figsize=figsize)
 
 
 def pathway_training(

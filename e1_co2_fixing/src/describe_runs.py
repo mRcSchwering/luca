@@ -1,9 +1,18 @@
 import json
 from pathlib import Path
+import numpy as np
 import pandas as pd
 from tensorboard.backend.event_processing import event_accumulator
 from .chemistry import WL_STAGES_MAP
-from .util import RUNS_DIR, save_img, write_table, replace_doc_tab, table_to_markdown
+from .util import (
+    RUNS_DIR,
+    save_img,
+    write_table,
+    replace_doc_tab,
+    table_to_markdown,
+    hcat_imgs,
+    vcat_imgs,
+)
 from . import plots
 
 
@@ -41,6 +50,60 @@ def _load_scalars(scalars: list[tuple[str, str]], rundirs: list[Path]) -> pd.Dat
     cats = [d[1] for d in scalars]
     df["variable"] = pd.Categorical(df["variable"], categories=cats, ordered=True)
     return df
+
+
+def _load_imgs(image: str, rundir: Path, n_steps=10) -> list:
+    ea_kwargs = {"size_guidance": {event_accumulator.IMAGES: 0}}
+    tf_ea = event_accumulator.EventAccumulator(str(rundir), **ea_kwargs)
+    tf_ea.Reload()
+
+    avail = [d.step for d in tf_ea.Images(image)]
+    idxs = np.round(np.linspace(0, len(avail) - 1, n_steps)).astype(int)
+    steps = [avail[d] for d in idxs]
+    tf_ea.Reload()
+
+    imgs = []
+    for obj in tf_ea.Images(image):
+        if obj.step in steps:
+            imgs.append(plots.tensorboard_cellmap(obj.encoded_image_string))
+    return imgs
+
+
+def describe_run(kwargs: dict):
+    rundir = RUNS_DIR / kwargs["run"]
+    title = rundir.name
+    is_chemostat = "chemostat" in rundir.name
+
+    if is_chemostat:
+        scalars = [
+            ("Cells/Total", "Cells"),
+            ("Cells/Divisions", "Divisions"),
+            ("Cells/Survival", "Survival"),
+            ("Cells/GenomeSize", "GenomeSize"),
+            ("Other/Progress", "Progress"),
+            ("Other/TimePerStep[s]", "s/step"),
+        ]
+    else:
+        scalars = [
+            ("Cells/Total", "Cells"),
+            ("Cells/Divisions", "Divisions"),
+            ("Cells/GrowthRate", "GrowthRate"),
+            ("Cells/Survival", "Survival"),
+            ("Cells/GenomeSize", "GenomeSize"),
+            ("Other/Split", "Passage"),
+            ("Cells/cPD", "cPD"),
+            ("Other/Progress", "Progress"),
+            ("Other/TimePerStep[s]", "s/step"),
+        ]
+    scalars_df = _load_scalars(scalars=scalars, rundirs=[rundir])
+    cell_imgs = _load_imgs(image="Maps/Cells", rundir=rundir)
+    cells_img = cell_imgs.pop(0)
+    for img in cell_imgs:
+        cells_img = hcat_imgs(cells_img, img)
+
+    plot_img = plots.run_scalars(df=scalars_df, figsize=(10, len(scalars) * 0.85))
+    img = vcat_imgs(cells_img, plot_img)
+    save_img(img=img, name=f"{title}_overview.png")
 
 
 def describe_pathway_training(kwargs: dict):

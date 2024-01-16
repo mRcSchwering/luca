@@ -9,11 +9,11 @@ Cells of the first stage (WL-0) were spawned with genomes encoding only E and X 
 _**3.1 Training strategy** Training WL pathway in multiple stages, start each stage with successful cells of the previous stage._
 | runname                          | stage   | prev-stage                          |
 |:---------------------------------|:--------|:------------------------------------|
-| train-pathway_2024-01-13_18-28_0 | WL-0    | init                                |
-| train-pathway_2024-01-13_18-30_0 | WL-1    | train-pathway_2024-01-13_18-28_0:-1 |
-| train-pathway_2024-01-13_18-32_0 | WL-2    | train-pathway_2024-01-13_18-30_0:-1 |
-| train-pathway_2024-01-13_18-35_0 | WL-3    | train-pathway_2024-01-13_18-32_0:-1 |
-| train-pathway_2024-01-13_19-01_0 | WL-4    | train-pathway_2024-01-13_18-35_0:-1 |
+| train-pathway_2024-01-15_16-39_0 | WL-0    | init                                |
+| train-pathway_2024-01-15_16-43_0 | WL-1    | train-pathway_2024-01-15_16-39_0:-1 |
+| train-pathway_2024-01-15_16-45_0 | WL-2    | train-pathway_2024-01-15_16-43_0:-1 |
+| train-pathway_2024-01-15_16-48_0 | WL-3    | train-pathway_2024-01-15_16-45_0:-1 |
+| train-pathway_2024-01-15_16-57_0 | WL-4    | train-pathway_2024-01-15_16-48_0:-1 |
 
 Culturing medium consisted of substrates and additives.
 During each stage medium was changed from one set of substrates to another,
@@ -55,8 +55,8 @@ The mutation rate multiplier, minimum number of passages for each phase and the 
 _**3.2 WL training hyperparameters** Hyperparameters for WL pathway training simulation runs._
 | runname                          |   n_init_splits |   n_adapt_splits |   n_final_splits |   min_gr |   mutation_rate_mult |
 |:---------------------------------|----------------:|-----------------:|-----------------:|---------:|---------------------:|
-| train-pathway_2024-01-13_18-28_0 |               5 |                5 |                5 |     0.05 |                  100 |
-| train-pathway_2024-01-13_18-30_0 |               5 |                5 |                5 |     0.05 |                  100 |
-| train-pathway_2024-01-13_18-32_0 |               5 |                5 |                5 |     0.05 |                  100 |
-| train-pathway_2024-01-13_18-35_0 |               5 |                5 |                5 |     0.05 |                  100 |
-| train-pathway_2024-01-13_19-01_0 |               5 |                5 |                5 |     0.05 |                  100 |
+| train-pathway_2024-01-15_16-39_0 |               5 |                5 |                5 |     0.05 |                  100 |
+| train-pathway_2024-01-15_16-43_0 |               5 |                5 |                5 |     0.05 |                  100 |
+| train-pathway_2024-01-15_16-45_0 |               5 |                5 |                5 |     0.05 |                  100 |
+| train-pathway_2024-01-15_16-48_0 |               5 |                5 |                5 |     0.05 |                  100 |
+| train-pathway_2024-01-15_16-57_0 |               5 |                5 |                5 |     0.05 |                  100 |

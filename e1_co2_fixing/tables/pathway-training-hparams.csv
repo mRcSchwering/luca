@@ -1,0 +1,6 @@
+substrates_init[float64],additives_init[float64],stage[object],prev-stage[object],min_confl[float64],max_confl[float64],n_init_splits[float64],n_adapt_splits[float64],n_final_splits[float64],min_gr[float64],mutation_rate_mult[float64],runname[object],name[object],trial[int8]
+100.0,10.0,WL-0,init,0.2,0.7,5.0,5.0,5.0,0.05,100.0,train-pathway_2024-01-15_16-39_0,train-pathway_2024-01-15_16-39,0
+100.0,10.0,WL-1,train-pathway_2024-01-15_16-39_0:-1,0.2,0.7,5.0,5.0,5.0,0.05,100.0,train-pathway_2024-01-15_16-43_0,train-pathway_2024-01-15_16-43,0
+100.0,10.0,WL-2,train-pathway_2024-01-15_16-43_0:-1,0.2,0.7,5.0,5.0,5.0,0.05,100.0,train-pathway_2024-01-15_16-45_0,train-pathway_2024-01-15_16-45,0
+100.0,10.0,WL-3,train-pathway_2024-01-15_16-45_0:-1,0.2,0.7,5.0,5.0,5.0,0.05,100.0,train-pathway_2024-01-15_16-48_0,train-pathway_2024-01-15_16-48,0
+100.0,10.0,WL-4,train-pathway_2024-01-15_16-48_0:-1,0.2,0.7,5.0,5.0,5.0,0.05,100.0,train-pathway_2024-01-15_16-57_0,train-pathway_2024-01-15_16-57,0

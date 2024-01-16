@@ -216,6 +216,14 @@ def add_state_flags(parser: ArgumentParser):
     )
 
 
+def add_run_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "run",
+        type=str,
+        help="Which run should be loaded? E.g. '2023-05-09_14-08_0'",
+    )
+
+
 def add_runslist_arg(parser: ArgumentParser):
     parser.add_argument(
         "runs",

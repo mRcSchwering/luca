@@ -2,12 +2,18 @@ from .src import cli
 from .src import plots
 from .src.describe_setup import describe_setup
 from .src.describe_state import describe_state
-from .src.describe_pathway_training import describe_pathway_training
+from .src.describe_runs import describe_run, describe_pathway_training
+
+# TODO: clustering: want to see actual cell proteomes
+#       somehow within each cluster find representative cells
+#       might be multiple
+#       maybe cooperation already ongoing
 
 
 _CMDS = {
     "setup": describe_setup,
     "state": describe_state,
+    "run": describe_run,
     "pathway-training": describe_pathway_training,
 }
 
@@ -28,6 +34,13 @@ if __name__ == "__main__":
         "setup",
         help="Describe experimental setup with chemistry",
     )
+
+    # describe run
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Describe previous run",
+    )
+    cli.add_run_arg(parser=run_parser)
 
     # describe state
     state_parser = subparsers.add_parser(
