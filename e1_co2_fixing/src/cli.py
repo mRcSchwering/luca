@@ -124,16 +124,23 @@ def add_shrink_genome_args(parser: ArgumentParser):
     )
 
 
-def add_init_label_arg(
+def add_init_label_args(
     parser: ArgumentParser, extra="Use 'random' to spawn random cells"
 ):
     parser.add_argument(
         "init-label",
         type=str,
-        help="Describes from where initial genomes are loaded."
-        " E.g.  '2023-05-09_14-08_0:-1' to load genomes from run '2023-05-09_14-08_0'"
+        help="Describes from where initial cells are loaded."
+        " E.g. '2023-05-09_14-08_0:-1' to load cells from run '2023-05-09_14-08_0'"
         " last saved state, or '2023-05-09_14-08_0/step=150' to load step 150."
         f" {extra}.",
+    )
+    parser.add_argument(
+        "--init-confl",
+        type=float,
+        default=0.5,
+        help="Initial target confluency of loaded state."
+        " Initial cells are downsampled if state had more cells.",
     )
 
 
@@ -180,7 +187,7 @@ def add_state_arg(parser: ArgumentParser):
         "state",
         type=str,
         help="Which state should be loaded?"
-        " E.g.  '2023-05-09_14-08_0:-1' to load the last step from run '2023-05-09_14-08_0',"
+        " E.g. '2023-05-09_14-08_0:-1' to load the last step from run '2023-05-09_14-08_0',"
         " or '2023-05-09_14-08_0/step=150' to load step 150.",
     )
 

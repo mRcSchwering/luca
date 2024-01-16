@@ -51,7 +51,6 @@ def main(kwargs: dict):
     else:
         trialfun = _MAP[cmd]
         _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
-
     print("done")
 
 
@@ -78,7 +77,7 @@ if __name__ == "__main__":
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
     cli.add_pathway_label_arg(parser=train_parser, choices=WL_STAGES_MAP)
-    cli.add_init_label_arg(parser=train_parser, extra="Use 'init' to spawn new cells")
+    cli.add_init_label_args(parser=train_parser, extra="Use 'init' to spawn new cells")
     cli.add_batch_culture_args(parser=train_parser)
     cli.add_batch_culture_training_args(parser=train_parser)
 
@@ -89,7 +88,7 @@ if __name__ == "__main__":
         " The ChemoStat will create a horizontal gradient with high E- and CO2-levels"
         " in the middle and 0 E and CO2 at the edges.",
     )
-    cli.add_init_label_arg(parser=chemo_parser)
+    cli.add_init_label_args(parser=chemo_parser)
     cli.add_n_divisions_arg(parser=chemo_parser)
 
     # grow cells in batch culture
@@ -97,7 +96,7 @@ if __name__ == "__main__":
         "grow-batch",
         help="Grow cells in batch culture with E and CO2.",
     )
-    cli.add_init_label_arg(parser=batch_parser)
+    cli.add_init_label_args(parser=batch_parser)
     cli.add_n_divisions_arg(parser=batch_parser)
     cli.add_batch_culture_args(parser=batch_parser)
 
@@ -108,7 +107,7 @@ if __name__ == "__main__":
         " There are 3 phases: Init, with low mutation rate and high k;"
         " Adapt, with high mutation rate and decreasing k; Final, with low k and low mutation rate.",
     )
-    cli.add_init_label_arg(parser=shr_parser)
+    cli.add_init_label_args(parser=shr_parser)
     cli.add_batch_culture_args(parser=shr_parser)
     cli.add_batch_culture_training_args(parser=shr_parser)
     cli.add_shrink_genome_args(parser=shr_parser)

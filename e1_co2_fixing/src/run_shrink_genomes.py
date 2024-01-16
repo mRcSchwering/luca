@@ -1,7 +1,7 @@
 import time
 import torch
 import magicsoup as ms
-from .util import Config, load_cells, sigm
+from .util import Config, load_cells
 from .managing import BatchCultureManager
 from .chemistry import ADDITIVES, SUBSTRATES, _X, _E
 from .culture import Culture, BatchCulture
@@ -10,6 +10,7 @@ from .generators import (
     Stopper,
     Passager,
     MediumRefresher,
+    Killer as BaseKiller,
 )
 
 
@@ -57,31 +58,22 @@ class Mutator:
         cltr.world.recombinate_cells(cell_idxs=idxs, p=lgt_p)
 
 
-class Killer:
+class Killer(BaseKiller):
     """Adjust genome-size-controller's k depending on progress"""
 
     def __init__(
         self,
-        world: ms.World,
-        mol: ms.Molecule,
         progress_range: tuple[float, float],
         k_g_range: tuple[float, float],
-        k_x=0.5,
-        n_x=-2,
-        n_g=7,
-        max_g_size=3_000,
+        **kwargs,
     ):
-        self.mol_i = world.chemistry.mol_2_idx[mol]
-        self.k_x = k_x
-        self.n_x = n_x
-        self.n_g = n_g
+        super().__init__(**kwargs)
         self.k_g_start = k_g_range[0]
         self.k_g_end = k_g_range[1]
         self.k_g_slope = self.k_g_end - self.k_g_start
         self.start = min(progress_range)
         self.end = max(progress_range)
         self.interval = self.end - self.start
-        self.max_g_size = max_g_size
 
     def _get_k_g(self, progress: float) -> float:
         if progress <= self.start:
@@ -92,17 +84,8 @@ class Killer:
         return self.k_g_start + x * self.k_g_slope
 
     def __call__(self, cltr: Culture):
-        device = cltr.world.device
-        k_g = self._get_k_g(cltr.progress)
-        x = cltr.world.cell_molecules[:, self.mol_i]
-        g = torch.tensor([len(d) for d in cltr.world.cell_genomes], device=device)
-        x_sample = sigm(t=x, k=self.k_x, n=self.n_x)
-        g_sample = sigm(t=g.float(), k=k_g, n=self.n_g)
-        is_old = cltr.world.cell_lifetimes <= 3
-        is_too_big = g > self.max_g_size  # avoid wasting memory
-        mask = (x_sample & g_sample & is_old) | is_too_big
-        idxs = torch.argwhere(mask).flatten().tolist()
-        cltr.world.kill_cells(cell_idxs=idxs)
+        self.k_g = self._get_k_g(cltr.progress)
+        super().__call__(cltr)
 
 
 def run_trial(run_name: str, config: Config, hparams: dict) -> float:
@@ -118,11 +101,13 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
 
+    init_confl = hparams["init_confl"]
     if hparams["init-label"] == "random":
-        genomes = [ms.random_genome() for _ in range(int(0.5 * world.map_size**2))]
+        target_n = int(init_confl * world.map_size**2)
+        genomes = [ms.random_genome() for _ in range(target_n)]
         world.spawn_cells(genomes=genomes)
     else:
-        load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
+        load_cells(world=world, label=hparams["init-label"], target_confl=init_confl)
 
     stopper = Stopper(**vars(config))
     replicator = Replicator(world=world, mol=_X)

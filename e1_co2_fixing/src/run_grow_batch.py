@@ -19,11 +19,13 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
 
+    init_confl = hparams["init_confl"]
     if hparams["init-label"] == "random":
-        genomes = [ms.random_genome() for _ in range(int(0.5 * world.map_size**2))]
+        target_n = int(init_confl * world.map_size**2)
+        genomes = [ms.random_genome() for _ in range(target_n)]
         world.spawn_cells(genomes=genomes)
     else:
-        load_cells(world=world, label=hparams["init-label"], runsdir=config.runs_dir)
+        load_cells(world=world, label=hparams["init-label"], target_confl=init_confl)
 
     mutator = Mutator()
     stopper = Stopper(**vars(config))

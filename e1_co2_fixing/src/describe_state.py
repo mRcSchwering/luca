@@ -81,7 +81,7 @@ def _grouped_cells_plot(
 
 def describe_state(kwargs: dict):
     world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
-    statedir = get_statedir(label=kwargs["state"], runsdir=RUNS_DIR)
+    statedir = get_statedir(label=kwargs["state"])
     world.load_state(statedir=statedir, ignore_cell_params=True)
     title = f"{statedir.parent.name}_{statedir.name}"
     molecules = [ms.Molecule.from_name(d) for d in kwargs["molecules"]]

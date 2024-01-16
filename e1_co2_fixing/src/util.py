@@ -1,5 +1,6 @@
 from pathlib import Path
 import datetime as dt
+import random
 from collections import Counter
 from itertools import product
 import multiprocessing as mp
@@ -30,7 +31,7 @@ def find_steps(rundir: Path) -> list[int]:
     return sorted(int(d.split("step=")[-1]) for d in names)
 
 
-def get_statedir(label: str, runsdir: Path) -> Path:
+def get_statedir(label: str) -> Path:
     """
     Get statedir from label:
         - "<rundir>/step=<i>" to load step <i> of <rundir>
@@ -39,33 +40,35 @@ def get_statedir(label: str, runsdir: Path) -> Path:
           e.g. "2023-05-09_14-32:-1" to load the last step of <rundir>
     """
     if "/" in label:
-        return runsdir / label
+        return RUNS_DIR / label
     elif ":" in label:
         runname, step_i = label.split(":")
-        steps = find_steps(rundir=runsdir / runname)
-        return runsdir / runname / f"step={steps[int(step_i)]}"
+        steps = find_steps(rundir=RUNS_DIR / runname)
+        return RUNS_DIR / runname / f"step={steps[int(step_i)]}"
     raise ValueError(f"Label {label} not recognized")
 
 
-def load_cells(
-    world: ms.World,
-    label: str,
-    runsdir: Path,
-    reset_cells: bool = True,
-):
+def load_cells(world: ms.World, label: str, target_confl=1.0):
     """
+    Load cells from previous state, randomly distribute them on
+    map and assign random labels. Reduce to target confluency if
+    loaded confluency is higher.
+
     Use label to load a world's genomes:
         - "<rundir>/step=<i>" to load step <i> of <rundir>
           e.g. "2023-05-09_14-32/step=100" to load step 100
         - "<rundir>:<i>" to load the <i>th step of <rundir>
           e.g. "2023-05-09_14-32:-1" to load the last step of <rundir>
     """
-    statedir = get_statedir(label=label, runsdir=runsdir)
+    statedir = get_statedir(label=label)
     world.load_state(statedir=statedir)
-    if reset_cells:
-        world.reposition_cells(cell_idxs=list(range(world.n_cells)))
-        world.cell_divisions[:] = 0
-        world.cell_labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
+    world.reposition_cells(cell_idxs=list(range(world.n_cells)))
+    world.cell_divisions[:] = 0
+    world.cell_labels = [ms.randstr(n=12) for _ in range(world.n_cells)]
+    kill_n = world.n_cells - int(target_confl * world.map_size**2)
+    if kill_n > 0:
+        idxs = random.sample(range(world.n_cells), k=kill_n)
+        world.kill_cells(cell_idxs=idxs)
 
 
 def _genome_dists_row(i: int, genomes: list[str], minlen=1) -> np.ndarray:

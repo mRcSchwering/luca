@@ -144,7 +144,6 @@ class Killer:
         n_x=-2,
         k_g=2_000.0,
         n_g=7,
-        spare_age=0,
         max_g_size=3_000,
     ):
         self.k_x = k_x
@@ -152,7 +151,6 @@ class Killer:
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.k_g = k_g
         self.n_g = n_g
-        self.spare_age = spare_age
         self.max_g_size = max_g_size
 
     def __call__(self, cltr: Culture):
@@ -161,7 +159,6 @@ class Killer:
         g = torch.tensor([len(d) for d in cltr.world.cell_genomes], device=device)
         x_sample = sigm(t=x + 0.1, k=self.k_x, n=self.n_x)
         g_sample = sigm(t=g.float(), k=self.k_g, n=self.n_g)
-        # is_old = cltr.world.cell_lifetimes <= self.spare_age
         is_too_big = g > self.max_g_size  # avoid wasting memory
         mask = x_sample | g_sample | is_too_big
         idxs = torch.argwhere(mask).flatten().tolist()
