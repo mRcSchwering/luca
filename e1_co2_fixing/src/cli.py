@@ -185,12 +185,25 @@ def add_stage_arg(parser: ArgumentParser, choices: Iterable):
 
 def add_passager_args(parser: ArgumentParser):
     parser.add_argument(
-        "--passage",
-        type=str,
-        choices=("random", "by-low-co2", "by-high-genome-size"),
-        help="Are cells prioritized by passager?"
-        " 'random' for no. 'by-low-co2' prioritize cells with low intracellular CO2."
-        " 'by-high-genome-size' prioritize cells with high genome size.",
+        "--passage-random",
+        type=int,
+        default=1,
+        help="Select cells according to a different strategy during each passage."
+        " This many times cells are selected randomly (default %(default)s).",
+    )
+    parser.add_argument(
+        "--passage-by-co2",
+        type=int,
+        default=0,
+        help="Select cells according to a different strategy during each passage."
+        " This many times cells are selected by low CO2 (default %(default)s).",
+    )
+    parser.add_argument(
+        "--passage-by-genome-size",
+        type=int,
+        default=0,
+        help="Select cells according to a different strategy during each passage."
+        " This many times cells are selected by high genome size (default %(default)s).",
     )
 
 

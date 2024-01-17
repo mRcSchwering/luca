@@ -1,11 +1,12 @@
 import time
 import random
+from itertools import cycle
 import magicsoup as ms
 from .util import Config, load_cells
 from .managing import BatchCultureManager
 from .chemistry import _X, _E, _co2, FREE_STAGES_MAP, ADDITIVES, SUBSTRATES
 from .culture import Culture, BatchCulture
-from .generators import Killer, Replicator, Stopper, Passager
+from .generators import Killer, Replicator, Stopper
 
 
 class Progressor:
@@ -22,23 +23,54 @@ class Progressor:
         return min(1.0, self.valid_split_i / self.n_valid_total_splits)
 
 
-class HighGenomeSizePassager:
-    """Passage cells prioritizing those with high genome sizes"""
+class ComplexPassager:
+    """Passage cells with varying prioritizations"""
 
-    def __init__(self, world: ms.World, cnfls=(0.2, 0.7)):
+    def __init__(
+        self,
+        world: ms.World,
+        mol: ms.Molecule,
+        n_by_mol=0,
+        n_by_size=0,
+        n_random=1,
+        cnfls=(0.2, 0.7),
+    ):
         n_max = world.map_size**2
+        self.mol_i = world.chemistry.mol_2_idx[mol]
         self.min_cells = int(n_max * min(cnfls))
         self.max_cells = int(n_max * max(cnfls))
+        self.modes = cycle(
+            ["random"] * n_random
+            + ["genome-size"] * n_by_size
+            + ["molecule"] * n_by_mol
+        )
+        self.idx_fun_map = {
+            "random": self._get_random_idxs,
+            "genome-size": self._get_genome_size_idxs,
+            "molecule": self._get_molecule_idxs,
+        }
+
+    def _get_random_idxs(self, world: ms.World, kill_n: int) -> list[int]:
+        return random.sample(range(world.n_cells), k=kill_n)
+
+    def _get_genome_size_idxs(self, world: ms.World, kill_n: int) -> list[int]:
+        glens = [len(d) for d in world.cell_genomes]
+        ordered = sorted([(d, i) for i, d in enumerate(glens)])
+        return [i for _, i in ordered[:kill_n]]
+
+    def _get_molecule_idxs(self, world: ms.World, kill_n: int) -> list[int]:
+        x = world.cell_molecules[:, self.mol_i]
+        ordered = sorted([(d, i) for i, d in enumerate(x.tolist())], reverse=True)
+        return [i for _, i in ordered[:kill_n]]
 
     def __call__(self, cltr: BatchCulture) -> bool:
         if cltr.world.n_cells < self.max_cells:
             return False
 
+        mode = next(self.modes)
         n_old = cltr.world.n_cells
         kill_n = max(n_old - self.min_cells, 0)
-        glens = [len(d) for d in cltr.world.cell_genomes]
-        ordered = sorted([(d, i) for i, d in enumerate(glens)])
-        idxs = [i for _, i in ordered[:kill_n]]
+        idxs = self.idx_fun_map[mode](world=cltr.world, kill_n=kill_n)
         cltr.world.kill_cells(cell_idxs=idxs)
         cltr.world.reposition_cells()
         return True
@@ -166,21 +198,15 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
 
-    if hparams["passage"] == "by-low-co2":
-        passager = LowMoleculePassager(
-            world=world, mol=_co2, cnfls=(hparams["min_confl"], hparams["max_confl"])
-        )
-        print("During passage cells with low CO2 are prioritized")
-    elif hparams["passage"] == "by-high-genome-size":
-        passager = HighGenomeSizePassager(
-            world=world, cnfls=(hparams["min_confl"], hparams["max_confl"])
-        )
-        print("During passage cells with high genome size are prioritized")
-    else:
-        passager = Passager(
-            world=world, cnfls=(hparams["min_confl"], hparams["max_confl"])
-        )
-        print("During passage cells are picked randomly")
+    passager = ComplexPassager(
+        world=world,
+        mol=_co2,
+        n_by_mol=hparams["passage_by_co2"],
+        n_by_size=hparams["passage_by_genome_size"],
+        n_random=hparams["passage_random"],
+        cnfls=(hparams["min_confl"], hparams["max_confl"]),
+    )
+    print("Passaging modes: " + ", ".join(passager.modes))
 
     medium_refresher = MediumRefresher(
         world=world,
@@ -213,7 +239,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         trial_dir=trial_dir,
         hparams=hparams,
         cltr=cltr,
-        watch_mols=list(set(SUBSTRATES + ADDITIVES + [_X, _E])),
+        watch_mols=list(set(SUBSTRATES + ADDITIVES + [_X, _E, _co2])),
     )
 
     with manager:
