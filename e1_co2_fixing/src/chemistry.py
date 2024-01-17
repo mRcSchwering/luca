@@ -504,7 +504,7 @@ FREE_STAGES = [
     (0.0625, 0.03125),  # easy
     (0.03125, 0.015625),  # easy
     (0.015625, 0.0078125),  # easy
-    (0.0078125, 0.00390625),  # hard (needs to develop upstream steps)
+    (0.0078125, 0.005859375),  # hard (needs to develop upstream steps)
     (0.005859375, 0.00390625),
     (0.00390625, 0),
 ]
