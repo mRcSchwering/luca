@@ -217,7 +217,7 @@ def add_genome_editor_args(parser: ArgumentParser):
     parser.add_argument(
         "--genome-editing-size",
         type=int,
-        default=0,
+        default=50,
         help="Edit cels genomes if they cannot progress with random genomes of this size (default %(default)s).",
     )
 

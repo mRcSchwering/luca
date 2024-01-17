@@ -60,12 +60,11 @@ class ComplexPassager:
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.min_cells = int(n_max * min(cnfls))
         self.max_cells = int(n_max * max(cnfls))
-        self.modes = (
+        self.cycle_modes = cycle(
             ["random"] * n_random
             + ["genome-size"] * n_by_size
             + ["molecule"] * n_by_mol
         )
-        self.cycle_modes = cycle(self.modes)
         self.idx_fun_map = {
             "random": self._get_random_idxs,
             "genome-size": self._get_genome_size_idxs,
@@ -205,7 +204,6 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         n_random=hparams["passage_random"],
         cnfls=(hparams["min_confl"], hparams["max_confl"]),
     )
-    print("Passaging modes: " + ", ".join(passager.modes))
 
     medium_refresher = MediumRefresher(
         world=world,

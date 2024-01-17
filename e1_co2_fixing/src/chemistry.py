@@ -498,5 +498,11 @@ SUBSTRATES = [_E, _co2]
 
 # exponentially decaying unnecessary species in medium
 # for free adaption
-FREE_STAGES = [(1.0, 0.5), (0.5, 0.25), (0.25, 0.125), (0.125, 0.0625), (0.0625, 0.0)]
+FREE_STAGES = [
+    (1.0, 0.125),
+    (0.125, 0.0625),
+    (0.0625, 0.03125),
+    (0.03125, 0.015625),
+    (0.015625, 0.0),
+]
 FREE_STAGES_MAP = {f"Free-{i}": d for i, d in enumerate(FREE_STAGES)}
