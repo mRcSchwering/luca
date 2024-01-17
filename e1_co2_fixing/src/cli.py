@@ -146,7 +146,7 @@ def add_init_label_args(
         type=float,
         default=0.5,
         help="Initial target confluency of loaded state."
-        " Initial cells are downsampled if state had more cells.",
+        " Initial cells are downsampled if state had more cells (default %(default)s).",
     )
 
 
