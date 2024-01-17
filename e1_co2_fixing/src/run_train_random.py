@@ -55,11 +55,14 @@ class ComplexPassager:
         n_by_size=0,
         n_random=1,
         cnfls=(0.2, 0.7),
+        max_steps=1500,  # TODO: no hparams
     ):
         n_max = world.map_size**2
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.min_cells = int(n_max * min(cnfls))
         self.max_cells = int(n_max * max(cnfls))
+        self.max_steps = max_steps
+        self.last_split_step = 0
         self.cycle_modes = cycle(
             ["random"] * n_random
             + ["genome-size"] * n_by_size
@@ -85,12 +88,14 @@ class ComplexPassager:
         return [i for _, i in ordered[:kill_n]]
 
     def __call__(self, cltr: BatchCulture) -> bool:
-        if cltr.world.n_cells < self.max_cells:
+        n_steps = cltr.step_i - self.last_split_step
+        n_cells = cltr.world.n_cells
+        if n_cells < self.max_cells and n_steps < self.max_steps:
             return False
 
+        self.last_split_step = cltr.step_i
         mode = next(self.cycle_modes)
-        n_old = cltr.world.n_cells
-        kill_n = max(n_old - self.min_cells, 0)
+        kill_n = max(n_cells - self.min_cells, 0)
         idxs = self.idx_fun_map[mode](world=cltr.world, kill_n=kill_n)
         cltr.world.kill_cells(cell_idxs=idxs)
         cltr.world.reposition_cells()
