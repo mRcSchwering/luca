@@ -39,11 +39,12 @@ class ComplexPassager:
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.min_cells = int(n_max * min(cnfls))
         self.max_cells = int(n_max * max(cnfls))
-        self.modes = cycle(
+        self.modes = (
             ["random"] * n_random
             + ["genome-size"] * n_by_size
             + ["molecule"] * n_by_mol
         )
+        self.cycle_modes = cycle(self.modes)
         self.idx_fun_map = {
             "random": self._get_random_idxs,
             "genome-size": self._get_genome_size_idxs,
@@ -67,7 +68,7 @@ class ComplexPassager:
         if cltr.world.n_cells < self.max_cells:
             return False
 
-        mode = next(self.modes)
+        mode = next(self.cycle_modes)
         n_old = cltr.world.n_cells
         kill_n = max(n_old - self.min_cells, 0)
         idxs = self.idx_fun_map[mode](world=cltr.world, kill_n=kill_n)
