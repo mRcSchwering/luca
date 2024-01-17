@@ -27,12 +27,15 @@ def _run_trials_cmd(
 ):
     kwargs["runs_dir"] = RUNS_DIR
     config = Config.pop_from(kwargs)
-    for trial_i in range(config.n_trials):
+    successful_trials = 0
+    for trial_i in range(config.max_trials):
         run_name = f"{cmd}_{config.timestamp}_{trial_i}"
         print(f"Starting trial {run_name} on {config.device}")
         progress = trialfun(run_name, config, kwargs)
         if progress == 1.0:
-            print("Finished successfully. No further trials")
+            successful_trials += 1
+        if successful_trials >= config.max_successful_trials:
+            print(f"Finished {config.max_successful_trials} trials successfully")
             break
 
 

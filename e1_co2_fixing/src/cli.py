@@ -34,10 +34,16 @@ def get_run_argparser() -> ArgumentParser:
         help="Interrupt and stop trial after that many minutes (default %(default)s)",
     )
     parser.add_argument(
-        "--n-trials",
+        "--max-trials",
+        default=3,
+        type=int,
+        help="How many total trials should be attempted (default %(default)s)",
+    )
+    parser.add_argument(
+        "--max-successful-trials",
         default=1,
         type=int,
-        help="How many times to culture cells (default %(default)s)",
+        help="How many successful trials should be finished (default %(default)s)",
     )
     parser.add_argument(
         "--substrates-init",

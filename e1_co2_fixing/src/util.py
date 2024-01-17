@@ -236,14 +236,16 @@ class Config:
         max_steps: int,
         max_steps_without_progress: int,
         max_time_m: int,
-        n_trials: int,
+        max_trials: int,
+        max_successful_trials: int,
     ):
         self.device = device
         self.runs_dir = runs_dir if isinstance(runs_dir, Path) else Path(runs_dir)
         self.max_steps = max_steps
         self.max_steps_without_progress = max_steps_without_progress
         self.max_time_m = max_time_m
-        self.n_trials = n_trials
+        self.max_trials = max_trials
+        self.max_successful_trials = max_successful_trials
         self.timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
     @classmethod
@@ -255,5 +257,6 @@ class Config:
             max_steps=kwargs.pop("max_steps"),
             max_steps_without_progress=kwargs.pop("max_steps_without_progress"),
             max_time_m=kwargs.pop("max_time_m"),
-            n_trials=kwargs.pop("n_trials"),
+            max_trials=kwargs.pop("max_trials"),
+            max_successful_trials=kwargs.pop("max_successful_trials"),
         )
