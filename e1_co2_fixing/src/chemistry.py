@@ -424,7 +424,7 @@ REACTIONS = (
 CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 
 
-# building up pathway from end to start
+# building up WL pathway from end to start
 # stage: (new genes, substrates a, substrates b, additives)
 # fmt: off
 StageType = tuple[list[list[DomainFactType]], list[Molecule], list[Molecule], list[Molecule]]
@@ -495,3 +495,8 @@ WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
 
 ADDITIVES = [_HSCoA, _FH4, _RuBP, _ADP, _NADP]
 SUBSTRATES = [_E, _co2]
+
+# exponentially decaying unnecessary species in medium
+# for free adaption
+FREE_STAGES = [(1.0, 0.5), (0.5, 0.25), (0.25, 0.125), (0.125, 0.0625), (0.0625, 0.0)]
+FREE_STAGES_MAP = {f"Free-{i}": d for i, d in enumerate(FREE_STAGES)}

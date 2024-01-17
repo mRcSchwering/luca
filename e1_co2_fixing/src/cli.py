@@ -171,6 +171,18 @@ def add_pathway_label_arg(parser: ArgumentParser, choices: Iterable):
     )
 
 
+def add_stage_arg(parser: ArgumentParser, choices: Iterable):
+    parser.add_argument(
+        "stage",
+        type=str,
+        choices=choices,
+        help="Label for the stage that should be trained."
+        " Each stage starts with an initial phase in which cells grow in familiar medium."
+        " Then, in the adaption phase medium is changed and cells have to adapt."
+        " In the final phase cells continue to grow in the changed medium.",
+    )
+
+
 def add_n_divisions_arg(parser: ArgumentParser):
     parser.add_argument(
         "--n-divisions",

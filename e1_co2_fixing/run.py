@@ -6,8 +6,9 @@ Entrypoint for simulation. Run with:
 """
 from typing import Callable
 import magicsoup as ms
-from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
+from .src.chemistry import CHEMISTRY, WL_STAGES_MAP, FREE_STAGES_MAP
 from .src.run_train_pathway import run_trial as train_pathway_trial
+from .src.run_train_random import run_trial as train_free_trial
 from .src.run_grow_batch import run_trial as grow_batch_trial
 from .src.run_grow_chemostat import run_trial as grow_chemostat_trial
 from .src.run_shrink_genomes import run_trial as shrink_genomes_trial
@@ -41,6 +42,7 @@ def _run_trials_cmd(
 
 _MAP: dict[str, Callable[[str, Config, dict], float]] = {
     "train-pathway": train_pathway_trial,
+    "train-free": train_free_trial,
     "shrink-genomes": shrink_genomes_trial,
     "grow-chemostat": grow_chemostat_trial,
     "grow-batch": grow_batch_trial,
@@ -83,6 +85,21 @@ if __name__ == "__main__":
     cli.add_init_label_args(parser=train_parser, extra="Use 'init' to spawn new cells")
     cli.add_batch_culture_args(parser=train_parser)
     cli.add_batch_culture_training_args(parser=train_parser)
+
+    # train free
+    free_parser = subparsers.add_parser(
+        "train-free",
+        help="Train a any CO2 fixing pathway in batch culture."
+        " Training is done in multiple stages with different phases for each stage."
+        " Each stage incrementally removed non-essential molecules from medium."
+        " Each stage has 3 phases: init, adapt, final."
+        " Init grows cells in previous medium, adapt changes to target medium and"
+        " increases mutation rate, final grows cells in target medium at base rate.",
+    )
+    cli.add_stage_arg(parser=free_parser, choices=FREE_STAGES_MAP)
+    cli.add_init_label_args(parser=free_parser, extra="Use 'init' to spawn new cells")
+    cli.add_batch_culture_args(parser=free_parser)
+    cli.add_batch_culture_training_args(parser=free_parser)
 
     # grow cells in chemostat
     chemo_parser = subparsers.add_parser(
