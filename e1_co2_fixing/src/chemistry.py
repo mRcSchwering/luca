@@ -505,7 +505,8 @@ FREE_STAGES = [
     (0.03125, 0.015625),  # easy
     (0.015625, 0.0078125),  # easy
     (0.0078125, 0.005859375),  # hard (needs to develop upstream steps)
-    (0.005859375, 0.00390625),
+    (0.005859375, 0.0048828125),
+    (0.0048828125, 0.00390625),
     (0.00390625, 0),
 ]
 FREE_STAGES_MAP = {f"Free-{i}": d for i, d in enumerate(FREE_STAGES)}

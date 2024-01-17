@@ -57,6 +57,7 @@ class ComplexPassager:
         cnfls=(0.2, 0.7),
         max_steps=1500,  # TODO: no hparams
     ):
+        # TODO: eigentlich ist schon alles verloren wenn max_steps gebraucht wird
         n_max = world.map_size**2
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.min_cells = int(n_max * min(cnfls))
