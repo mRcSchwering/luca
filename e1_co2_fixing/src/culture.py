@@ -102,6 +102,5 @@ class BatchCulture(Culture):
             self.split_start_step = self.step_i
             self.split_start_cells = self.world.n_cells
             self.progress = self.progressor(self)
-
-        if self.genome_editor is not None:
-            self.genome_editor(self)
+            if self.genome_editor is not None:
+                self.genome_editor(self)

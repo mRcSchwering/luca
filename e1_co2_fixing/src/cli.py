@@ -207,6 +207,21 @@ def add_passager_args(parser: ArgumentParser):
     )
 
 
+def add_genome_editor_args(parser: ArgumentParser):
+    parser.add_argument(
+        "--genome-editing-steps",
+        type=int,
+        default=1000,
+        help="Edit cells genomes if they cannot progress after that many steps (default %(default)s).",
+    )
+    parser.add_argument(
+        "--genome-editing-size",
+        type=int,
+        default=0,
+        help="Edit cels genomes if they cannot progress with random genomes of this size (default %(default)s).",
+    )
+
+
 def add_n_divisions_arg(parser: ArgumentParser):
     parser.add_argument(
         "--n-divisions",

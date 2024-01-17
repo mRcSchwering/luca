@@ -23,6 +23,27 @@ class Progressor:
         return min(1.0, self.valid_split_i / self.n_valid_total_splits)
 
 
+class GenomeEditor:
+    """Give cells random base pairs if they cannot progress"""
+
+    def __init__(self, max_steps: float, size=100):
+        self.size = size
+        self.prev_state = (0.0, 0)
+        self.max_steps = max_steps
+
+    def __call__(self, cltr: Culture):
+        n_steps = cltr.step_i - self.prev_state[1]
+        if cltr.progress <= self.prev_state[0] and n_steps > self.max_steps:
+            updates = [
+                (cltr.world.cell_genomes[d] + ms.random_genome(self.size), d)
+                for d in range(cltr.world.n_cells)
+            ]
+            cltr.world.update_cells(genome_idx_pairs=updates)
+            self.prev_state = (cltr.progress, cltr.step_i)
+        elif cltr.progress > self.prev_state[0]:
+            self.prev_state = (cltr.progress, cltr.step_i)
+
+
 class ComplexPassager:
     """Passage cells with varying prioritizations"""
 
@@ -72,29 +93,6 @@ class ComplexPassager:
         n_old = cltr.world.n_cells
         kill_n = max(n_old - self.min_cells, 0)
         idxs = self.idx_fun_map[mode](world=cltr.world, kill_n=kill_n)
-        cltr.world.kill_cells(cell_idxs=idxs)
-        cltr.world.reposition_cells()
-        return True
-
-
-class LowMoleculePassager:
-    """Passage cells prioritizing those with low molecule concentration"""
-
-    def __init__(self, world: ms.World, mol: ms.Molecule, cnfls=(0.2, 0.7)):
-        n_max = world.map_size**2
-        self.mol_i = world.chemistry.mol_2_idx[mol]
-        self.min_cells = int(n_max * min(cnfls))
-        self.max_cells = int(n_max * max(cnfls))
-
-    def __call__(self, cltr: BatchCulture) -> bool:
-        if cltr.world.n_cells < self.max_cells:
-            return False
-
-        n_old = cltr.world.n_cells
-        kill_n = max(n_old - self.min_cells, 0)
-        x = cltr.world.cell_molecules[:, self.mol_i]
-        ordered = sorted([(d, i) for i, d in enumerate(x.tolist())], reverse=True)
-        idxs = [i for _, i in ordered[:kill_n]]
         cltr.world.kill_cells(cell_idxs=idxs)
         cltr.world.reposition_cells()
         return True
@@ -225,6 +223,10 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         by=hparams["mutation_rate_mult"],
     )
 
+    genome_editor = GenomeEditor(
+        max_steps=hparams["genome_editing_steps"], size=hparams["genome_editing_size"]
+    )
+
     cltr = BatchCulture(
         world=world,
         medium_refresher=medium_refresher,
@@ -234,6 +236,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         progressor=progressor,
         stopper=stopper,
         passager=passager,
+        genome_editor=genome_editor,
     )
 
     manager = BatchCultureManager(
