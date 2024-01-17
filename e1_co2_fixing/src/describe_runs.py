@@ -95,15 +95,28 @@ def describe_run(kwargs: dict):
             ("Other/Progress", "Progress"),
             ("Other/TimePerStep[s]", "s/step"),
         ]
-    scalars_df = _load_scalars(scalars=scalars, rundirs=[rundir])
+
+    figsize = (10, len(scalars) * 0.85)
+    df = _load_scalars(scalars=scalars, rundirs=[rundir])
     cell_imgs = _load_imgs(image="Maps/Cells", rundir=rundir)
     cells_img = cell_imgs.pop(0)
     for img in cell_imgs:
         cells_img = hcat_imgs(cells_img, img)
 
-    plot_img = plots.run_scalars(df=scalars_df, figsize=(10, len(scalars) * 0.85))
+    plot_img = plots.run_scalars(df=df, figsize=figsize)
     img = vcat_imgs(cells_img, plot_img)
-    save_img(img=img, name=f"{title}_overview.png")
+    save_img(img=img, name=f"{title}_run-by-step.png")
+
+    divisions_df = df.loc[df["variable"] == "Divisions", ["step", "value"]]
+    divisions_df.columns = ["step", "Generation"]
+
+    rm = ["Divisions", "s/step"]
+    keep = [d[1] for d in scalars if d not in rm]
+    df = pd.merge(df[df["variable"].isin(keep)], divisions_df, on="step")
+
+    plot_img = plots.run_scalars(df=df, x="Generation", figsize=figsize)
+    img = vcat_imgs(cells_img, plot_img)
+    save_img(img=img, name=f"{title}_run-by-generation.png")
 
 
 def describe_pathway_training(kwargs: dict):

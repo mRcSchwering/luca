@@ -7,7 +7,7 @@ Evolutionary pressure is applied by killing cells with low energy levels
 and replicating cells with high levels of fixed carbon.
 Fixed carbon is defined by molecule species such as acetyl-CoA.
 
-![result cell](./img/WL-training-result-cell.png)
+![result cell](./imgs/WL-training-result-cell.png)
 
 _Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
 
@@ -16,6 +16,28 @@ _Illustration of final cells that were able to grow in a Chemostat on CO2 and en
 - [Wood-Ljungdahl Training](#wood-ljungdahl-training)
 - [Run](#run)
 - [Lessons Learned](#lessons-learned)
+
+Runs:
+
+- `train-pathway_*` WL pathway training runs.
+  Summary [docs here](./docs/pathway_training.md).
+  Training overview plots [by step](./imgs/pathway-training-by-step.png)
+  and [by generation](./imgs/pathway-training-by-generation.png).
+  Plot describing [all cells of final state](./imgs/train-pathway_2024-01-15_16-57_0_step=1073_all_cells.png).
+- `grow-batch_2024-01-15_17-07_*` batch culture run with successful cells from WL training.
+  Run overview plots [by step](./imgs/grow-batch_2024-01-15_17-07_0_run-by-step.png)
+  and [by generation](./imgs/grow-batch_2024-01-15_17-07_0_run-by-generation.png).
+  Plot describing [all cells of final state](./imgs/grow-batch_2024-01-15_17-07_0_step=1086_all_cells.png).
+- `grow-batch_2024-01-15_17-17_*` batch culture with random cells as comparison.
+  Run overview plots [by step](./imgs/grow-batch_2024-01-15_17-17_0_run-by-step.png)
+  and [by generation](./imgs/grow-batch_2024-01-15_17-17_0_run-by-generation.png).
+- `grow-chemostat_2024-01-15_17-43_*` chemostat run with successful cells from WL training.
+  Run overview plots [by step](./imgs/grow-chemostat_2024-01-15_17-43_0_run-by-step.png)
+  and [by generation](./imgs/grow-chemostat_2024-01-15_17-43_0_run-by-generation.png).
+  Plot describing [all cells of final state](./imgs/grow-chemostat_2024-01-15_17-43_0_step=3234_all_cells.png).
+- `grow-chemostat_2024-01-15_18-04_*` chemostat run with random cells as comparison.
+  Run overview plots [by step](./imgs/grow-chemostat_2024-01-15_18-04_0_run-by-step.png)
+  and [by generation](./imgs/grow-chemostat_2024-01-15_18-04_0_run-by-generation.png).
 
 
 ## Chemistry
