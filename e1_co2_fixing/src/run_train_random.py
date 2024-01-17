@@ -5,7 +5,7 @@ from .util import Config, load_cells
 from .managing import BatchCultureManager
 from .chemistry import _X, _E, _co2, FREE_STAGES_MAP, ADDITIVES, SUBSTRATES
 from .culture import Culture, BatchCulture
-from .generators import Killer, Replicator, Stopper
+from .generators import Killer, Replicator, Stopper, Passager
 
 
 class Progressor:
@@ -22,7 +22,29 @@ class Progressor:
         return min(1.0, self.valid_split_i / self.n_valid_total_splits)
 
 
-class Passager:
+class HighGenomeSizePassager:
+    """Passage cells prioritizing those with high genome sizes"""
+
+    def __init__(self, world: ms.World, cnfls=(0.2, 0.7)):
+        n_max = world.map_size**2
+        self.min_cells = int(n_max * min(cnfls))
+        self.max_cells = int(n_max * max(cnfls))
+
+    def __call__(self, cltr: BatchCulture) -> bool:
+        if cltr.world.n_cells < self.max_cells:
+            return False
+
+        n_old = cltr.world.n_cells
+        kill_n = max(n_old - self.min_cells, 0)
+        glens = [len(d) for d in cltr.world.cell_genomes]
+        ordered = sorted([(d, i) for i, d in enumerate(glens)])
+        idxs = [i for _, i in ordered[:kill_n]]
+        cltr.world.kill_cells(cell_idxs=idxs)
+        cltr.world.reposition_cells()
+        return True
+
+
+class LowMoleculePassager:
     """Passage cells prioritizing those with low molecule concentration"""
 
     def __init__(self, world: ms.World, mol: ms.Molecule, cnfls=(0.2, 0.7)):
@@ -143,9 +165,22 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
-    passager = Passager(
-        world=world, mol=_co2, cnfls=(hparams["min_confl"], hparams["max_confl"])
-    )
+
+    if hparams["passage"] == "by-low-co2":
+        passager = LowMoleculePassager(
+            world=world, mol=_co2, cnfls=(hparams["min_confl"], hparams["max_confl"])
+        )
+        print("During passage cells with low CO2 are prioritized")
+    elif hparams["passage"] == "by-high-genome-size":
+        passager = HighGenomeSizePassager(
+            world=world, cnfls=(hparams["min_confl"], hparams["max_confl"])
+        )
+        print("During passage cells with high genome size are prioritized")
+    else:
+        passager = Passager(
+            world=world, cnfls=(hparams["min_confl"], hparams["max_confl"])
+        )
+        print("During passage cells are picked randomly")
 
     medium_refresher = MediumRefresher(
         world=world,

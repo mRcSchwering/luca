@@ -183,6 +183,17 @@ def add_stage_arg(parser: ArgumentParser, choices: Iterable):
     )
 
 
+def add_passager_args(parser: ArgumentParser):
+    parser.add_argument(
+        "--passage",
+        type=str,
+        choices=("random", "by-low-co2", "by-high-genome-size"),
+        help="Are cells prioritized by passager?"
+        " 'random' for no. 'by-low-co2' prioritize cells with low intracellular CO2."
+        " 'by-high-genome-size' prioritize cells with high genome size.",
+    )
+
+
 def add_n_divisions_arg(parser: ArgumentParser):
     parser.add_argument(
         "--n-divisions",

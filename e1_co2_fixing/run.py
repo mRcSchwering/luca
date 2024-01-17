@@ -99,6 +99,7 @@ if __name__ == "__main__":
     cli.add_stage_arg(parser=free_parser, choices=FREE_STAGES_MAP)
     cli.add_init_label_args(parser=free_parser, extra="Use 'init' to spawn new cells")
     cli.add_batch_culture_args(parser=free_parser)
+    cli.add_passager_args(parser=free_parser)
     cli.add_batch_culture_training_args(parser=free_parser)
 
     # grow cells in chemostat
