@@ -238,6 +238,7 @@ class Config:
         max_time_m: int,
         max_trials: int,
         max_successful_trials: int,
+        min_confluency: float,
     ):
         self.device = device
         self.runs_dir = runs_dir if isinstance(runs_dir, Path) else Path(runs_dir)
@@ -247,6 +248,7 @@ class Config:
         self.max_trials = max_trials
         self.max_successful_trials = max_successful_trials
         self.timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
+        self.min_confluency = min_confluency
 
     @classmethod
     def pop_from(cls, kwargs: dict) -> "Config":
@@ -259,4 +261,5 @@ class Config:
             max_time_m=kwargs.pop("max_time_m"),
             max_trials=kwargs.pop("max_trials"),
             max_successful_trials=kwargs.pop("max_successful_trials"),
+            min_confluency=kwargs.pop("min_confluency"),
         )

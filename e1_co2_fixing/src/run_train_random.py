@@ -143,7 +143,8 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     n_init_splits = hparams["n_init_splits"]
     n_adapt_splits = hparams["n_adapt_splits"]
     n_final_splits = hparams["n_final_splits"]
-    n_total_splits = n_init_splits + n_adapt_splits + n_final_splits
+    min_grs = hparams["min_grs"]
+    n_total_splits = n_init_splits + n_adapt_splits * len(min_grs) + n_final_splits
     adaption_start = n_init_splits / n_total_splits
     adaption_end = (n_init_splits + n_adapt_splits) / n_total_splits
     print(f"Adaption lasts from progress {adaption_start:.2f} to {adaption_end:.2f}")
@@ -165,7 +166,9 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     else:
         load_cells(world=world, label=hparams["init-label"], target_confl=init_confl)
 
-    stopper = Stopper(**vars(config))
+    stopper = Stopper(
+        **vars(config), min_cells=int(config.min_confluency * world.map_size**2)
+    )
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
@@ -174,7 +177,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         n_init_splits=n_init_splits,
         n_adapt_splits=n_adapt_splits,
         n_final_splits=n_final_splits,
-        min_grs=hparams["min_grs"],
+        min_grs=min_grs,
     )
 
     medium_refresher = MediumRefresher(

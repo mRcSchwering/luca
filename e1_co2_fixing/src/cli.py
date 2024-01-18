@@ -57,6 +57,12 @@ def get_run_argparser() -> ArgumentParser:
         type=float,
         help="Additives concentration in fresh medium (default %(default)s)",
     )
+    parser.add_argument(
+        "--min-confluency",
+        default=0.1,
+        type=float,
+        help="Minimum confluency before aborting trial (default %(default)s)",
+    )
     return parser
 
 
