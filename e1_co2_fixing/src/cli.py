@@ -22,14 +22,14 @@ def get_run_argparser() -> ArgumentParser:
     )
     parser.add_argument(
         "--max-steps-without-progress",
-        default=2000,
+        default=10_000,
         type=int,
         help="Maxmimum number of steps (=virtual seconds) without any progress advancement"
         " (default %(default)s)",
     )
     parser.add_argument(
         "--max-time-m",
-        default=180,
+        default=60,
         type=int,
         help="Interrupt and stop trial after that many minutes (default %(default)s)",
     )
@@ -56,6 +56,12 @@ def get_run_argparser() -> ArgumentParser:
         default=10.0,
         type=float,
         help="Additives concentration in fresh medium (default %(default)s)",
+    )
+    parser.add_argument(
+        "--non-essentials-init",
+        default=0.0,
+        type=float,
+        help="Concentration of non-essential molecules in fresh medium (default %(default)s)",
     )
     parser.add_argument(
         "--min-confluency",
@@ -135,21 +141,6 @@ def add_fre_training_args(parser: ArgumentParser):
         type=int,
         default=10,
         help="After this number of splits without progress, mutation rate is increased (default %(default)s).",
-    )
-
-
-def add_non_essential_values_args(parser: ArgumentParser):
-    parser.add_argument(
-        "--non-essential-init-a",
-        default=10.0,
-        type=float,
-        help="Starting concentration of non-essential molecules (default %(default)s)",
-    )
-    parser.add_argument(
-        "--non-essential-init-b",
-        default=1.0,
-        type=float,
-        help="Final concentration of non-essential molecules (default %(default)s)",
     )
 
 

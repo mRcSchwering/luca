@@ -8,7 +8,7 @@ from typing import Callable
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.run_train_pathway import run_trial as train_pathway_trial
-from .src.run_train_random import run_trial as train_free_trial
+from .src.run_train_random import run_trials as train_free_trials
 from .src.run_grow_batch import run_trial as grow_batch_trial
 from .src.run_grow_chemostat import run_trial as grow_chemostat_trial
 from .src.run_shrink_genomes import run_trial as shrink_genomes_trial
@@ -42,7 +42,6 @@ def _run_trials_cmd(
 
 _MAP: dict[str, Callable[[str, Config, dict], float]] = {
     "train-pathway": train_pathway_trial,
-    "train-free": train_free_trial,
     "shrink-genomes": shrink_genomes_trial,
     "grow-chemostat": grow_chemostat_trial,
     "grow-batch": grow_batch_trial,
@@ -53,6 +52,8 @@ def main(kwargs: dict):
     cmd = kwargs.pop("cmd")
     if cmd == "init-world":
         _init_world_cmd(kwargs)
+    elif cmd == "train-free":
+        train_free_trials(cmd=cmd, kwargs=kwargs)
     else:
         trialfun = _MAP[cmd]
         _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
@@ -97,7 +98,6 @@ if __name__ == "__main__":
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
     cli.add_init_label_args(parser=free_parser, extra="Use 'init' to spawn new cells")
-    cli.add_non_essential_values_args(parser=free_parser)
     cli.add_fre_training_args(parser=free_parser)
     cli.add_batch_culture_args(parser=free_parser)
     cli.add_genome_editor_args(parser=free_parser)

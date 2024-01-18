@@ -122,7 +122,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     else:
         load_cells(world=world, label=hparams["init-label"], target_confl=init_confl)
 
-    stopper = Stopper(**vars(config))
+    stopper = Stopper.from_config(cnfg=config, world=world)
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])

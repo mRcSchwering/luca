@@ -1,7 +1,9 @@
 import time
 import random
+import shutil
+from pathlib import Path
 import magicsoup as ms
-from .util import Config, load_cells
+from .util import Config, load_cells, RUNS_DIR
 from .managing import BatchCultureManager
 from .chemistry import _X, _E, _co2, ADDITIVES, SUBSTRATES
 from .culture import Culture, BatchCulture
@@ -135,7 +137,7 @@ class Mutator:
         cltr.world.recombinate_cells(cell_idxs=idxs, p=self.lgt_p)
 
 
-def run_trial(run_name: str, config: Config, hparams: dict) -> float:
+def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
     substrates_val = hparams["substrates_init"]
     additives_val = hparams["additives_init"]
     from_val = hparams["non_essential_init_a"]
@@ -146,12 +148,9 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     min_grs = hparams["min_grs"]
     n_total_splits = n_init_splits + n_adapt_splits * len(min_grs) + n_final_splits
     adaption_start = n_init_splits / n_total_splits
-    adaption_end = (n_init_splits + n_adapt_splits) / n_total_splits
-    print(f"Adaption lasts from progress {adaption_start:.2f} to {adaption_end:.2f}")
-    print(f"Substrates are at {substrates_val:.2f}, additives at {additives_val:.2f}")
+    print(f"Starting trial {trial_dir.name}")
     print(f"Non-essential molecules are reduced from {from_val:.2f} to {to_val:.2f}")
 
-    trial_dir = config.runs_dir / run_name
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
 
     init_confl = hparams["init_confl"]
@@ -166,9 +165,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     else:
         load_cells(world=world, label=hparams["init-label"], target_confl=init_confl)
 
-    stopper = Stopper(
-        **vars(config), min_cells=int(config.min_confluency * world.map_size**2)
-    )
+    stopper = Stopper.from_config(cnfg=config, world=world)
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
@@ -232,3 +229,38 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
             t0 = t1
 
     return cltr.progress
+
+
+def run_trials(cmd: str, kwargs: dict):
+    config = Config.pop_from(kwargs)
+    kwargs["runs_dir"] = RUNS_DIR
+    orig_from_val = kwargs["non_essentials_init"]
+    print(f"Starting free-training trials on {config.device}")
+
+    default_stage_size = 0.5
+    stage_size = default_stage_size
+    from_val = orig_from_val
+    successful_trials = []
+
+    while True:
+        to_val = from_val - from_val * stage_size
+        for trial_i in range(config.max_trials):
+            trial_dir = RUNS_DIR / f"{cmd}_{config.timestamp}_{trial_i}"
+            kwargs["non_essential_init_a"] = from_val
+            kwargs["non_essential_init_b"] = to_val
+            progress = run_trial(trial_dir=trial_dir, config=config, hparams=kwargs)
+            if progress == 1.0:
+                successful_trials.append(trial_dir.name)
+            else:
+                shutil.rmtree(trial_dir)
+            if len(successful_trials) >= config.max_successful_trials:
+                break
+        if len(successful_trials) > 0:
+            stage_size = default_stage_size
+            from_val = to_val
+            kwargs["init-label"] = f"{successful_trials[0]}:-1"
+            successful_trials = []
+        else:
+            stage_size /= 2
+        print(f"Finished {len(successful_trials)} trials successfully")
+        config.reset()

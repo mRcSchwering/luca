@@ -2,7 +2,7 @@ import time
 import random
 import torch
 import magicsoup as ms
-from .util import sigm
+from .util import sigm, Config
 from .culture import Culture, BatchCulture
 
 
@@ -168,6 +168,8 @@ class Killer:
 class Stopper:
     """Stop iteration on different conditions"""
 
+    # TODO: stopper in manager instead?
+
     def __init__(
         self,
         max_steps=100_000,
@@ -175,7 +177,6 @@ class Stopper:
         max_progress=1.0,
         min_cells=100,
         max_steps_without_progress=1000,
-        **_,
     ):
         self.max_steps = max_steps
         self.max_time_s = max_time_m * 60
@@ -205,3 +206,12 @@ class Stopper:
         if cltr.world.n_cells <= self.min_cells:
             print(f"Minimum number of cells {self.min_cells:,} reached")
             raise StopIteration
+
+    @classmethod
+    def from_config(cls, cnfg: Config, world: ms.World) -> "Stopper":
+        return cls(
+            max_steps=cnfg.max_steps,
+            max_time_m=cnfg.max_time_m,
+            max_steps_without_progress=cnfg.max_steps_without_progress,
+            min_cells=int(cnfg.min_confluency * world.map_size**2),
+        )

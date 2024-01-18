@@ -250,6 +250,9 @@ class Config:
         self.timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
         self.min_confluency = min_confluency
 
+    def reset(self):
+        self.timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H-%M")
+
     @classmethod
     def pop_from(cls, kwargs: dict) -> "Config":
         """Pop config keys from kwargs and return Config"""
