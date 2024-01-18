@@ -6,7 +6,7 @@ Entrypoint for simulation. Run with:
 """
 from typing import Callable
 import magicsoup as ms
-from .src.chemistry import CHEMISTRY, WL_STAGES_MAP, FREE_STAGES_MAP
+from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.run_train_pathway import run_trial as train_pathway_trial
 from .src.run_train_random import run_trial as train_free_trial
 from .src.run_grow_batch import run_trial as grow_batch_trial
@@ -96,10 +96,10 @@ if __name__ == "__main__":
         " Init grows cells in previous medium, adapt changes to target medium and"
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
-    cli.add_stage_arg(parser=free_parser, choices=FREE_STAGES_MAP)
     cli.add_init_label_args(parser=free_parser, extra="Use 'init' to spawn new cells")
+    cli.add_non_essential_values_args(parser=free_parser)
+    cli.add_min_growth_rates_arg(parser=free_parser)
     cli.add_batch_culture_args(parser=free_parser)
-    cli.add_passager_args(parser=free_parser)
     cli.add_genome_editor_args(parser=free_parser)
     cli.add_batch_culture_training_args(parser=free_parser)
 

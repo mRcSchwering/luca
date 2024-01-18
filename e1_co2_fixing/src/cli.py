@@ -115,6 +115,32 @@ def add_batch_culture_training_args(parser: ArgumentParser):
     )
 
 
+def add_min_growth_rates_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--min-grs",
+        type=float,
+        nargs="+",
+        default=(0.03, 0.04, 0.05, 0.06),
+        help="Minimum average growth rates cells must achieve in this order"
+        "(max possible is 0.1, default %(default)s).",
+    )
+
+
+def add_non_essential_values_args(parser: ArgumentParser):
+    parser.add_argument(
+        "--non-essential-init-a",
+        default=10.0,
+        type=float,
+        help="Starting concentration of non-essential molecules (default %(default)s)",
+    )
+    parser.add_argument(
+        "--non-essential-init-b",
+        default=1.0,
+        type=float,
+        help="Final concentration of non-essential molecules (default %(default)s)",
+    )
+
+
 def add_shrink_genome_args(parser: ArgumentParser):
     parser.add_argument(
         "--from-k",
@@ -180,30 +206,6 @@ def add_stage_arg(parser: ArgumentParser, choices: Iterable):
         " Each stage starts with an initial phase in which cells grow in familiar medium."
         " Then, in the adaption phase medium is changed and cells have to adapt."
         " In the final phase cells continue to grow in the changed medium.",
-    )
-
-
-def add_passager_args(parser: ArgumentParser):
-    parser.add_argument(
-        "--passage-random",
-        type=int,
-        default=1,
-        help="Select cells according to a different strategy during each passage."
-        " This many times cells are selected randomly (default %(default)s).",
-    )
-    parser.add_argument(
-        "--passage-by-co2",
-        type=int,
-        default=0,
-        help="Select cells according to a different strategy during each passage."
-        " This many times cells are selected by low CO2 (default %(default)s).",
-    )
-    parser.add_argument(
-        "--passage-by-genome-size",
-        type=int,
-        default=0,
-        help="Select cells according to a different strategy during each passage."
-        " This many times cells are selected by high genome size (default %(default)s).",
     )
 
 

@@ -1,24 +1,38 @@
 import time
 import random
-from itertools import cycle
 import magicsoup as ms
 from .util import Config, load_cells
 from .managing import BatchCultureManager
-from .chemistry import _X, _E, _co2, FREE_STAGES_MAP, ADDITIVES, SUBSTRATES
+from .chemistry import _X, _E, _co2, ADDITIVES, SUBSTRATES
 from .culture import Culture, BatchCulture
-from .generators import Killer, Replicator, Stopper
+from .generators import Killer, Replicator, Stopper, Passager
 
 
 class Progressor:
     """Advance progress by splits if growth rate high enough"""
 
-    def __init__(self, n_splits: int, min_gr: float):
-        self.min_gr = min_gr
-        self.n_valid_total_splits = n_splits
+    def __init__(
+        self,
+        n_init_splits: int,
+        n_adapt_splits: int,
+        n_final_splits: int,
+        min_grs: list[float],
+    ):
+        self.n_valid_total_splits = (
+            n_init_splits + n_adapt_splits * len(min_grs) + n_final_splits
+        )
+        adapt = [
+            min_grs[d // n_adapt_splits] for d in range(n_adapt_splits * len(min_grs))
+        ]
+        self.min_grs = (
+            [max(min_grs)] * n_init_splits + adapt + [max(min_grs)] * n_final_splits
+        )
         self.valid_split_i = 0
 
     def __call__(self, cltr: BatchCulture) -> float:
-        if cltr.growth_rate >= self.min_gr:
+        if self.valid_split_i >= len(self.min_grs):
+            return 1.0
+        if cltr.growth_rate >= self.min_grs[self.valid_split_i]:
             self.valid_split_i += 1
         return min(1.0, self.valid_split_i / self.n_valid_total_splits)
 
@@ -44,67 +58,8 @@ class GenomeEditor:
             self.prev_state = (cltr.progress, cltr.step_i)
 
 
-class ComplexPassager:
-    """Passage cells with varying prioritizations"""
-
-    def __init__(
-        self,
-        world: ms.World,
-        mol: ms.Molecule,
-        n_by_mol=0,
-        n_by_size=0,
-        n_random=1,
-        cnfls=(0.2, 0.7),
-        max_steps=1500,  # TODO: no hparams
-    ):
-        # TODO: eigentlich ist schon alles verloren wenn max_steps gebraucht wird
-        n_max = world.map_size**2
-        self.mol_i = world.chemistry.mol_2_idx[mol]
-        self.min_cells = int(n_max * min(cnfls))
-        self.max_cells = int(n_max * max(cnfls))
-        self.max_steps = max_steps
-        self.last_split_step = 0
-        self.cycle_modes = cycle(
-            ["random"] * n_random
-            + ["genome-size"] * n_by_size
-            + ["molecule"] * n_by_mol
-        )
-        self.idx_fun_map = {
-            "random": self._get_random_idxs,
-            "genome-size": self._get_genome_size_idxs,
-            "molecule": self._get_molecule_idxs,
-        }
-
-    def _get_random_idxs(self, world: ms.World, kill_n: int) -> list[int]:
-        return random.sample(range(world.n_cells), k=kill_n)
-
-    def _get_genome_size_idxs(self, world: ms.World, kill_n: int) -> list[int]:
-        glens = [len(d) for d in world.cell_genomes]
-        ordered = sorted([(d, i) for i, d in enumerate(glens)])
-        return [i for _, i in ordered[:kill_n]]
-
-    def _get_molecule_idxs(self, world: ms.World, kill_n: int) -> list[int]:
-        x = world.cell_molecules[:, self.mol_i]
-        ordered = sorted([(d, i) for i, d in enumerate(x.tolist())], reverse=True)
-        return [i for _, i in ordered[:kill_n]]
-
-    def __call__(self, cltr: BatchCulture) -> bool:
-        n_steps = cltr.step_i - self.last_split_step
-        n_cells = cltr.world.n_cells
-        if n_cells < self.max_cells and n_steps < self.max_steps:
-            return False
-
-        self.last_split_step = cltr.step_i
-        mode = next(self.cycle_modes)
-        kill_n = max(n_cells - self.min_cells, 0)
-        idxs = self.idx_fun_map[mode](world=cltr.world, kill_n=kill_n)
-        cltr.world.kill_cells(cell_idxs=idxs)
-        cltr.world.reposition_cells()
-        return True
-
-
 class MediumRefresher:
-    """Changes reduce unnecessary medium parts from A to B when progress reached"""
+    """Reduce unnecessary medium parts from A to B"""
 
     def __init__(
         self,
@@ -141,27 +96,34 @@ class MediumRefresher:
 
 
 class Mutator:
-    """Increase mutation rates during progress interval"""
+    """Increase mutation rates if cells dont progress"""
 
     def __init__(
         self,
-        progress_range: tuple[float, float],
+        n_steps: float,
         by: float,
         snp_p=1e-6,
         lgt_p=1e-7,
         lgt_rate=0.1,
     ):
-        self.start = min(progress_range)
-        self.end = max(progress_range)
+        self.prev_step = 0
+        self.prev_progress = 0.0
+        self.n_steps = n_steps
         self.by = by
         self.snp_p = snp_p
         self.lgt_p = lgt_p
         self.lgt_rate = lgt_rate
 
+    def _update_step(self, cltr: Culture):
+        if cltr.progress > self.prev_progress:
+            self.prev_progress = cltr.progress
+            self.prev_step = cltr.step_i
+
     def __call__(self, cltr: Culture):
+        self._update_step(cltr)
         snp_p = self.snp_p
         lgt_p = self.lgt_p
-        if self.start < cltr.progress < self.end:
+        if cltr.step_i - self.prev_step > self.n_steps:
             snp_p *= self.by
             lgt_p *= self.by
         cltr.world.mutate_cells(p=snp_p)
@@ -171,15 +133,18 @@ class Mutator:
 
 
 def run_trial(run_name: str, config: Config, hparams: dict) -> float:
-    from_f, to_f = FREE_STAGES_MAP[hparams["stage"]]
-    from_val = from_f * hparams["substrates_init"]
-    to_val = to_f * hparams["substrates_init"]
+    substrates_val = hparams["substrates_init"]
+    additives_val = hparams["additives_init"]
+    from_val = hparams["non_essential_init_a"]
+    to_val = hparams["non_essential_init_b"]
     n_init_splits = hparams["n_init_splits"]
-    n_init_adapt_splits = n_init_splits + hparams["n_adapt_splits"]
-    n_total_splits = n_init_adapt_splits + hparams["n_final_splits"]
+    n_adapt_splits = hparams["n_adapt_splits"]
+    n_final_splits = hparams["n_final_splits"]
+    n_total_splits = n_init_splits + n_adapt_splits + n_final_splits
     adaption_start = n_init_splits / n_total_splits
-    adaption_end = n_init_adapt_splits / n_total_splits
+    adaption_end = (n_init_splits + n_adapt_splits) / n_total_splits
     print(f"Adaption lasts from progress {adaption_start:.2f} to {adaption_end:.2f}")
+    print(f"Substrates are at {substrates_val:.2f}, additives at {additives_val:.2f}")
     print(f"Non-essential molecules are reduced from {from_val:.2f} to {to_val:.2f}")
 
     trial_dir = config.runs_dir / run_name
@@ -200,15 +165,13 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     stopper = Stopper(**vars(config))
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
-    progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
+    passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
 
-    passager = ComplexPassager(
-        world=world,
-        mol=_co2,
-        n_by_mol=hparams["passage_by_co2"],
-        n_by_size=hparams["passage_by_genome_size"],
-        n_random=hparams["passage_random"],
-        cnfls=(hparams["min_confl"], hparams["max_confl"]),
+    progressor = Progressor(
+        n_init_splits=n_init_splits,
+        n_adapt_splits=n_adapt_splits,
+        n_final_splits=n_final_splits,
+        min_grs=hparams["min_grs"],  # TODO: hparam
     )
 
     medium_refresher = MediumRefresher(
@@ -216,14 +179,14 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         substrates=SUBSTRATES,
         additives=ADDITIVES,
         at_progress=adaption_start,
-        additives_val=hparams["additives_init"],
-        substrates_val=hparams["substrates_init"],
+        additives_val=additives_val,
+        substrates_val=substrates_val,
         other_val_a=from_val,
         other_val_b=to_val,
     )
 
     mutator = Mutator(
-        progress_range=(adaption_start, adaption_end),
+        n_steps=hparams["mutation_rate_steps"],  # TODO: hparam
         by=hparams["mutation_rate_mult"],
     )
 
