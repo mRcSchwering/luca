@@ -80,22 +80,22 @@ def add_batch_culture_args(parser: ArgumentParser):
 def add_batch_culture_training_args(parser: ArgumentParser):
     parser.add_argument(
         "--n-init-splits",
-        default=5.0,
-        type=float,
+        default=5,
+        type=int,
         help="Number of passages in initial phase (default %(default)s)."
         " Only passages with high enough growth rate are counted (see min_gr).",
     )
     parser.add_argument(
         "--n-adapt-splits",
-        default=5.0,
-        type=float,
+        default=5,
+        type=int,
         help="Number of passages in adaption phase (default %(default)s)."
         " Only passages with high enough growth rate are counted (see min_gr).",
     )
     parser.add_argument(
         "--n-final-splits",
-        default=5.0,
-        type=float,
+        default=5,
+        type=int,
         help="Number of passages in final phase (default %(default)s)."
         " Only passages with high enough growth rate are counted (see min_gr).",
     )
@@ -115,7 +115,7 @@ def add_batch_culture_training_args(parser: ArgumentParser):
     )
 
 
-def add_min_growth_rates_arg(parser: ArgumentParser):
+def add_fre_training_args(parser: ArgumentParser):
     parser.add_argument(
         "--min-grs",
         type=float,
@@ -123,6 +123,12 @@ def add_min_growth_rates_arg(parser: ArgumentParser):
         default=(0.03, 0.04, 0.05, 0.06),
         help="Minimum average growth rates cells must achieve in this order"
         "(max possible is 0.1, default %(default)s).",
+    )
+    parser.add_argument(
+        "--mutation-rate-splits",
+        type=int,
+        default=10,
+        help="After this number of splits without progress, mutation rate is increased (default %(default)s).",
     )
 
 

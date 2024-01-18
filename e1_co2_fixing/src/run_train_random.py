@@ -100,32 +100,35 @@ class Mutator:
 
     def __init__(
         self,
-        n_steps: float,
+        n_splits: int,
         by: float,
         snp_p=1e-6,
         lgt_p=1e-7,
         lgt_rate=0.1,
     ):
-        self.prev_step = 0
+        self.prev_split = 0
         self.prev_progress = 0.0
-        self.n_steps = n_steps
+        self.n_splits = n_splits
         self.by = by
         self.snp_p = snp_p
         self.lgt_p = lgt_p
         self.lgt_rate = lgt_rate
+        self.current_factor = 1.0
 
-    def _update_step(self, cltr: Culture):
+    def _update_step(self, cltr: BatchCulture):
         if cltr.progress > self.prev_progress:
             self.prev_progress = cltr.progress
-            self.prev_step = cltr.step_i
+            self.prev_split = cltr.split_i
 
-    def __call__(self, cltr: Culture):
+    def __call__(self, cltr: BatchCulture):
         self._update_step(cltr)
         snp_p = self.snp_p
         lgt_p = self.lgt_p
-        if cltr.step_i - self.prev_step > self.n_steps:
+        self.current_factor = 1.0
+        if cltr.split_i - self.prev_split > self.n_splits:
             snp_p *= self.by
             lgt_p *= self.by
+            self.current_factor = self.by
         cltr.world.mutate_cells(p=snp_p)
         n_cells = cltr.world.n_cells
         idxs = random.sample(range(n_cells), k=int(n_cells * self.lgt_rate))
@@ -171,7 +174,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         n_init_splits=n_init_splits,
         n_adapt_splits=n_adapt_splits,
         n_final_splits=n_final_splits,
-        min_grs=hparams["min_grs"],  # TODO: hparam
+        min_grs=hparams["min_grs"],
     )
 
     medium_refresher = MediumRefresher(
@@ -186,8 +189,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     )
 
     mutator = Mutator(
-        n_steps=hparams["mutation_rate_steps"],  # TODO: hparam
-        by=hparams["mutation_rate_mult"],
+        n_splits=hparams["mutation_rate_splits"], by=hparams["mutation_rate_mult"]
     )
 
     genome_editor = GenomeEditor(
@@ -217,7 +219,11 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         t0 = time.time()
         for step in cltr:
             t1 = time.time()
-            manager.throttled_light_log(step, {"Other/TimePerStep[s]": t1 - t0})
+            log = {
+                "Other/TimePerStep[s]": t1 - t0,
+                "Other/MutationRateMult": cltr.mutator.current_factor,
+            }
+            manager.throttled_light_log(step, log)
             manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1

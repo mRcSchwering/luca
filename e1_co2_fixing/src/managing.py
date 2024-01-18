@@ -24,7 +24,11 @@ class Manager:
 
         metrics = {"Other/Progress": 0.0}
         self.writer = SummaryWriter(log_dir=trial_dir)
-        exp, ssi, sei = get_summary(hparam_dict=hparams, metric_dict=metrics)
+        flat_hparams = {
+            k: ", ".join([str(dd) for dd in d]) if isinstance(d, (list, tuple)) else d
+            for k, d in hparams.items()
+        }
+        exp, ssi, sei = get_summary(hparam_dict=flat_hparams, metric_dict=metrics)
         self.writer.file_writer.add_summary(exp)
         self.writer.file_writer.add_summary(ssi)
         self.writer.file_writer.add_summary(sei)

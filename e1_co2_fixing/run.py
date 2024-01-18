@@ -98,7 +98,7 @@ if __name__ == "__main__":
     )
     cli.add_init_label_args(parser=free_parser, extra="Use 'init' to spawn new cells")
     cli.add_non_essential_values_args(parser=free_parser)
-    cli.add_min_growth_rates_arg(parser=free_parser)
+    cli.add_fre_training_args(parser=free_parser)
     cli.add_batch_culture_args(parser=free_parser)
     cli.add_genome_editor_args(parser=free_parser)
     cli.add_batch_culture_training_args(parser=free_parser)
