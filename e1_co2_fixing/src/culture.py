@@ -77,7 +77,7 @@ class BatchCulture(Culture):
     def __init__(
         self,
         passager: CallBatchCltrReturnBoolType,
-        genome_editor: CallCltrType | None = None,
+        genome_editor: CallBatchCltrReturnBoolType | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)

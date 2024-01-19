@@ -168,8 +168,6 @@ class Killer:
 class Stopper:
     """Stop iteration on different conditions"""
 
-    # TODO: stopper in manager instead?
-
     def __init__(
         self,
         max_steps=100_000,
@@ -214,4 +212,33 @@ class Stopper:
             max_time_m=cnfg.max_time_m,
             max_steps_without_progress=cnfg.max_steps_without_progress,
             min_cells=int(cnfg.min_confluency * world.map_size**2),
+        )
+
+
+class BatchCultureStopper(Stopper):
+    """Stop batch culture iterration at different conditions"""
+
+    def __init__(self, max_steps_without_split: int, **kwargs):
+        super().__init__(**kwargs)
+        self.steps_wo_split = max_steps_without_split
+        self.last_split = 0
+        self.last_split_step = 0
+
+    def __call__(self, cltr: BatchCulture):  # type: ignore
+        super().__call__(cltr)
+        if cltr.split_i > self.last_split:
+            self.last_split = cltr.split_i
+            self.last_split_step = cltr.step_i
+        if cltr.step_i - self.last_split_step > self.steps_wo_split:
+            print(f"Maximum steps without split {self.steps_wo_split:,} reached")
+            raise StopIteration
+
+    @classmethod
+    def from_config(cls, cnfg: Config, world: ms.World) -> "Stopper":
+        return cls(
+            max_steps=cnfg.max_steps,
+            max_time_m=cnfg.max_time_m,
+            max_steps_without_progress=cnfg.max_steps_without_progress,
+            min_cells=int(cnfg.min_confluency * world.map_size**2),
+            max_steps_without_split=cnfg.max_steps_without_split,
         )

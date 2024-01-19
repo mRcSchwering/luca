@@ -7,7 +7,7 @@ from .util import Config, load_cells, RUNS_DIR
 from .managing import BatchCultureManager
 from .chemistry import _X, _E, _co2, ADDITIVES, SUBSTRATES
 from .culture import Culture, BatchCulture
-from .generators import Killer, Replicator, Stopper, Passager
+from .generators import Killer, Replicator, BatchCultureStopper, Passager
 
 
 class Progressor:
@@ -103,39 +103,29 @@ class MediumRefresher:
 
 
 class Mutator:
-    """Increase mutation rates if cells dont progress"""
+    """Increase mutation rates during progress interval"""
 
     def __init__(
         self,
-        n_splits: int,
+        progress_range: tuple[float, float],
         by: float,
         snp_p=1e-6,
         lgt_p=1e-7,
         lgt_rate=0.1,
     ):
-        self.prev_split = 0
-        self.prev_progress = 0.0
-        self.n_splits = n_splits
+        self.start = min(progress_range)
+        self.end = max(progress_range)
         self.by = by
         self.snp_p = snp_p
         self.lgt_p = lgt_p
         self.lgt_rate = lgt_rate
-        self.current_factor = 1.0
 
-    def _update_step(self, cltr: BatchCulture):
-        if cltr.progress > self.prev_progress:
-            self.prev_progress = cltr.progress
-            self.prev_split = cltr.split_i
-
-    def __call__(self, cltr: BatchCulture):
-        self._update_step(cltr)
+    def __call__(self, cltr: Culture):
         snp_p = self.snp_p
         lgt_p = self.lgt_p
-        self.current_factor = 1.0
-        if cltr.split_i - self.prev_split > self.n_splits:
+        if self.start < cltr.progress < self.end:
             snp_p *= self.by
             lgt_p *= self.by
-            self.current_factor = self.by
         cltr.world.mutate_cells(p=snp_p)
         n_cells = cltr.world.n_cells
         idxs = random.sample(range(n_cells), k=int(n_cells * self.lgt_rate))
@@ -153,8 +143,10 @@ def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
     min_grs = hparams["min_grs"]
     n_total_splits = n_init_splits + n_adapt_splits * len(min_grs) + n_final_splits
     adaption_start = n_init_splits / n_total_splits
+    adaption_end = (n_total_splits - n_final_splits) / n_total_splits
     print(f"Starting trial {trial_dir.name}")
     print(f"Non-essential molecules are reduced from {from_val:.2f} to {to_val:.2f}")
+    print(f"Adaption lasts from progress {adaption_start:.2f} to {adaption_end:.2f}")
 
     world = ms.World.from_file(rundir=config.runs_dir, device=config.device)
 
@@ -170,7 +162,7 @@ def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
     else:
         load_cells(world=world, label=hparams["init-label"], target_confl=init_confl)
 
-    stopper = Stopper.from_config(cnfg=config, world=world)
+    stopper = BatchCultureStopper.from_config(cnfg=config, world=world)
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
@@ -194,7 +186,8 @@ def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
     )
 
     mutator = Mutator(
-        n_splits=hparams["mutation_rate_splits"], by=hparams["mutation_rate_mult"]
+        progress_range=(adaption_start, adaption_end),
+        by=hparams["mutation_rate_mult"],
     )
 
     genome_editor = GenomeEditor(
@@ -226,11 +219,7 @@ def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
         t0 = time.time()
         for step in cltr:
             t1 = time.time()
-            log = {
-                "Other/TimePerStep[s]": t1 - t0,
-                "Other/MutationRateMult": cltr.mutator.current_factor,
-            }
-            manager.throttled_light_log(step, log)
+            manager.throttled_light_log(step, {"Other/TimePerStep[s]": t1 - t0})
             manager.throttled_fat_log(step)
             manager.throttled_save_state(step)
             t0 = t1

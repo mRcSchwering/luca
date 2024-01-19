@@ -28,6 +28,14 @@ def get_run_argparser() -> ArgumentParser:
         " (default %(default)s)",
     )
     parser.add_argument(
+        "--max-steps-without-split",
+        default=1_000,
+        type=int,
+        help="During a batch culture the maxmimum number of steps (=virtual seconds) without passaging"
+        " (default %(default)s)",
+    )
+
+    parser.add_argument(
         "--max-time-m",
         default=60,
         type=int,
@@ -132,15 +140,9 @@ def add_fre_training_args(parser: ArgumentParser):
         "--min-grs",
         type=float,
         nargs="+",
-        default=(0.03, 0.04, 0.05, 0.06),
+        default=(0.03, 0.04, 0.05),
         help="Minimum average growth rates cells must achieve in this order"
         "(max possible is 0.1, default %(default)s).",
-    )
-    parser.add_argument(
-        "--mutation-rate-splits",
-        type=int,
-        default=10,
-        help="After this number of splits without progress, mutation rate is increased (default %(default)s).",
     )
 
 
@@ -216,7 +218,7 @@ def add_genome_editor_args(parser: ArgumentParser):
     parser.add_argument(
         "--genome-editing-splits",
         type=int,
-        default=100,
+        default=50,
         help="Edit cells genomes if they cannot progress after that many splits (default %(default)s).",
     )
     parser.add_argument(

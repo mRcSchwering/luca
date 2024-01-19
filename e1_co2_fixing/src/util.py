@@ -235,6 +235,7 @@ class Config:
         runs_dir: Path | str,
         max_steps: int,
         max_steps_without_progress: int,
+        max_steps_without_split: int,
         max_time_m: int,
         max_trials: int,
         max_successful_trials: int,
@@ -244,6 +245,7 @@ class Config:
         self.runs_dir = runs_dir if isinstance(runs_dir, Path) else Path(runs_dir)
         self.max_steps = max_steps
         self.max_steps_without_progress = max_steps_without_progress
+        self.max_steps_without_split = max_steps_without_split
         self.max_time_m = max_time_m
         self.max_trials = max_trials
         self.max_successful_trials = max_successful_trials
@@ -265,4 +267,5 @@ class Config:
             max_trials=kwargs.pop("max_trials"),
             max_successful_trials=kwargs.pop("max_successful_trials"),
             min_confluency=kwargs.pop("min_confluency"),
+            max_steps_without_split=kwargs.pop("max_steps_without_split"),
         )
