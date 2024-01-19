@@ -214,10 +214,10 @@ def add_stage_arg(parser: ArgumentParser, choices: Iterable):
 
 def add_genome_editor_args(parser: ArgumentParser):
     parser.add_argument(
-        "--genome-editing-steps",
+        "--genome-editing-splits",
         type=int,
-        default=1000,
-        help="Edit cells genomes if they cannot progress after that many steps (default %(default)s).",
+        default=100,
+        help="Edit cells genomes if they cannot progress after that many splits (default %(default)s).",
     )
     parser.add_argument(
         "--genome-editing-size",

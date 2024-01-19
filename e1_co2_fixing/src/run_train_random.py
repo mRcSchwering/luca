@@ -42,24 +42,27 @@ class Progressor:
 class GenomeEditor:
     """Give cells random base pairs if they cannot progress"""
 
-    def __init__(self, max_steps: float, efficiency: float, size=100):
+    def __init__(self, max_splits: float, efficiency: float, size=100):
         self.size = size
-        self.prev_state = (0.0, 0)
-        self.max_steps = max_steps
+        self.progress0 = 0.0
+        self.split0 = 0
+        self.max_splits = max_splits
         self.efficiency = efficiency
 
-    def __call__(self, cltr: Culture):
-        n_steps = cltr.step_i - self.prev_state[1]
-        if cltr.progress <= self.prev_state[0] and n_steps > self.max_steps:
+    def __call__(self, cltr: BatchCulture):
+        n_splits = cltr.split_i - self.split0
+        if cltr.progress <= self.progress0 and n_splits > self.max_splits:
             n_cells = int(cltr.world.n_cells * self.efficiency)
             updates = [
                 (cltr.world.cell_genomes[d] + ms.random_genome(self.size), d)
                 for d in random.sample(list(range(cltr.world.n_cells)), k=n_cells)
             ]
             cltr.world.update_cells(genome_idx_pairs=updates)
-            self.prev_state = (cltr.progress, cltr.step_i)
-        elif cltr.progress > self.prev_state[0]:
-            self.prev_state = (cltr.progress, cltr.step_i)
+            self.progress0 = cltr.progress
+            self.split0 = cltr.split_i
+        elif cltr.progress > self.progress0:
+            self.progress0 = cltr.progress
+            self.split0 = cltr.split_i
 
 
 class MediumRefresher:
@@ -195,7 +198,7 @@ def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
     )
 
     genome_editor = GenomeEditor(
-        max_steps=hparams["genome_editing_steps"],
+        max_splits=hparams["genome_editing_splits"],
         efficiency=hparams["relative_transformation_efficiency"],
         size=hparams["genome_editing_size"],
     )
