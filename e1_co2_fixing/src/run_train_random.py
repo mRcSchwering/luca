@@ -196,7 +196,7 @@ def run_trial(trial_dir: Path, config: Config, hparams: dict) -> float:
 
     genome_editor = GenomeEditor(
         max_steps=hparams["genome_editing_steps"],
-        efficiency=hparams["relative-transformation-efficiency"],
+        efficiency=hparams["relative_transformation_efficiency"],
         size=hparams["genome_editing_size"],
     )
 
