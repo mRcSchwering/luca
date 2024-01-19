@@ -225,6 +225,12 @@ def add_genome_editor_args(parser: ArgumentParser):
         default=50,
         help="Edit cels genomes if they cannot progress with random genomes of this size (default %(default)s).",
     )
+    parser.add_argument(
+        "--relative-transformation-efficiency",
+        type=float,
+        default=0.5,
+        help="Relative number of cells recieving new genes during gene editing event (default %(default)s).",
+    )
 
 
 def add_n_divisions_arg(parser: ArgumentParser):
