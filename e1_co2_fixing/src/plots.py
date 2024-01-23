@@ -67,18 +67,25 @@ def tensorboard_cellmap(imgstr: str, cellcol=NA_COL_RGB, border=1, margin=10) ->
 
 def cellhists(
     world: ms.World,
+    proteomes: list[list[str]],
     bins=20,
     pad_x=0.2,
     rel_y=0.5,
     text_size=10,
-    figsize=(7, 2),
+    figsize=(9, 2),
 ) -> Image:
-    dfs = [
-        pd.DataFrame({"v": world.cell_divisions, "k": "divisions"}),
-        pd.DataFrame({"v": world.cell_lifetimes, "k": "lifetime"}),
-        pd.DataFrame({"v": [len(d) for d in world.cell_genomes], "k": "genome-size"}),
-    ]
-    df = pd.concat(dfs, ignore_index=True)
+    variables = {
+        "genome-size[bp]": [len(d) for d in world.cell_genomes],
+        "proteome-size": [len(d) for d in proteomes],
+        "generation": world.cell_divisions,
+        "age[s]": world.cell_lifetimes,
+    }
+
+    df = pd.concat(
+        [pd.DataFrame({"v": d, "k": k}) for k, d in variables.items()],
+        ignore_index=True,
+    )
+    df["k"] = pd.Categorical(df["k"], categories=list(variables), ordered=True)
 
     records = []
     for key, grpdf in df.groupby("k"):
@@ -97,6 +104,45 @@ def cellhists(
         + geom_text(aes(x="x", y="y", label="l"), size=text_size, data=avgs)
         + facet_grid(". ~ k", scales="free")
         + theme(axis_title=element_blank()))
+    # fmt: on
+    return _plot_2_img(g, figsize=figsize)
+
+
+def cellboxes(
+    world: ms.World,
+    proteomes: list[list[str]],
+    grp2idxs: dict[str, list[int]],
+    grp2col: dict[str, str],
+    figsize=(9, 1),
+    NA="other",
+):
+    variables = {
+        "genome-size[bp]": [len(d) for d in world.cell_genomes],
+        "proteome-size": [len(d) for d in proteomes],
+        "generation": world.cell_divisions.tolist(),
+        "age[s]": world.cell_lifetimes.tolist(),
+    }
+
+    records = []
+    for grp, idxs in grp2idxs.items():
+        for var, vals in variables.items():
+            records.extend([{"c": d, "l": grp, "k": var, "n": vals[d]} for d in idxs])
+
+    df = pd.DataFrame.from_records(records)
+    clst_cats = [NA] + list(reversed(grp2idxs))
+    var_cats = [NA] + list(variables)
+    df["l"] = pd.Categorical(df["l"], categories=clst_cats, ordered=True)
+    df["k"] = pd.Categorical(df["k"], categories=var_cats, ordered=True)
+
+    # fmt: off
+    g = (ggplot(df, aes(x="k", y="n"))
+        + geom_boxplot(aes(color="l"))
+        + scale_color_manual(values=grp2col)
+        + facet_wrap("~ k", scales="free", nrow=1)
+        + theme(legend_position="none")
+        + theme(subplots_adjust={"wspace": 0.25})
+        + theme(axis_title=element_blank(), axis_text_y=element_blank())
+        + coord_flip())
     # fmt: on
     return _plot_2_img(g, figsize=figsize)
 
@@ -134,6 +180,53 @@ def protein_counts(
         + coord_flip())
     # fmt: on
 
+    return _plot_2_img(g, figsize=figsize)
+
+
+def molecule_bars(
+    world: ms.World,
+    molecules: list[ms.Molecule],
+    grp2idx: dict[str, int],
+    grp2col: dict[str, str],
+    figsize=(7, 3),
+    NA="other",
+) -> Image:
+    records = []
+    for grp, idx in grp2idx.items():
+        cell = world.get_cell(by_idx=idx)
+        for mol in molecules:
+            mi = world.chemistry.mol_2_idx[mol]
+            records.append(
+                {
+                    "g": grp,
+                    "m": mol.name,
+                    "n": cell.int_molecules[mi].item(),
+                    "l": "int",
+                }
+            )
+            records.append(
+                {
+                    "g": grp,
+                    "m": mol.name,
+                    "n": cell.ext_molecules[mi].item(),
+                    "l": "ext",
+                }
+            )
+
+    df = pd.DataFrame.from_records(records)
+    molcats = [NA] + list(reversed([d.name for d in molecules]))
+    df["m"] = pd.Categorical(df["m"], categories=molcats)
+    df["g"] = pd.Categorical(df["g"], categories=list(reversed(grp2idx)))
+
+    # fmt: off
+    g = (ggplot(df, aes(x="m", y="n"))
+        + geom_col(aes(fill="g"), position="dodge")
+        + scale_fill_manual(values=grp2col)
+        + facet_grid("~ l", scales="free")
+        + theme(legend_position="none")
+        + theme(axis_title=element_blank(), axis_text_y=element_blank())
+        + coord_flip())
+    # fmt: on
     return _plot_2_img(g, figsize=figsize)
 
 
@@ -193,7 +286,7 @@ def grp_counts(
     return _plot_2_img(g, figsize=figsize)
 
 
-def molecule_concentrations(
+def molecule_boxes(
     world: ms.World,
     molecules: list[ms.Molecule],
     grp2idxs: dict[str, list[int]],
@@ -252,49 +345,6 @@ def molecule_concentrations(
         + facet_grid(". ~ l", scales="free")
         + theme(legend_position="none")
         + theme(axis_title=element_blank())
-        + coord_flip())
-    # fmt: on
-
-    return _plot_2_img(g, figsize=figsize)
-
-
-def cellboxes(
-    world: ms.World,
-    grp2idxs: dict[str, list[int]],
-    grp2col: dict[str, str],
-    figsize=(7, 1),
-    NA="other",
-):
-    idx2grp = {dd: k for k, d in grp2idxs.items() for dd in d}
-    records = []
-    for cell_i in range(world.n_cells):
-        if cell_i in idx2grp:
-            label = idx2grp[cell_i]
-            cell = world.get_cell(by_idx=cell_i)
-            records.append(
-                {"c": cell_i, "l": label, "k": "genome-size[bp]", "n": len(cell.genome)}
-            )
-            records.append(
-                {"c": cell_i, "l": label, "k": "age[step]", "n": cell.n_steps_alive}
-            )
-            records.append(
-                {"c": cell_i, "l": label, "k": "divisions", "n": cell.n_divisions}
-            )
-
-    df = pd.DataFrame.from_records(records)
-    clst_cats = [NA] + list(reversed(grp2idxs))
-    var_cats = [NA] + ["genome-size[bp]", "age[step]", "divisions"]
-    df["l"] = pd.Categorical(df["l"], categories=clst_cats, ordered=True)
-    df["k"] = pd.Categorical(df["k"], categories=var_cats, ordered=True)
-
-    # fmt: off
-    g = (ggplot(df, aes(x="k", y="n"))
-        + geom_boxplot(aes(color="l"))
-        + scale_color_manual(values=grp2col)
-        + facet_wrap("~ k", scales="free", nrow=1)
-        + theme(legend_position="none")
-        + theme(subplots_adjust={"wspace": 0.25})
-        + theme(axis_title=element_blank(), axis_text_y=element_blank())
         + coord_flip())
     # fmt: on
 
@@ -360,12 +410,13 @@ def sampling(
 
 def run_scalars(
     df: pd.DataFrame,
-    x="step",
+    x="s",
     y="value",
     var="variable",
     figsize=(10, 8),
     color=NA_COL,
 ) -> Image:
+    # TODO: use timeseries?
     # fmt: off
     g = (ggplot(df)
         + geom_line(aes(x=x, y=y), color=color)
@@ -376,16 +427,44 @@ def run_scalars(
     return _plot_2_img(g, figsize=figsize)
 
 
+def timeseries(
+    df: pd.DataFrame,
+    grp2col: dict[str, str],
+    figsize=(8, 3),
+    grp="l",
+    x="t",
+    y="n",
+    row="m",
+    NA="other",
+) -> Image:
+    df = df.copy()
+    legend_theme = theme(legend_title=element_blank())
+    if grp not in df.columns:
+        df[grp] = NA
+        legend_theme = theme(legend_position="none")
+    colors = {k: d for k, d in grp2col.items() if k in grp2col if k in df[grp].unique()}
+    df[grp] = pd.Categorical(df[grp], categories=list(reversed(colors)))
+    # fmt: off
+    g = (ggplot(df)
+        + geom_line(aes(x=x, y=y, color=grp))
+        + scale_color_manual(colors)
+        + facet_grid(f"{row} ~ .", scales="free")
+        + legend_theme
+        + theme(axis_title=element_blank()))
+    # fmt: on
+    return _plot_2_img(g, figsize=figsize)
+
+
 def pathway_training(
     df: pd.DataFrame,
     grp2progress: dict[str, tuple[float, float]],
-    x="step",
+    x="s",
     y="value",
     lab="stage",
     var="variable",
     trial="trial",
     grp="runname",
-    progress="Progress",
+    progress="progress",
     figsize=(12, 10),
 ) -> Image:
     df = df.copy()
@@ -427,5 +506,72 @@ def pathway_training(
         + facet_grid(f"{var} ~ {lab}", scales="free")
         + theme(axis_title_y=element_blank())
         + theme(legend_position="none"))
+    # fmt: on
+    return _plot_2_img(g, figsize=figsize)
+
+
+def plot_genome_transcripts(
+    cell: ms.Cell, w=14, h=0.2, gw=5, cdsw=4, figsize=(10, 8)
+) -> Image:
+    n = len(cell.genome)
+
+    dom_type_map = {
+        ms.CatalyticDomain: "catal",
+        ms.TransporterDomain: "trnsp",
+        ms.RegulatoryDomain: "reg",
+    }
+    records = [{"tag": "genome", "dir": "", "start": 0, "stop": n, "type": "genome"}]
+    for pi, prot in enumerate(cell.proteome):
+        tag = f"CDS{pi}"
+        start = prot.cds_start if prot.is_fwd else n - prot.cds_start
+        stop = prot.cds_end if prot.is_fwd else n - prot.cds_end
+        records.append(
+            {
+                "tag": tag,
+                "dir": "fwd" if prot.is_fwd else "bwd",
+                "start": start,
+                "stop": stop,
+                "type": "CDS",
+            }
+        )
+        for dom in prot.domains:
+            records.append(
+                {
+                    "tag": tag,
+                    "dir": "fwd" if prot.is_fwd else "bwd",
+                    "start": start + dom.start if prot.is_fwd else start - dom.start,
+                    "stop": start + dom.end if prot.is_fwd else start - dom.end,
+                    "type": dom_type_map[type(dom)],
+                }
+            )
+    df = pd.DataFrame.from_records(records)
+
+    tags = (
+        df.loc[df["dir"] == "fwd", "tag"].unique().tolist()
+        + ["genome"]
+        + df.loc[df["dir"] == "bwd", "tag"].unique().tolist()
+    )
+    types = df["type"].unique().tolist()
+    df["tag"] = pd.Categorical(df["tag"], categories=reversed(tags), ordered=True)
+    df["type"] = pd.Categorical(df["type"], categories=types)
+
+    colors = {
+        "genome": "dimgray",
+        "CDS": "lightgray",
+        "catal": "#fe218b",
+        "trnsp": "#21b0fe",
+        "reg": "#fed700",
+    }
+    sizes = {d: gw if d == "genome" else cdsw for d in tags}
+    # fmt: off
+    g = (ggplot(df)
+        + geom_segment(aes(x="start", y="tag", xend="stop", yend="tag", color="type", size="tag"))
+        + scale_color_manual(values=colors)
+        + scale_size_manual(values=sizes)
+        + guides(size=False)
+        + theme(figure_size=(w, h * len(sizes) + 0.3))
+        + theme(panel_grid_major=element_blank(), panel_grid_minor=element_blank())
+        + theme(axis_title_x=element_blank(), axis_title_y=element_blank())
+        + theme(legend_position="bottom", legend_title=element_blank(), legend_margin=10.0))
     # fmt: on
     return _plot_2_img(g, figsize=figsize)

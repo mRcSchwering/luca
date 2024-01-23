@@ -9,6 +9,9 @@ from .culture import Culture, BatchCulture
 class GenomeEditor:
     """At progress give cells genes from genome factory"""
 
+    # TODO: add genes in random position of genomes
+    # TODO: also should have efficiency
+
     def __init__(self, at_progress: float, fact: ms.GenomeFact):
         self.is_edited = False
         self.fact = fact
@@ -56,6 +59,8 @@ class MediumRefresher:
 class Passager:
     """Passage cells between min and max confluency"""
 
+    # TODO: add passaging after x steps
+
     def __init__(self, world: ms.World, cnfls=(0.2, 0.7)):
         n_max = world.map_size**2
         self.min_cells = int(n_max * min(cnfls))
@@ -87,6 +92,8 @@ class Progressor:
 class Mutator:
     """Mutate cells and recombinate cells"""
 
+    # TODO: add spiking base pairs?
+
     def __init__(self, snp_p=1e-6, lgt_p=1e-7, lgt_rate=0.1):
         self.snp_p = snp_p
         self.lgt_p = lgt_p
@@ -101,6 +108,9 @@ class Mutator:
 
 class Replicator:
     """Replicate cells for high molecule concentration"""
+
+    # TODO: need more X?
+    # TODO: no min lifetime?
 
     def __init__(
         self,
@@ -135,6 +145,8 @@ class Replicator:
 
 class Killer:
     """Kill cells for low molecule concentration and high genome size"""
+
+    # TODO: X dependent killing?
 
     def __init__(
         self,

@@ -76,24 +76,22 @@ def describe_run(kwargs: dict):
 
     if is_chemostat:
         scalars = [
-            ("Cells/Total", "Cells"),
-            ("Cells/Divisions", "Divisions"),
-            ("Cells/Survival", "Survival"),
-            ("Cells/GenomeSize", "GenomeSize"),
-            ("Other/Progress", "Progress"),
-            ("Other/TimePerStep[s]", "s/step"),
+            ("Cells/Total", "cells"),
+            ("Cells/Divisions", "generation"),
+            ("Cells/Survival", "age[s]"),
+            ("Cells/GenomeSize", "genome-size"),
+            ("Other/Progress", "progress"),
         ]
     else:
         scalars = [
-            ("Cells/Total", "Cells"),
-            ("Cells/Divisions", "Divisions"),
-            ("Cells/GrowthRate", "GrowthRate"),
-            ("Cells/Survival", "Survival"),
-            ("Cells/GenomeSize", "GenomeSize"),
-            ("Other/Split", "Passage"),
+            ("Cells/Total", "cells"),
+            ("Cells/Divisions", "generation"),
+            ("Cells/GrowthRate", "growth-rate"),
+            ("Cells/Survival", "age[s]"),
+            ("Cells/GenomeSize", "genome-size"),
+            ("Other/Split", "passage"),
             ("Cells/cPD", "cPD"),
-            ("Other/Progress", "Progress"),
-            ("Other/TimePerStep[s]", "s/step"),
+            ("Other/Progress", "progress"),
         ]
 
     figsize = (10, len(scalars) * 0.85)
@@ -106,17 +104,6 @@ def describe_run(kwargs: dict):
     plot_img = plots.run_scalars(df=df, figsize=figsize)
     img = vcat_imgs(cells_img, plot_img)
     save_img(img=img, name=f"{title}_run-by-step.png")
-
-    divisions_df = df.loc[df["variable"] == "Divisions", ["step", "value"]]
-    divisions_df.columns = ["step", "Generation"]
-
-    rm = ["Divisions", "s/step"]
-    keep = [d[1] for d in scalars if d not in rm]
-    df = pd.merge(df[df["variable"].isin(keep)], divisions_df, on="step")
-
-    plot_img = plots.run_scalars(df=df, x="Generation", figsize=figsize)
-    img = vcat_imgs(cells_img, plot_img)
-    save_img(img=img, name=f"{title}_run-by-generation.png")
 
 
 def describe_pathway_training(kwargs: dict):
@@ -198,33 +185,17 @@ def describe_pathway_training(kwargs: dict):
         phases_map[row["runname"]] = (adaption_start, adaption_end)
 
     scalars = [
-        ("Cells/Total", "Cells"),
-        ("Cells/Divisions", "Divisions"),
-        ("Cells/GrowthRate", "GrowthRate"),
-        ("Cells/Survival", "Survival"),
-        ("Cells/GenomeSize", "GenomeSize"),
-        ("Other/Split", "Passage"),
+        ("Cells/Total", "cells"),
+        ("Cells/Divisions", "generation"),
+        ("Cells/GrowthRate", "growth-rate"),
+        ("Cells/Survival", "age[s]"),
+        ("Cells/GenomeSize", "genome-size"),
+        ("Other/Split", "passage"),
         ("Cells/cPD", "cPD"),
-        ("Other/Progress", "Progress"),
-        ("Other/TimePerStep[s]", "s/step"),
+        ("Other/Progress", "progress"),
     ]
     scalars_df = _load_scalars(scalars=scalars, rundirs=rundirs)
 
     df = pd.merge(scalars_df, hparams_df[["runname", "stage", "trial"]], on="runname")
     img = plots.pathway_training(df=df, grp2progress=phases_map)
     save_img(img=img, name="pathway-training-by-step.png")
-
-    divisions_df = df.loc[df["variable"] == "Divisions", ["runname", "step", "value"]]
-    divisions_df.columns = ["runname", "step", "Generation"]
-    keep = [
-        "Cells",
-        "GenomeSize",
-        "GrowthRate",
-        "Survival",
-        "cPD",
-        "Passage",
-        "Progress",
-    ]
-    df = pd.merge(df[df["variable"].isin(keep)], divisions_df, on=["runname", "step"])
-    img = plots.pathway_training(df=df, grp2progress=phases_map, x="Generation")
-    save_img(img=img, name="pathway-training-by-generation.png")

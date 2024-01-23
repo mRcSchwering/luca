@@ -262,13 +262,24 @@ def add_state_arg(parser: ArgumentParser):
     )
 
 
-def add_state_flags(parser: ArgumentParser):
+def add_cell_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "cell",
+        type=str,
+        help="Analyze this cell by idx or position tuple: '12,1' or '5'.",
+    )
+
+
+def add_molecules_arg(parser: ArgumentParser):
     parser.add_argument(
         "--molecules",
         default=["CO2", "NADPH", "NADP", "ATP", "ADP", "acetyl-CoA"],
         nargs="+",
         help="Show these molecule concentrations (default %(default)s)",
     )
+
+
+def add_grping_flags(parser: ArgumentParser):
     parser.add_argument(
         "--all-cells",
         action="store_true",
@@ -282,7 +293,12 @@ def add_state_flags(parser: ArgumentParser):
     parser.add_argument(
         "--by-genomic-clustering",
         action="store_true",
-        help="Analyze cells grouped by genomic clusters (default %(default)s)",
+        help="Analyze cells grouped by genome clusters (default %(default)s)",
+    )
+    parser.add_argument(
+        "--by-proteomic-clustering",
+        action="store_true",
+        help="Analyze cells grouped by proteome clusters (default %(default)s)",
     )
 
 

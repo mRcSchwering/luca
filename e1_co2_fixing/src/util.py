@@ -25,6 +25,15 @@ def sigm(t: torch.Tensor, k: float, n: int) -> torch.Tensor:
     return torch.bernoulli(p).bool()
 
 
+def cell_work(world: ms.World, eps=1e-8) -> torch.Tensor:
+    """A measure for each cell's manipulation of the environment"""
+    xs = world.cell_positions[:, 0]
+    ys = world.cell_positions[:, 1]
+    lxi = torch.log(world.cell_molecules + eps)
+    lxe = torch.log(world.molecule_map[:, xs, ys].T + eps)
+    return (lxi - lxe).abs().mean(dim=1)
+
+
 def find_steps(rundir: Path) -> list[int]:
     """Get all sorted steps of rundir"""
     names = [d.name for d in rundir.glob("step=*")]
@@ -94,7 +103,30 @@ def genome_distances(genomes: list[str], minlen=1) -> np.ndarray:
     return np.stack(arrs)
 
 
-def cluster_cells(D: np.ndarray, n_clsts=10, max_d=1.0) -> dict[str, list[int]]:
+def _proteome_dists_row(i: int, proteomes: list[list[str]], minlen=1) -> np.ndarray:
+    n = len(proteomes)
+    pi = set(proteomes[i])
+    ni = len(pi)
+    Di = np.full((n,), float("nan"))
+    if ni < minlen:
+        return Di
+    for j in range(n):
+        pj = set(proteomes[j])
+        nj = len(pj)
+        if nj >= minlen:
+            Di[j] = 1 - len(pi & pj) / len(pi | pj)
+    return Di
+
+
+def proteome_distances(proteomes: list[list[str]], minlen=1) -> np.ndarray:
+    """Calculate proteome distance matrix based on common proteins"""
+    args = [(d, proteomes, minlen) for d in range(len(proteomes))]
+    with mp.Pool() as pool:
+        arrs = pool.starmap(_proteome_dists_row, args)
+    return np.stack(arrs)
+
+
+def dbscan_cells(D: np.ndarray, n_clsts=10, max_d=1.0) -> dict[str, list[int]]:
     """Cluster cells using DBSCAN to get best coverage from top n clusters"""
     D[np.isnan(D)] = max_d
     eps = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]

@@ -15,6 +15,13 @@ from .src.run_shrink_genomes import run_trial as shrink_genomes_trial
 from .src.util import Config, RUNS_DIR
 from .src import cli
 
+# TODO: have low X as kill factor?
+# TODO: let cells with different pathways grow together
+# TODO: generate random cells in chemostat?
+# TODO: spike a few cells with random basepairs regularly
+# TODO: batch culture but with passaging after a fixed amount of steps
+#       after exponential phase
+
 
 def _init_world_cmd(kwargs: dict):
     map_size = kwargs["map_size"]
