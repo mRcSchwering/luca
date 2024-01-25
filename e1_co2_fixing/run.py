@@ -8,19 +8,14 @@ from typing import Callable
 import magicsoup as ms
 from .src.chemistry import CHEMISTRY, WL_STAGES_MAP
 from .src.run_train_pathway import run_trial as train_pathway_trial
-from .src.run_train_random import run_trials as train_free_trials
 from .src.run_grow_batch import run_trial as grow_batch_trial
 from .src.run_grow_chemostat import run_trial as grow_chemostat_trial
 from .src.run_shrink_genomes import run_trial as shrink_genomes_trial
 from .src.util import Config, RUNS_DIR
 from .src import cli
 
-# TODO: have low X as kill factor?
 # TODO: let cells with different pathways grow together
 # TODO: generate random cells in chemostat?
-# TODO: spike a few cells with random basepairs regularly
-# TODO: batch culture but with passaging after a fixed amount of steps
-#       after exponential phase
 
 
 def _init_world_cmd(kwargs: dict):
@@ -59,8 +54,6 @@ def main(kwargs: dict):
     cmd = kwargs.pop("cmd")
     if cmd == "init-world":
         _init_world_cmd(kwargs)
-    elif cmd == "train-free":
-        train_free_trials(cmd=cmd, kwargs=kwargs)
     else:
         trialfun = _MAP[cmd]
         _run_trials_cmd(trialfun=trialfun, cmd=cmd, kwargs=kwargs)
@@ -89,26 +82,10 @@ if __name__ == "__main__":
         " Init grows cells in previous medium, adapt changes to target medium and"
         " increases mutation rate, final grows cells in target medium at base rate.",
     )
-    cli.add_pathway_label_arg(parser=train_parser, choices=WL_STAGES_MAP)
+    cli.add_stage_args(parser=train_parser, choices=WL_STAGES_MAP)
     cli.add_init_label_args(parser=train_parser, extra="Use 'init' to spawn new cells")
     cli.add_batch_culture_args(parser=train_parser)
     cli.add_batch_culture_training_args(parser=train_parser)
-
-    # train free
-    free_parser = subparsers.add_parser(
-        "train-free",
-        help="Train a any CO2 fixing pathway in batch culture."
-        " Training is done in multiple stages with different phases for each stage."
-        " Each stage incrementally removed non-essential molecules from medium."
-        " Each stage has 3 phases: init, adapt, final."
-        " Init grows cells in previous medium, adapt changes to target medium and"
-        " increases mutation rate, final grows cells in target medium at base rate.",
-    )
-    cli.add_init_label_args(parser=free_parser, extra="Use 'init' to spawn new cells")
-    cli.add_fre_training_args(parser=free_parser)
-    cli.add_batch_culture_args(parser=free_parser)
-    cli.add_genome_editor_args(parser=free_parser)
-    cli.add_batch_culture_training_args(parser=free_parser)
 
     # grow cells in chemostat
     chemo_parser = subparsers.add_parser(

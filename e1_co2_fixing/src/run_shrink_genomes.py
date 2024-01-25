@@ -1,5 +1,4 @@
 import time
-import torch
 import magicsoup as ms
 from .util import Config, load_cells
 from .managing import BatchCultureManager
@@ -11,6 +10,7 @@ from .generators import (
     Passager,
     MediumRefresher,
     Killer as BaseKiller,
+    Mutator as BaseMutator,
 )
 
 
@@ -28,34 +28,24 @@ class Progressor:
         return min(1.0, self.valid_split_i / self.n_valid_total_splits)
 
 
-class Mutator:
+class Mutator(BaseMutator):
     """Increase mutation rates during progress interval"""
 
-    def __init__(
-        self,
-        progress_range: tuple[float, float],
-        by: float,
-        snp_p=1e-6,
-        lgt_p=1e-7,
-        lgt_age=10,
-    ):
+    def __init__(self, progress_range: tuple[float, float], by: float, **kwargs):
+        super().__init__(**kwargs)
         self.start = min(progress_range)
         self.end = max(progress_range)
         self.by = by
-        self.snp_p = snp_p
-        self.lgt_p = lgt_p
-        self.lgt_age = lgt_age
 
     def __call__(self, cltr: Culture):
         snp_p = self.snp_p
         lgt_p = self.lgt_p
+        spike_p = self.spike_p
         if self.start < cltr.progress < self.end:
             snp_p *= self.by
             lgt_p *= self.by
-        cltr.world.mutate_cells(p=snp_p)
-        is_old = cltr.world.cell_lifetimes > self.lgt_age
-        idxs = torch.argwhere(is_old).flatten().tolist()
-        cltr.world.recombinate_cells(cell_idxs=idxs, p=lgt_p)
+            spike_p *= self.by
+        self.mutate(cltr=cltr, snp_p=snp_p, lgt_p=lgt_p, spike_p=spike_p)
 
 
 class Killer(BaseKiller):
@@ -112,7 +102,11 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     stopper = Stopper.from_config(cnfg=config, world=world)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
-    passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
+    passager = Passager(
+        world=world,
+        cnfls=(hparams["min_confl"], hparams["max_confl"]),
+        max_steps=hparams["max_steps"],
+    )
 
     medium_refresher = MediumRefresher(
         world=world,
@@ -120,6 +114,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         additives=ADDITIVES,
         additives_val=hparams["additives_init"],
         substrates_val=hparams["substrates_init"],
+        non_essentials_val=hparams["non_essentials_init"],
     )
 
     killer = Killer(

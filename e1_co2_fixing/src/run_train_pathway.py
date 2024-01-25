@@ -1,11 +1,17 @@
 import time
-import random
 import magicsoup as ms
 from .util import Config, load_cells
 from .managing import BatchCultureManager
 from .chemistry import WL_STAGES_MAP, _X, _E
 from .culture import Culture, BatchCulture
-from .generators import Killer, Replicator, Stopper, Passager, GenomeEditor
+from .generators import (
+    Killer,
+    Replicator,
+    Stopper,
+    Passager,
+    GenomeEditor,
+    Mutator as BaseMutator,
+)
 
 
 class Progressor:
@@ -64,34 +70,24 @@ class MediumRefresher:
         cltr.world.molecule_map[subs_idxs] = self.substrates_val
 
 
-class Mutator:
+class Mutator(BaseMutator):
     """Increase mutation rates during progress interval"""
 
-    def __init__(
-        self,
-        progress_range: tuple[float, float],
-        by: float,
-        snp_p=1e-6,
-        lgt_p=1e-7,
-        lgt_rate=0.1,
-    ):
+    def __init__(self, progress_range: tuple[float, float], by: float, **kwargs):
+        super().__init__(**kwargs)
         self.start = min(progress_range)
         self.end = max(progress_range)
         self.by = by
-        self.snp_p = snp_p
-        self.lgt_p = lgt_p
-        self.lgt_rate = lgt_rate
 
     def __call__(self, cltr: Culture):
         snp_p = self.snp_p
         lgt_p = self.lgt_p
+        spike_p = self.spike_p
         if self.start < cltr.progress < self.end:
             snp_p *= self.by
             lgt_p *= self.by
-        cltr.world.mutate_cells(p=snp_p)
-        n_cells = cltr.world.n_cells
-        idxs = random.sample(range(n_cells), k=int(n_cells * self.lgt_rate))
-        cltr.world.recombinate_cells(cell_idxs=idxs, p=self.lgt_p)
+            spike_p *= self.by
+        self.mutate(cltr=cltr, snp_p=snp_p, lgt_p=lgt_p, spike_p=spike_p)
 
 
 def run_trial(run_name: str, config: Config, hparams: dict) -> float:
@@ -126,7 +122,11 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_splits=n_total_splits, min_gr=hparams["min_gr"])
-    passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
+    passager = Passager(
+        world=world,
+        cnfls=(hparams["min_confl"], hparams["max_confl"]),
+        max_steps=hparams["max_steps"],
+    )
 
     medium_refresher = MediumRefresher(
         world=world,
@@ -143,8 +143,12 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         by=hparams["mutation_rate_mult"],
     )
 
-    ggen = ms.GenomeFact(world=world, proteome=genes)
-    genome_editor = GenomeEditor(at_progress=adaption_start, fact=ggen)
+    genome_editor = GenomeEditor(
+        at_progress=adaption_start,
+        fact=ms.GenomeFact(world=world, proteome=genes),
+        accuracy=hparams["transformation_accuracy"],
+        efficiency=hparams["transformation_efficiency"],
+    )
 
     cltr = BatchCulture(
         world=world,

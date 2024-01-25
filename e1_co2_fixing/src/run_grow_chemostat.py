@@ -24,12 +24,19 @@ class MediumRefresher:
         additives: list[ms.Molecule],
         substrates_val: float,
         additives_val: float,
+        non_essentials_val: float,
         width=0.05,
     ):
         self.substrates_val = substrates_val
         self.additives_val = additives_val
+        self.others_val = non_essentials_val
         self.subs_idxs = [world.chemistry.mol_2_idx[d] for d in substrates]
         self.add_idxs = [world.chemistry.mol_2_idx[d] for d in additives]
+        self.other_idxs = list(
+            set(world.chemistry.mol_2_idx.values())
+            - set(self.subs_idxs)
+            - set(self.add_idxs)
+        )
 
         s = world.map_size
         m = int(s / 2)
@@ -49,6 +56,7 @@ class MediumRefresher:
     def __call__(self, cltr: Culture):
         cltr.world.molecule_map[self.subs_mask] = self.substrates_val
         cltr.world.molecule_map[self.add_mask] = self.additives_val
+        cltr.world.molecule_map[self.other_idxs] = self.others_val
         cltr.world.molecule_map[self.rm_mask] = 0.0
 
 
@@ -76,6 +84,7 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
         additives=ADDITIVES,
         substrates_val=hparams["substrates_init"],
         additives_val=hparams["additives_init"],
+        non_essentials_val=hparams["non_essentials_init"],
     )
 
     cltr = ChemoStat(

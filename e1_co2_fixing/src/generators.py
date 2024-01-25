@@ -9,20 +9,31 @@ from .culture import Culture, BatchCulture
 class GenomeEditor:
     """At progress give cells genes from genome factory"""
 
-    # TODO: add genes in random position of genomes
-    # TODO: also should have efficiency
-
-    def __init__(self, at_progress: float, fact: ms.GenomeFact):
+    def __init__(
+        self,
+        at_progress: float,
+        fact: ms.GenomeFact,
+        accuracy=0.3,
+        efficiency=0.7,
+    ):
         self.is_edited = False
         self.fact = fact
         self.at_progress = at_progress
+        self.accuracy = accuracy
+        self.efficiency = efficiency
 
     def __call__(self, cltr: Culture):
         if not self.is_edited and cltr.progress >= self.at_progress:
-            updates = [
-                (cltr.world.cell_genomes[d] + self.fact.generate(), d)
-                for d in range(cltr.world.n_cells)
-            ]
+            n = int(cltr.world.n_cells * self.efficiency)
+            updates: list[tuple[str, int]] = []
+            for idx in random.sample(range(cltr.world.n_cells), k=n):
+                genome = cltr.world.cell_genomes[idx]
+                genes = self.fact.generate()
+                if random.random() < self.accuracy:
+                    updates.append((genome + genes, idx))
+                else:
+                    s = random.randint(0, len(genome) - 1)
+                    updates.append((genome[:s] + genes + genome[s:], idx))
             cltr.world.update_cells(genome_idx_pairs=updates)
             self.is_edited = True
 
@@ -37,6 +48,7 @@ class MediumRefresher:
         additives: list[ms.Molecule] | None = None,
         substrates_val=1.0,
         additives_val=1.0,
+        non_essentials_val=0.0,
     ):
         if additives is None:
             additives = []
@@ -44,6 +56,7 @@ class MediumRefresher:
         self.add_idxs = [world.chemistry.mol_2_idx[d] for d in additives]
         self.subs_val = substrates_val
         self.add_val = additives_val
+        self.others_val = non_essentials_val
         self.other_idxs = list(
             set(world.chemistry.mol_2_idx.values())
             - set(self.subs_idxs)
@@ -51,7 +64,7 @@ class MediumRefresher:
         )
 
     def __call__(self, cltr: Culture):
-        cltr.world.molecule_map[self.other_idxs] = 0.0
+        cltr.world.molecule_map[self.other_idxs] = self.others_val
         cltr.world.molecule_map[self.subs_idxs] = self.subs_val
         cltr.world.molecule_map[self.add_idxs] = self.add_val
 
@@ -59,15 +72,14 @@ class MediumRefresher:
 class Passager:
     """Passage cells between min and max confluency"""
 
-    # TODO: add passaging after x steps
-
-    def __init__(self, world: ms.World, cnfls=(0.2, 0.7)):
+    def __init__(self, world: ms.World, cnfls=(0.2, 0.7), max_steps=10_000):
         n_max = world.map_size**2
         self.min_cells = int(n_max * min(cnfls))
         self.max_cells = int(n_max * max(cnfls))
+        self.max_steps = max_steps
 
     def __call__(self, cltr: BatchCulture) -> bool:
-        if cltr.world.n_cells < self.max_cells:
+        if cltr.world.n_cells < self.max_cells or cltr.step_i > self.max_steps:
             return False
 
         n_old = cltr.world.n_cells
@@ -92,25 +104,42 @@ class Progressor:
 class Mutator:
     """Mutate cells and recombinate cells"""
 
-    # TODO: add spiking base pairs?
-
-    def __init__(self, snp_p=1e-6, lgt_p=1e-7, lgt_rate=0.1):
+    def __init__(
+        self, snp_p=1e-6, lgt_p=1e-7, lgt_rate=0.1, spike_p=0.0, spike_size=50
+    ):
         self.snp_p = snp_p
         self.lgt_p = lgt_p
         self.lgt_rate = lgt_rate
+        self.spike_p = spike_p
+        self.spike_size = spike_size
 
-    def __call__(self, cltr: Culture):
-        cltr.world.mutate_cells(p=self.snp_p)
+    def mutate(self, cltr: Culture, snp_p: float, lgt_p: float, spike_p: float):
+        cltr.world.mutate_cells(p=snp_p)
         n_cells = cltr.world.n_cells
         idxs = random.sample(range(n_cells), k=int(n_cells * self.lgt_rate))
-        cltr.world.recombinate_cells(cell_idxs=idxs, p=self.lgt_p)
+        cltr.world.recombinate_cells(cell_idxs=idxs, p=lgt_p)
+        updates: list[tuple[str, int]] = []
+        for idx in range(cltr.world.n_cells):
+            if random.random() <= spike_p:
+                genome = cltr.world.cell_genomes[idx]
+                spike = ms.random_genome(s=self.spike_size)
+                s = random.randint(0, len(genome) - 1)
+                updates.append((genome[:s] + spike + genome[s:], idx))
+        cltr.world.update_cells(genome_idx_pairs=updates)
+
+    def __call__(self, cltr: Culture):
+        self.mutate(
+            cltr=cltr,
+            snp_p=self.snp_p,
+            lgt_p=self.lgt_p,
+            spike_p=self.spike_p,
+        )
 
 
 class Replicator:
     """Replicate cells for high molecule concentration"""
 
     # TODO: need more X?
-    # TODO: no min lifetime?
 
     def __init__(
         self,
@@ -152,14 +181,14 @@ class Killer:
         self,
         world: ms.World,
         mol: ms.Molecule,
-        k_x=0.5,
-        n_x=-2,
+        k_e=0.5,
+        n_e=-2,
         k_g=2_000.0,
         n_g=7,
         max_g_size=3_000,
     ):
-        self.k_x = k_x
-        self.n_x = n_x
+        self.k_e = k_e
+        self.n_e = n_e
         self.mol_i = world.chemistry.mol_2_idx[mol]
         self.k_g = k_g
         self.n_g = n_g
@@ -169,7 +198,7 @@ class Killer:
         device = cltr.world.device
         x = cltr.world.cell_molecules[:, self.mol_i]
         g = torch.tensor([len(d) for d in cltr.world.cell_genomes], device=device)
-        x_sample = sigm(t=x + 0.1, k=self.k_x, n=self.n_x)
+        x_sample = sigm(t=x + 0.1, k=self.k_e, n=self.n_e)
         g_sample = sigm(t=g.float(), k=self.k_g, n=self.n_g)
         is_too_big = g > self.max_g_size  # avoid wasting memory
         mask = x_sample | g_sample | is_too_big

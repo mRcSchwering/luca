@@ -34,7 +34,6 @@ def get_run_argparser() -> ArgumentParser:
         help="During a batch culture the maxmimum number of steps (=virtual seconds) without passaging"
         " (default %(default)s)",
     )
-
     parser.add_argument(
         "--max-time-m",
         default=60,
@@ -89,11 +88,17 @@ def add_batch_culture_args(parser: ArgumentParser):
         " (theoretically 0.13-0.2 should be best, default %(default)s)",
     )
     parser.add_argument(
-        "--max_confl",
+        "--max-confl",
         default=0.7,
         type=float,
         help="Maximum confluency. Cells are passaged after reaching this confluency"
         " (should be below 0.8, default %(default)s)",
+    )
+    parser.add_argument(
+        "--max-steps",
+        default=10_000,
+        type=int,
+        help="Passage after that many steps, default %(default)s.",
     )
 
 
@@ -128,21 +133,10 @@ def add_batch_culture_training_args(parser: ArgumentParser):
     )
     parser.add_argument(
         "--mutation-rate-mult",
-        default=100.0,
+        default=1000.0,
         type=float,
         help="By how much to multiply mutation and recombination rate during adaption phase"
         " (default %(default)s)",
-    )
-
-
-def add_fre_training_args(parser: ArgumentParser):
-    parser.add_argument(
-        "--min-grs",
-        type=float,
-        nargs="+",
-        default=(0.03, 0.04, 0.05),
-        help="Minimum average growth rates cells must achieve in this order"
-        "(max possible is 0.1, default %(default)s).",
     )
 
 
@@ -190,9 +184,9 @@ def add_mapsize_arg(parser: ArgumentParser):
     )
 
 
-def add_pathway_label_arg(parser: ArgumentParser, choices: Iterable):
+def add_stage_args(parser: ArgumentParser, choices: Iterable):
     parser.add_argument(
-        "pathway-label",
+        "stage",
         type=str,
         choices=choices,
         help="Label for the stage that should be trained."
@@ -200,38 +194,17 @@ def add_pathway_label_arg(parser: ArgumentParser, choices: Iterable):
         " In the adaption phase genomes are edited and medium is changed to B."
         " In the final phase cells grow in medium B.",
     )
-
-
-def add_stage_arg(parser: ArgumentParser, choices: Iterable):
     parser.add_argument(
-        "stage",
-        type=str,
-        choices=choices,
-        help="Label for the stage that should be trained."
-        " Each stage starts with an initial phase in which cells grow in familiar medium."
-        " Then, in the adaption phase medium is changed and cells have to adapt."
-        " In the final phase cells continue to grow in the changed medium.",
-    )
-
-
-def add_genome_editor_args(parser: ArgumentParser):
-    parser.add_argument(
-        "--genome-editing-splits",
-        type=int,
-        default=50,
-        help="Edit cells genomes if they cannot progress after that many splits (default %(default)s).",
-    )
-    parser.add_argument(
-        "--genome-editing-size",
-        type=int,
-        default=50,
-        help="Edit cels genomes if they cannot progress with random genomes of this size (default %(default)s).",
-    )
-    parser.add_argument(
-        "--relative-transformation-efficiency",
+        "--transformation-accuracy",
         type=float,
-        default=0.5,
-        help="Relative number of cells recieving new genes during gene editing event (default %(default)s).",
+        default=0.7,
+        help="Ratio of transformations that are not randomly placed (default %(default)s)",
+    )
+    parser.add_argument(
+        "--transformation-efficiency",
+        type=float,
+        default=0.7,
+        help="Ratio of cells that are successfully transformed (default %(default)s)",
     )
 
 

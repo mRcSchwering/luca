@@ -32,12 +32,17 @@ def run_trial(run_name: str, config: Config, hparams: dict) -> float:
     killer = Killer(world=world, mol=_E)
     replicator = Replicator(world=world, mol=_X)
     progressor = Progressor(n_avg_divisions=hparams["n_divisions"])
-    passager = Passager(world=world, cnfls=(hparams["min_confl"], hparams["max_confl"]))
+    passager = Passager(
+        world=world,
+        cnfls=(hparams["min_confl"], hparams["max_confl"]),
+        max_steps=hparams["max_steps"],
+    )
 
     medium_refresher = MediumRefresher(
         world=world,
         substrates_val=hparams["substrates_init"],
         additives_val=hparams["additives_init"],
+        non_essentials_val=hparams["non_essentials_init"],
         substrates=SUBSTRATES,
         additives=ADDITIVES,
     )
