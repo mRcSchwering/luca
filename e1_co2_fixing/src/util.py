@@ -225,16 +225,6 @@ def read_table(name: str, index_col=False, header=0) -> pd.DataFrame:
     return df
 
 
-def table_to_markdown(df: pd.DataFrame, name: str, descr="", index=False) -> str:
-    """Convert table with description to markdown string"""
-    header = f"**{name}**"
-    if len(descr) > 0:
-        header += f" {descr}"
-    header = "_" + header + "_"
-    tab = df.to_markdown(index=index)
-    return f"{header}\n{tab}"
-
-
 def write_doc(content: list[str], name: str):
     """Save utf-8 text file to docs dir"""
     with open(DOCS_DIR / name, "w", encoding="utf-8") as fh:
@@ -248,14 +238,14 @@ def read_doc(name: str) -> list[str]:
         return fh.read().split("\n")
 
 
-def replace_doc_tab(filename: str, tabname: str, tab: str):
-    """Replace md table in docs"""
-    lines = read_doc(name=filename)
-    starts = [i for i, d in enumerate(lines) if d.startswith(f"_**{tabname}**")]
-    start = starts[0] if len(starts) > 0 else len(lines)
-    ends = [i for i, d in enumerate(lines) if i > start and d == ""]
-    end = ends[0] + 1 if len(ends) > 0 else len(lines)
-    write_doc(content=lines[:start] + [tab, ""] + lines[end:], name=filename)
+def write_table_to_md(df: pd.DataFrame, name: str, descr="", index=False):
+    """Convert and write table with description to markdown file"""
+    header = f"**{name}**"
+    if len(descr) > 0:
+        header += f" {descr}"
+    header = "_" + header + "_"
+    tab = f"{header}\n{df.to_markdown(index=index)}"
+    write_doc(content=["", tab, ""], name=name)
 
 
 class Config:

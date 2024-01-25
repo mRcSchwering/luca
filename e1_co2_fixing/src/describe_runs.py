@@ -8,8 +8,7 @@ from .util import (
     RUNS_DIR,
     save_img,
     write_table,
-    replace_doc_tab,
-    table_to_markdown,
+    write_table_to_md,
     hcat_imgs,
     vcat_imgs,
 )
@@ -42,7 +41,7 @@ def _load_scalars(scalars: list[tuple[str, str]], rundirs: list[Path]) -> pd.Dat
                         "runname": rundir.name,
                         "variable": variable,
                         "value": obj.value,
-                        "step": obj.step,
+                        "s": obj.step,
                     }
                 )
 
@@ -101,7 +100,9 @@ def describe_run(kwargs: dict):
     for img in cell_imgs:
         cells_img = hcat_imgs(cells_img, img)
 
-    plot_img = plots.run_scalars(df=df, figsize=figsize)
+    plot_img = plots.timeseries(
+        df=df, x="s", y="value", row="variable", figsize=figsize
+    )
     img = vcat_imgs(cells_img, plot_img)
     save_img(img=img, name=f"{title}_run-by-step.png")
 
@@ -109,24 +110,15 @@ def describe_run(kwargs: dict):
 def describe_pathway_training(kwargs: dict):
     rundirs = [RUNS_DIR / d for d in kwargs["runs"]]
     hparams_df = _load_hparams(rundirs=rundirs)
-    hparams_df.rename(
-        columns={"pathway-label": "stage", "init-label": "prev-stage"}, inplace=True
-    )
+    hparams_df.rename(columns={"pathway-label": "stage"}, inplace=True)
 
     write_table(
         df=hparams_df[[d for d in hparams_df.columns if d != "path"]],
         name="pathway-training-hparams.csv",
     )
-
-    hparams_tab = table_to_markdown(
-        df=hparams_df[["runname", "stage", "prev-stage"]],
-        name="3.1 Training strategy",
-        descr="Training WL pathway in multiple stages, start each stage with successful cells of the previous stage.",
-    )
-    replace_doc_tab(
-        filename="pathway_training.md",
-        tabname="3.1 Training strategy",
-        tab=hparams_tab,
+    write_table_to_md(
+        df=hparams_df[["runname", "stage", "init-label"]],
+        name="pathway-training-strategy.md",
     )
 
     records = []
@@ -142,19 +134,9 @@ def describe_pathway_training(kwargs: dict):
         )
 
     stages_df = pd.DataFrame.from_records(records)
-    write_table(df=stages_df, name="training-pathway-stages.csv")
-
-    stages_tab = table_to_markdown(
-        df=stages_df,
-        name="3.2 WL training stages",
-        descr="Training WL pathway in multiple stages, start each stage with successful cells of the previous stage.",
-    )
-    stages_tab = stages_tab.replace("<->", "$\\rightleftharpoons$")
-    replace_doc_tab(
-        filename="pathway_training.md",
-        tabname="3.2 WL training stages",
-        tab=stages_tab,
-    )
+    stages_df["genes"] = stages_df["genes"].str.replace("<->", "$\\rightleftharpoons$")
+    write_table(df=stages_df, name="pathway-training-stages.csv")
+    write_table_to_md(df=stages_df, name="pathway-training-stages.md")
 
     cols = [
         "runname",
@@ -164,16 +146,7 @@ def describe_pathway_training(kwargs: dict):
         "min_gr",
         "mutation_rate_mult",
     ]
-    hparams_tab = table_to_markdown(
-        df=hparams_df[cols],
-        name="3.2 WL training hyperparameters",
-        descr="Hyperparameters for WL pathway training simulation runs.",
-    )
-    replace_doc_tab(
-        filename="pathway_training.md",
-        tabname="3.2 WL training hyperparameters",
-        tab=hparams_tab,
-    )
+    write_table_to_md(df=hparams_df[cols], name="pathway-training-hparams.md")
 
     phases_map = {}
     for _, row in hparams_df.iterrows():

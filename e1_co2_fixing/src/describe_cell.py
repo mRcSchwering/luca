@@ -1,7 +1,14 @@
 import pandas as pd
 import magicsoup as ms
 from . import plots
-from .util import get_statedir, RUNS_DIR, save_img, vcat_imgs, write_table
+from .util import (
+    get_statedir,
+    RUNS_DIR,
+    save_img,
+    vcat_imgs,
+    write_table,
+    write_table_to_md,
+)
 
 
 def describe_cell(kwargs: dict):
@@ -24,6 +31,7 @@ def describe_cell(kwargs: dict):
         [{"CDS": i, "protein": str(d)} for i, d in enumerate(cell.proteome)]
     )
     write_table(df=prots_df, name=f"{title}_cell{idx}_proteins.csv")
+    write_table_to_md(df=prots_df, name=f"{title}_cell{idx}_proteins.md")
 
     trnscrpt_img = plots.plot_genome_transcripts(cell=cell)
 

@@ -6,8 +6,7 @@ from .util import (
     hcat_imgs,
     vcat_imgs,
     write_table,
-    table_to_markdown,
-    replace_doc_tab,
+    write_table_to_md,
 )
 from . import plots
 
@@ -25,12 +24,7 @@ def _describe_chemistry():
     ]
     mols = pd.DataFrame.from_records(records)
     write_table(df=mols, name="all_molecules.csv")
-    molstab = table_to_markdown(
-        df=mols,
-        name="1.1 Molecules",
-        descr="Definition of all molecule species.",
-    )
-    replace_doc_tab(filename="chemistry.md", tabname="1.1 Molecules", tab=molstab)
+    write_table_to_md(df=mols, name="molecules.md")
 
     records = []
     for subs, prods in CHEMISTRY.reactions:
@@ -44,12 +38,7 @@ def _describe_chemistry():
 
     reacts = pd.DataFrame.from_records(records)
     write_table(df=reacts, name="all_reactions.csv")
-    reactstab = table_to_markdown(
-        df=reacts,
-        name="1.2 Reactions",
-        descr="Definition of all reactions.",
-    )
-    replace_doc_tab(filename="chemistry.md", tabname="1.2 Reactions", tab=reactstab)
+    write_table_to_md(df=reacts, name="1.2 Reactions", descr="reactions.md")
 
 
 def _plot_cell_sampling(params: dict):
@@ -75,14 +64,7 @@ def _describe_cell_sampling():
     records = [{"variable": k, "k": d[0], "n": d[1]} for k, d in params.items()]
     df = pd.DataFrame.from_records(records)
     write_table(df=df, name="cell_sampling.csv")
-
-    tab = table_to_markdown(
-        df=df,
-        name="2.1. Cell sampling",
-        descr="Cells are sampled each step to be killed or replicated."
-        " Replication probability depends on X concentration, killing probability on genome size and E concentration.",
-    )
-    replace_doc_tab(filename="setup.md", tabname="2.1. Cell sampling", tab=tab)
+    write_table_to_md(df=df, name="cell-sampling.md")
 
 
 def describe_setup(_: dict):

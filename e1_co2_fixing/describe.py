@@ -5,20 +5,13 @@ from .src.describe_state import describe_state
 from .src.describe_cell import describe_cell
 from .src.describe_runs import describe_run, describe_pathway_training
 
-# TODO: clustering: want to see actual cell proteomes
-#       somehow within each cluster find representative cells
-#       might be multiple
-#       maybe cooperation already ongoing
-
-
-# TODO: find things that are fundamentally different betwen
 
 _CMDS = {
     "setup": describe_setup,
     "state": describe_state,
     "run": describe_run,
     "pathway-training": describe_pathway_training,
-    "cells": describe_cell,
+    "cell": describe_cell,
 }
 
 
@@ -62,14 +55,14 @@ if __name__ == "__main__":
     )
     cli.add_runslist_arg(parser=pathtrain_parser)
 
-    # describe cells
-    cells_parser = subparsers.add_parser(
-        "cells",
+    # describe cell
+    cell_parser = subparsers.add_parser(
+        "cell",
         help="Describe saved state with cells and molecules",
     )
-    cli.add_state_arg(parser=cells_parser)
-    cli.add_cell_arg(parser=cells_parser)
-    cli.add_molecules_arg(parser=cells_parser)
+    cli.add_state_arg(parser=cell_parser)
+    cli.add_cell_arg(parser=cell_parser)
+    cli.add_molecules_arg(parser=cell_parser)
 
     main(vars(parser.parse_args()))
     print("done")

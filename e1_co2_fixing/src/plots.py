@@ -408,28 +408,9 @@ def sampling(
     return _plot_2_img(g, figsize=figsize, dpi=100)
 
 
-def run_scalars(
-    df: pd.DataFrame,
-    x="s",
-    y="value",
-    var="variable",
-    figsize=(10, 8),
-    color=NA_COL,
-) -> Image:
-    # TODO: use timeseries?
-    # fmt: off
-    g = (ggplot(df)
-        + geom_line(aes(x=x, y=y), color=color)
-        + facet_grid(f"{var} ~ .", scales="free")
-        + theme(axis_title_y=element_blank())
-        + theme(legend_position="none"))
-    # fmt: on
-    return _plot_2_img(g, figsize=figsize)
-
-
 def timeseries(
     df: pd.DataFrame,
-    grp2col: dict[str, str],
+    grp2col: dict[str, str] | None = None,
     figsize=(8, 3),
     grp="l",
     x="t",
@@ -438,10 +419,11 @@ def timeseries(
     NA="other",
 ) -> Image:
     df = df.copy()
-    legend_theme = theme(legend_title=element_blank())
-    if grp not in df.columns:
+    if grp2col is None:
         df[grp] = NA
         legend_theme = theme(legend_position="none")
+    else:
+        legend_theme = theme(legend_title=element_blank())
     colors = {k: d for k, d in grp2col.items() if k in grp2col if k in df[grp].unique()}
     df[grp] = pd.Categorical(df[grp], categories=list(reversed(colors)))
     # fmt: off
@@ -555,18 +537,11 @@ def plot_genome_transcripts(
     df["tag"] = pd.Categorical(df["tag"], categories=reversed(tags), ordered=True)
     df["type"] = pd.Categorical(df["type"], categories=types)
 
-    colors = {
-        "genome": "dimgray",
-        "CDS": "lightgray",
-        "catal": "#fe218b",
-        "trnsp": "#21b0fe",
-        "reg": "#fed700",
-    }
     sizes = {d: gw if d == "genome" else cdsw for d in tags}
     # fmt: off
     g = (ggplot(df)
         + geom_segment(aes(x="start", y="tag", xend="stop", yend="tag", color="type", size="tag"))
-        + scale_color_manual(values=colors)
+        + scale_color_manual(values=MS_COLORS)
         + scale_size_manual(values=sizes)
         + guides(size=False)
         + theme(figure_size=(w, h * len(sizes) + 0.3))
