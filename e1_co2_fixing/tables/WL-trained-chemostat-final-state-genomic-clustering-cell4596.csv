@@ -1,0 +1,25 @@
+CDS[int64],protein[object]
+0,1 methylmalonyl-CoA <-> 1 CO2 + 1 propionyl-CoA
+1,1 CO2 + 1 NADPH <-> 1 NADP + 1 CO
+2,succinyl-CoA importer
+3,succinyl-CoA importer
+4,E importer
+5,1 HS-CoA + 1 methyl-FH4 + 1 CO <-> 1 acetyl-CoA + 1 FH4
+6,1 acetyl-CoA <-> 1 HS-CoA + 5 X | 1 HS-CoA + 1 methyl-FH4 + 1 CO <-> 1 acetyl-CoA + 1 FH4
+7,1 NADPH + 1 formyl-FH4 <-> 1 NADP + 1 methylen-FH4
+8,1 NADPH + 1 methylen-FH4 <-> 1 NADP + 1 methyl-FH4
+9,1 NADP + 1 formate <-> 1 CO2 + 1 NADPH
+10,propionyl-CoA exporter | 1 NADP + 1 formate <-> 1 CO2 + 1 NADPH
+11,HS-CoA importer
+12,NADP exporter
+13,pyruvate importer
+14,1 FH4 + 1 formate <-> 1 formyl-FH4 | 1 CO2 + 1 NADPH <-> 1 NADP + 1 formate
+15,ADP exporter
+16,ADP exporter
+17,malate importer | ADP exporter
+18,ADP importer
+19,1 methylmalonyl-CoA <-> 1 CO2 + 1 propionyl-CoA
+20,1 CO2 + 1 NADPH <-> 1 NADP + 1 CO
+21,ADP importer
+22,FH4 importer
+23,ADP importer

@@ -426,6 +426,7 @@ def timeseries(
         legend_theme = theme(legend_title=element_blank())
     colors = {k: d for k, d in grp2col.items() if k in grp2col if k in df[grp].unique()}
     df[grp] = pd.Categorical(df[grp], categories=list(reversed(colors)))
+    df[row] = pd.Categorical(df[row], categories=list(reversed(df[row].unique())))
     # fmt: off
     g = (ggplot(df)
         + geom_line(aes(x=x, y=y, color=grp))

@@ -41,28 +41,16 @@ def describe_cell(kwargs: dict):
         for m in molecules:
             i = world.chemistry.mol_2_idx[m]
             records.append(
-                {
-                    "t": t,
-                    "m": m.name,
-                    "n": cell.int_molecules[i].item(),
-                    "l": "extracellular",
-                }
+                {"t": t, "m": f"{m.name}[e]", "n": cell.int_molecules[i].item()}
             )
             records.append(
-                {
-                    "t": t,
-                    "m": m.name,
-                    "n": cell.ext_molecules[i].item(),
-                    "l": "intracellular",
-                }
+                {"t": t, "m": f"{m.name}[i]", "n": cell.ext_molecules[i].item()}
             )
         world.enzymatic_activity()
         world.diffuse_molecules()
         world.degrade_molecules()
 
     mols_df = pd.DataFrame.from_records(records)
-    colors = plots.tabcolors(["intracellular", "extracellular"])
-    mols_img = plots.timeseries(df=mols_df, grp2col=colors, figsize=(8, len(molecules)))
+    mols_img = plots.timeseries(df=mols_df, figsize=(8, len(molecules)))
     img = vcat_imgs(mols_img, trnscrpt_img)
-    # img = hcat_imgs(cm_img, mols_img)
     save_img(img=img, name=f"{title}_cell{idx}.png")

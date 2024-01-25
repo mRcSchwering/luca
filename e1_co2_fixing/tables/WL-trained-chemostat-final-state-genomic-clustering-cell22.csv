@@ -1,0 +1,20 @@
+CDS[int64],protein[object]
+0,E importer
+1,1 HS-CoA + 1 methyl-FH4 + 1 CO <-> 1 acetyl-CoA + 1 FH4
+2,1 acetyl-CoA <-> 1 HS-CoA + 5 X | 1 HS-CoA + 1 methyl-FH4 + 1 CO <-> 1 acetyl-CoA + 1 FH4
+3,1 NADPH + 1 formyl-FH4 <-> 1 NADP + 1 methylen-FH4
+4,1 NADPH + 1 methylen-FH4 <-> 1 NADP + 1 methyl-FH4
+5,1 NADP + 1 formate <-> 1 CO2 + 1 NADPH
+6,HS-CoA importer
+7,NADP exporter
+8,pyruvate importer
+9,1 FH4 + 1 formate <-> 1 formyl-FH4 | 1 CO2 + 1 NADPH <-> 1 NADP + 1 formate
+10,malate importer
+11,ADP exporter
+12,ADP exporter
+13,1 NADP + 1 E <-> 1 NADPH
+14,PEP[e] activator | 1 NADP + 1 E <-> 1 NADPH
+15,ADP importer
+16,1 CO2 + 1 NADPH <-> 1 NADP + 1 CO
+17,acetoacetyl-CoA exporter | acetoacetyl-CoA importer
+18,FH4 importer
