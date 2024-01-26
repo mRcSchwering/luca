@@ -53,10 +53,6 @@ _**Wood-Ljungdahl training runs** Runs of WL pathway training and validation. Ea
 | train-pathway_2024-01-15_16-57_0  | WL-4    | train-pathway_2024-01-15_16-48_0:-1 | batch culture |
 | grow-chemostat_2024-01-15_17-43_0 |         | train-pathway_2024-01-15_16-57_0:-1 | chemostat     |
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
-
-_**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
-
 ### Result Cells
 
 The final state of the validation run in a ChemoStat are shown below.
@@ -71,10 +67,14 @@ c1 grows thorugh both zones.
 c5 consists of only 1 label, so they all descend from the same cell at the start of the ChemoStat run.
 c1 consists of 3 main labels. c0 has the most diverse heritage.
 Almost all clusters have all catalytic and transporter domains to realize the whole WL pathway in some form or another.
-Only c5 is lacking NADPH $\righleftharpoons$ NADP + E.
+Only c5 is lacking NADPH $\rightleftharpoons$ NADP + E.
 It can't regenrate NADPH.
 Either it relies on extracellular NADPH or it has some non-trivial way of regenrating it.
 Nevertheless, c5 has the highest growth rate.
+
+![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
+
+_**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
 
 #### Cluster c1
 
