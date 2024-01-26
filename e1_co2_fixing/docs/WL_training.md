@@ -55,15 +55,34 @@ _**Wood-Ljungdahl training runs** Runs of WL pathway training and validation. Ea
 
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
 
+_**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
+
 ### Result Cells
 
-_**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
+The final state of the validation run in a ChemoStat are shown below.
+Cells are clustered based on their genome.
+During the run the total number of cells grew slightly as cells started to grow further outwards towards the low concentration regions.
+This could be because cells in the middle almost cease dividing due to space overcrowding.
+Thus, they use up less substrates and eventually the concentration gradient starts moving further outwards.
+
+The 3 biggest clusters are c1, c5, c0.
+c0 only occupies the substrate rich middle zone, c5 only the outer zone with low substrates.
+c1 grows thorugh both zones.
+c5 consists of only 1 label, so they all descend from the same cell at the start of the ChemoStat run.
+c1 consists of 3 main labels. c0 has the most diverse heritage.
+Almost all clusters have all catalytic and transporter domains to realize the whole WL pathway in some form or another.
+Only c5 is lacking NADPH $\righleftharpoons$ NADP + E.
+It can't regenrate NADPH.
+Either it relies on extracellular NADPH or it has some non-trivial way of regenrating it.
+Nevertheless, c5 has the highest growth rate.
+
+#### Cluster c1
 
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c1.png)
 
-_**Cluster c1 representative**_
+_**Cluster c1 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 
-_**Cluster c1 representative proteins**_
+_**Cluster c1 representative proteins** Protein encoded by each coding by each coding region. Molecule transport directions are only relevant in proteins with multiple domains. Multiple domains are concatenaed with `|`. `[i]` is intra-, `[e]` extracellular._
 |   CDS | protein                                                                                    |
 |------:|:-------------------------------------------------------------------------------------------|
 |     0 | E exporter                                                                                 |
@@ -89,12 +108,16 @@ _**Cluster c1 representative proteins**_
 |    20 | 1 pyruvate $\rightleftharpoons$ 6 X                                                                         |
 
 
+#### Cluster c5
+
+How can this one even grow so quickly?!
+
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c5.png)
 
-_**Cluster c5 representative**_
+_**Cluster c5 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 
 
-_**Cluster c5 representative proteins**_
+_**Cluster c5 representative proteins** Protein encoded by each coding by each coding region. Molecule transport directions are only relevant in proteins with multiple domains. Multiple domains are concatenaed with `|`. `[i]` is intra-, `[e]` extracellular._
 |   CDS | protein                                                                                    |
 |------:|:-------------------------------------------------------------------------------------------|
 |     0 | 1 methylmalonyl-CoA $\rightleftharpoons$ 1 CO2 + 1 propionyl-CoA                                            |
@@ -123,11 +146,14 @@ _**Cluster c5 representative proteins**_
 |    23 | ADP importer                                                                               |
 
 
+#### Cluster c0
+
+
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c0.png)
 
-_**Cluster c0 representative**_
+_**Cluster c0 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 
-_**Cluster c0 representative proteins**_
+_**Cluster c0 representative proteins** Protein encoded by each coding by each coding region. Molecule transport directions are only relevant in proteins with multiple domains. Multiple domains are concatenaed with `|`. `[i]` is intra-, `[e]` extracellular._
 |   CDS | protein                                                                                    |
 |------:|:-------------------------------------------------------------------------------------------|
 |     0 | E importer                                                                                 |

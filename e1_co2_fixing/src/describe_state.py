@@ -96,7 +96,9 @@ def describe_state(kwargs: dict):
         cell = world.get_cell(by_idx=cell_i)
         proteomes.append(list(set(str(d) for d in cell.proteome)))
 
-    prot_cnts = Counter(dd for d in proteomes for dd in d).most_common(n=30)
+    prot_cnts = Counter(dd for d in proteomes for dd in d).most_common(
+        n=kwargs["n_proteins"]
+    )
     top_prots = [d[0] for d in prot_cnts]
 
     if kwargs["all_cells"]:

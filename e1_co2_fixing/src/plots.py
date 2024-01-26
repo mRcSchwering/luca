@@ -74,7 +74,7 @@ def cellhists(
     rel_y=0.5,
     text_size=10,
     figsize=(9, 2),
-    color=PRIM_COL
+    color=PRIM_COL,
 ) -> Image:
     variables = {
         "genome-size[bp]": [len(d) for d in world.cell_genomes],
@@ -101,7 +101,7 @@ def cellhists(
 
     # fmt: off
     g = (ggplot(df)
-        + geom_histogram(aes(x="v"), bins=bins, color=color)
+        + geom_histogram(aes(x="v"), bins=bins, fill=color)
         + geom_vline(aes(xintercept="m"), linetype="dashed", alpha=0.5, data=avgs)
         + geom_text(aes(x="x", y="y", label="l"), size=text_size, data=avgs)
         + facet_grid(". ~ k", scales="free")

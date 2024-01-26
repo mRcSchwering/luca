@@ -261,6 +261,15 @@ def add_nsteps_arg(parser: ArgumentParser):
     )
 
 
+def add_nprots_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--n-proteins",
+        default=30,
+        type=int,
+        help="How many proteins should be shown (default %(default)s)",
+    )
+
+
 def add_grping_flags(parser: ArgumentParser):
     parser.add_argument(
         "--all-cells",
