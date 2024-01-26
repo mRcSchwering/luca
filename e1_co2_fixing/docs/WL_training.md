@@ -72,6 +72,10 @@ It can't regenrate NADPH.
 Either it relies on extracellular NADPH or it has some non-trivial way of regenrating it.
 Nevertheless, c5 has the highest growth rate.
 
+Interestingly, cells have basically abandonned the idea of using ATP hydrolization to drive FH4 + formate $\rightleftharpoons$ formyl-FH4.
+Instead they use the energy of CO2 + NADPH $\rightleftharpoons$ NADP + formate to drive FH4 + formate $\rightleftharpoons$ formyl-FH4.
+This allows them get rid of ADP transporters and enzymes for ATP regeneration.
+
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
 
 _**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
