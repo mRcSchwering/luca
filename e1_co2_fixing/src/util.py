@@ -238,14 +238,26 @@ def read_doc(name: str) -> list[str]:
         return fh.read().split("\n")
 
 
-def write_table_to_md(df: pd.DataFrame, name: str, descr="", index=False):
+def write_table_to_md(
+    df: pd.DataFrame, name: str, descr="", index=False, harpoons=True
+):
     """Convert and write table with description to markdown file"""
+    df = df.copy()
     header = f"**{name}**"
     if len(descr) > 0:
         header += f" {descr}"
     header = "_" + header + "_"
-    tab = f"{header}\n{df.to_markdown(index=index)}"
-    write_doc(content=["", tab, ""], name=name)
+    for col in df.columns:
+        if isinstance(df[col].dtype, pd.StringDtype):
+            df[col] = df[col].str.replace("|", "\\|")
+        elif df[col].dtype == "object":
+            df[col] = [
+                d.replace("|", "\\|") if isinstance(d, str) else d for d in df[col]
+            ]
+    tab = df.to_markdown(index=index)
+    if harpoons:
+        tab = tab.replace("<->", "$\\rightleftharpoons$")
+    write_doc(content=[f"\n{header}\n{tab}\n"], name=name)
 
 
 class Config:

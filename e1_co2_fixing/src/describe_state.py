@@ -22,8 +22,8 @@ def _all_cells_plot(
     proteins: list[str],
     proteomes: list[list[str]],
 ):
-    colors = plots.tabcolors([])
-    grouping = {"other": list(range(world.n_cells))}
+    colors = {"all": plots.PRIM_COL}
+    grouping = {"all": list(range(world.n_cells))}
     cellstats_img = plots.cellhists(world=world, proteomes=proteomes)
     mols_img = plots.molecule_boxes(
         world=world,

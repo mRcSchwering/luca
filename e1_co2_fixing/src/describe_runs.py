@@ -110,7 +110,6 @@ def describe_run(kwargs: dict):
 def describe_pathway_training(kwargs: dict):
     rundirs = [RUNS_DIR / d for d in kwargs["runs"]]
     hparams_df = _load_hparams(rundirs=rundirs)
-    hparams_df.rename(columns={"pathway-label": "stage"}, inplace=True)
 
     write_table(
         df=hparams_df[[d for d in hparams_df.columns if d != "path"]],
@@ -134,7 +133,6 @@ def describe_pathway_training(kwargs: dict):
         )
 
     stages_df = pd.DataFrame.from_records(records)
-    stages_df["genes"] = stages_df["genes"].str.replace("<->", "$\\rightleftharpoons$")
     write_table(df=stages_df, name="pathway-training-stages.csv")
     write_table_to_md(df=stages_df, name="pathway-training-stages.md")
 

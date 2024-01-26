@@ -33,7 +33,7 @@ def _describe_chemistry():
         subs_s = " + ".join([f"{d} {k}" for k, d in subs_n.items()])
         prods_s = " + ".join([f"{d} {k}" for k, d in prods_n.items()])
         energy = sum(d.energy for d in prods) - sum(d.energy for d in subs)
-        react = f"{subs_s} $\\rightleftharpoons$ {prods_s}"
+        react = f"{subs_s} <-> {prods_s}"
         records.append({"reaction": react, "energy [kJ]": int(energy / 1000)})
 
     reacts = pd.DataFrame.from_records(records)

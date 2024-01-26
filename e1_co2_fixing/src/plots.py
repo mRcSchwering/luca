@@ -18,6 +18,7 @@ MS_COLORS = {
 }
 NA_COL = "#595959"
 NA_COL_RGB = (89, 89, 89)
+PRIM_COL = "#0C5067"
 
 
 def set_theme():
@@ -73,6 +74,7 @@ def cellhists(
     rel_y=0.5,
     text_size=10,
     figsize=(9, 2),
+    color=PRIM_COL
 ) -> Image:
     variables = {
         "genome-size[bp]": [len(d) for d in world.cell_genomes],
@@ -99,7 +101,7 @@ def cellhists(
 
     # fmt: off
     g = (ggplot(df)
-        + geom_histogram(aes(x="v"), bins=bins)
+        + geom_histogram(aes(x="v"), bins=bins, color=color)
         + geom_vline(aes(xintercept="m"), linetype="dashed", alpha=0.5, data=avgs)
         + geom_text(aes(x="x", y="y", label="l"), size=text_size, data=avgs)
         + facet_grid(". ~ k", scales="free")
@@ -410,29 +412,21 @@ def sampling(
 
 def timeseries(
     df: pd.DataFrame,
-    grp2col: dict[str, str] | None = None,
     figsize=(8, 3),
-    grp="l",
     x="t",
     y="n",
     row="m",
-    NA="other",
+    strip_angle=-90,
+    color=PRIM_COL,
 ) -> Image:
     df = df.copy()
-    if grp2col is None:
-        df[grp] = NA
-        legend_theme = theme(legend_position="none")
-    else:
-        legend_theme = theme(legend_title=element_blank())
-    colors = {k: d for k, d in grp2col.items() if k in grp2col if k in df[grp].unique()}
-    df[grp] = pd.Categorical(df[grp], categories=list(reversed(colors)))
     df[row] = pd.Categorical(df[row], categories=list(reversed(df[row].unique())))
     # fmt: off
     g = (ggplot(df)
-        + geom_line(aes(x=x, y=y, color=grp))
-        + scale_color_manual(colors)
+        + geom_line(aes(x=x, y=y), color=color)
         + facet_grid(f"{row} ~ .", scales="free")
-        + legend_theme
+        + theme(legend_position="none")
+        + theme(strip_text_y=element_text(angle=strip_angle))
         + theme(axis_title=element_blank()))
     # fmt: on
     return _plot_2_img(g, figsize=figsize)

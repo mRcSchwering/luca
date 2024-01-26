@@ -252,6 +252,15 @@ def add_molecules_arg(parser: ArgumentParser):
     )
 
 
+def add_nsteps_arg(parser: ArgumentParser):
+    parser.add_argument(
+        "--n-steps",
+        default=20,
+        type=int,
+        help="How many timesteps should be run (default %(default)s)",
+    )
+
+
 def add_grping_flags(parser: ArgumentParser):
     parser.add_argument(
         "--all-cells",

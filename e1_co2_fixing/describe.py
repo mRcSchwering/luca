@@ -63,6 +63,7 @@ if __name__ == "__main__":
     cli.add_state_arg(parser=cell_parser)
     cli.add_cell_arg(parser=cell_parser)
     cli.add_molecules_arg(parser=cell_parser)
+    cli.add_nsteps_arg(parser=cell_parser)
 
     main(vars(parser.parse_args()))
     print("done")

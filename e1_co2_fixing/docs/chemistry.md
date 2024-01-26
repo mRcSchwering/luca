@@ -18,7 +18,7 @@ Diffusivity allows diffusion across the world map.
 Permeability allows permeation across cell membranes.
 X is a proxy molecule species for fixed carbon, E for energy.
 
-_**1.1 Molecules** Definition of all molecule species._
+_**Molecules** Definition of all molecule species._
 |   index | name                |   energy[kJ] |   diffusivity |   permeability |
 |--------:|:--------------------|-------------:|--------------:|---------------:|
 |       0 | CO2                 |           10 |           1   |              1 |
