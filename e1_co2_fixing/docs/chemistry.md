@@ -10,6 +10,9 @@ The pathways were simplified in some cases to reduce the overall number of invol
 without limiting the diversity and possible interplay of these pathways.
 One such simplification was to only use NADPH and ATP as high-energy electron and phosphate donors.
 
+- [Molecules](#molecules)
+- [Reactions](#reactions)
+
 ### Molecules
 
 All molecule species are defined below.
@@ -62,6 +65,8 @@ _**Molecules** Definition of all molecule species._
 |      38 | GHB                 |          600 |           0.1 |              0 |
 |      39 | hydroxybutyryl-CoA  |          825 |           0.1 |              0 |
 |      40 | acetoacetyl-CoA     |          760 |           0.1 |              0 |
+
+([back to top](#chemistry))
 
 ### Reactions
 
@@ -121,3 +126,4 @@ _**1.2 Reactions** Definition of all reactions._
 | 1 NADP + 1 hydroxybutyryl-CoA $\rightleftharpoons$ 1 NADPH + 1 acetoacetyl-CoA                  |             5 |
 | 1 HS-CoA + 1 acetoacetyl-CoA $\rightleftharpoons$ 2 acetyl-CoA                                  |             0 |
 
+([back to top](#chemistry))

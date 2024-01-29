@@ -1,5 +1,23 @@
 ## Setup
 
+Mechanics of the simulation engine are [described here]([magicsoup docs](https://magic-soup.readthedocs.io/en/latest/mechanics/)) in detail.
+There is a circular 2D world map with cells and molecules.
+Cells can live on this world map and carry attributes such as genomes and proteomes.
+The simulation engine just integrates numbers irrelevant of what they represent.
+However, all defaults and ranges were chosen with certain assumptions in mind.
+A time step represents 1 second.
+Molecule energies are given in Joules.
+The side length of the map is given in $10 \mu m$.
+The volume of a voxel or cell is therefore $1 pl$.
+Molecule numbers in voxels or cells are given in $0.001 pmol$.
+Voxel or cell concentrations therefore represent $mM$.
+
+- [Selection](#selection)
+- [Batch culture](#batch-culture)
+- [ChemoStat](#chemostat)
+- [Pathway training](#pathway-training)
+- [Clustering](#clustering)
+
 ### Selection
 
 Each step cells are sampled for being killed or replicated.
@@ -29,6 +47,8 @@ and in turn to massive tensors on the GPU.
 
 _**Cell sampling probabilities** Sampling probability of cells in dependence to variables X (top row), E (middle row) and genome size (bottom row). (Left column) probability over variable value, (right column) probability of being sampled at least once over steps._
 
+([back to top](#setup))
+
 ### Batch culture
 
 In batch culture experiments cells were passaged regularly.
@@ -38,6 +58,8 @@ If not mentioend otherwise cells were chosen randomly during passage.
 They were passaged if confluency surpassed 70%.
 A fraction of cells was taken that would create a confluency of 20% on the new map.
 This process keeps cells in exponential phase and leads to a selection for the fastest growing cells.
+
+([back to top](#setup))
 
 ### ChemoStat
 
@@ -50,6 +72,8 @@ If not mentioend otherwise their widths were 5% map size for each removal zone,
 and 10% map size for the medium zone.
 Over time (steps) this creates a 1D gradient across the world map x axis:
 from low molecule concentrations, to high, to low.
+
+([back to top](#setup))
 
 ### Pathway training
 
@@ -70,6 +94,8 @@ Cells had to grow a certain number of passages in a sufficiently high growth rat
 The mutation rate multiplier, minimum number of passages for each phase and the minimum growth rate for each run is shown below.
 If not mentioned otherwise there were always 5 required passages (at minimum growth rate) for the initial, adaption, and final phase.
 Minimum growth rate was 0.05 and all mutation rates were multiplied by 1000 during the adaption phase.
+
+([back to top](#setup))
 
 ### Clustering
 
@@ -102,11 +128,4 @@ The parameter set that yielded a clustering which assigned most cells to cluster
 If a clustering yielded more than 10 clusters, only the top 10 biggest clusters were regarded.
 Cells with the smallest average within-cluster distance were labelled as representatives.
 
-### Cells
-
-#### Molecule concentrations
-
-Molecule concentrations always refer to values of tensors describing molecules
-either inside cells or on the world map (and thereby outside of cells).
-
-Intracellular molecule concentration always refers to values in 
+([back to top](#setup))

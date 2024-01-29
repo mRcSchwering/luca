@@ -36,12 +36,15 @@ After switching to adaption phase it seems to take 2-3 passages for growth rate 
 This roughly equates 4-6 cell divisions.
 I assume that cells still have abundant molecules to undergo this amount of divisions before being affected by the medium change.
 As cells are transformed their average genome size increases at the start of adaption phase.
-However, during throughout the run genome sizes usually slowly shrink, especially in later phases.
+However, throughout the run genome sizes usually slowly shrink, especially in later phases.
 This could be the genome-size-dependent killing function taking effect.
 
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-pathway-training.png)
 
 _**Wood-Ljungdahl training runs** Timeseries of batch culture runs of WL pathway training. Dashed vertical lines divide initial, adaption, and final phases of each stage. Generation, age, growth rate, and genome size show the average over all cells. Progress marks the progress from 0 to 1 for each stage._
+
+As validation, the final state of the final stage was grown in a ChemoStat with only CO2 and E as substrates.
+Cells were grown to average generation 100.
 
 _**Wood-Ljungdahl training runs** Runs of WL pathway training and validation. Each stage is started with successful cells of the previous stage._
 | runname                           | stage   | previous state                      | culturing     |
@@ -52,6 +55,8 @@ _**Wood-Ljungdahl training runs** Runs of WL pathway training and validation. Ea
 | train-pathway_2024-01-15_16-48_0  | WL-3    | train-pathway_2024-01-15_16-45_0:-1 | batch culture |
 | train-pathway_2024-01-15_16-57_0  | WL-4    | train-pathway_2024-01-15_16-48_0:-1 | batch culture |
 | grow-chemostat_2024-01-15_17-43_0 |         | train-pathway_2024-01-15_16-57_0:-1 | chemostat     |
+
+([back to top](#wood-ljungdahl-training))
 
 ### Result Cells
 
@@ -76,6 +81,11 @@ Interestingly, cells have basically abandonned the idea of using ATP hydrolizati
 Instead they use the energy of CO2 + NADPH $\rightleftharpoons$ NADP + formate to drive FH4 + formate $\rightleftharpoons$ formyl-FH4.
 This allows them get rid of ADP transporters and enzymes for ATP regeneration.
 
+Additionally, basically all cells combined
+1 acetyl-CoA $\rightleftharpoons$ 1 HS-CoA + 5 X with
+1 HS-CoA + 1 methyl-FH4 + 1 CO $\rightleftharpoons$ 1 acetyl-CoA + 1 FH4.
+This actually makes sense because the second reaction with 0kJ can be pushed by the first reaction with -35kJ.
+
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
 
 _**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
@@ -85,6 +95,9 @@ _**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 gen
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c1.png)
 
 _**Cluster c1 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
+
+This is the only cluster that still has 2 ADP + E $\rightleftharpoons$ ATP.
+The last shown CO2 to acetyl-CoA ratio is about 1.7 but its equilibrium is not reached yet.
 
 _**Cluster c1 representative proteins** Protein encoded by each coding by each coding region. Molecule transport directions are only relevant in proteins with multiple domains. Multiple domains are concatenaed with `|`. `[i]` is intra-, `[e]` extracellular._
 |   CDS | protein                                                                                    |
@@ -114,11 +127,20 @@ _**Cluster c1 representative proteins** Protein encoded by each coding by each c
 
 #### Cluster c5
 
-How can this one even grow so quickly?!
-
 ![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c5.png)
 
 _**Cluster c5 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
+
+I don't understand how this cell can grow so quickly.
+It lacks NADP + E $\rightleftharpoons$ NADPH so it must regenerate NADPH differently.
+There is also no NADPH transporter.
+While the other cells have a NADPH to NADP ratio of 3 or 5, this cell has one of around 0.6.
+This is not enough to reduce NADP.
+There is a propionyl-CoA exporter coupled with 1 NADP + 1 formate $\rightleftharpoons$ 1 CO2 + 1 NADPH
+and 1 methylmalonyl-CoA $\rightleftharpoons$ 1 CO2 + 1 propionyl-CoA
+but I don't see how methylmalonyl-CoA would be replenished.
+It's CO2 to acetyl-CoA ratio after 50s is about 54.
+So whatever this cell is doing, it's not very efficient.
 
 
 _**Cluster c5 representative proteins** Protein encoded by each coding by each coding region. Molecule transport directions are only relevant in proteins with multiple domains. Multiple domains are concatenaed with `|`. `[i]` is intra-, `[e]` extracellular._
@@ -157,6 +179,9 @@ _**Cluster c5 representative proteins** Protein encoded by each coding by each c
 
 _**Cluster c0 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 
+The cell has all the necessary domains.
+CO2 to acetyl-CoA ratio after 50 steps is about 23.
+
 _**Cluster c0 representative proteins** Protein encoded by each coding by each coding region. Molecule transport directions are only relevant in proteins with multiple domains. Multiple domains are concatenaed with `|`. `[i]` is intra-, `[e]` extracellular._
 |   CDS | protein                                                                                    |
 |------:|:-------------------------------------------------------------------------------------------|
@@ -180,4 +205,4 @@ _**Cluster c0 representative proteins** Protein encoded by each coding by each c
 |    17 | acetoacetyl-CoA exporter \| acetoacetyl-CoA importer                                       |
 |    18 | FH4 importer                                                                               |
 
-
+([back to top](#wood-ljungdahl-training))

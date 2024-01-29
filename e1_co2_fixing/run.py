@@ -14,8 +14,17 @@ from .src.run_shrink_genomes import run_trial as shrink_genomes_trial
 from .src.util import Config, RUNS_DIR
 from .src import cli
 
+# TODO: the maximum CO2 solubility is about 33mM (at normal pressure and temp)
+#       so maybe I should dial down the init values (e.g. from 100 to 10)
+# TODO: when driving growth rate, why not kill based on cell age?
+#       avoids cells horting E and surviving long without doing anything
+# TODO: E could also permeate cell membranes, no need for transporter
+# TODO: calibrate replication/killing again
+# TODO: create other pathways, to ensure they are feasible and Im not missing additives
+# TODO: for random growth, have a culturing setup where always the best 10% or so
+#       replicates and the worst 10% or so dies. Needs a way divide cells not next
+#       to each other but on random positions
 # TODO: let cells with different pathways grow together
-# TODO: generate random cells in chemostat?
 
 
 def _init_world_cmd(kwargs: dict):

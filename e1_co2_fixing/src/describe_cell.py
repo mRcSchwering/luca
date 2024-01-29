@@ -10,6 +10,11 @@ from .util import (
     write_table_to_md,
 )
 
+# TODO: molecule concentrations in cell as seperate img?
+# TODO: ratios of molecule concentrations (e.g. CO2/acetyl-CoA)?
+# TODO: other function for clusters. Where cluster repr is displayed or highlighted
+#       but also other cells are shown (e.g. molecule plot has many lines)
+
 
 def describe_cell(kwargs: dict):
     world = ms.World.from_file(rundir=RUNS_DIR, device="cpu")
