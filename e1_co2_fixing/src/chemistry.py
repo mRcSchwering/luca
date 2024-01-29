@@ -424,10 +424,14 @@ REACTIONS = (
 CHEMISTRY = Chemistry(molecules=MOLECULES, reactions=REACTIONS)
 
 
-# building up WL pathway from end to start
+# Training Stages
+StageType = tuple[
+    list[list[DomainFactType]], list[Molecule], list[Molecule], list[Molecule]
+]
+
+# WL
 # stage: (new genes, substrates a, substrates b, additives)
 # fmt: off
-StageType = tuple[list[list[DomainFactType]], list[Molecule], list[Molecule], list[Molecule]]
 WL_STAGES: list[StageType] = [
     # stage 0: X from methyl-FH4
     (
@@ -492,6 +496,70 @@ WL_STAGES: list[StageType] = [
 # fmt: on
 
 WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
+
+
+# CV
+# stage: (new genes, substrates a, substrates b, additives)
+# fmt: off
+CV_STAGES: list[StageType] = [
+    # stage 0: from G3P to X
+    (
+        [
+            [CatDF(([_G3P], [_X, _X, _X, _X, _X, _X, _X, _X]))],
+            [TrnDF(_G3P)],
+        ],
+        [_E, _X],
+        [_E, _G3P],
+        []
+    ),
+    # stage 1: from 1,3BPG to G3P and NADPH generation
+    (
+        [
+            [CatDF(([_13BPG, _NADPH], [_G3P, _NADP]))],
+            [CatDF(([_NADP, _E], [_NADPH]))],
+            [TrnDF(_13BPG)],
+            [TrnDF(_NADP)],
+        ],
+        [_E, _G3P],
+        [_E, _13BPG],
+        [_NADP]
+    ),
+    # stage 2: from 3PGA to 1,3BPG and ATP generation
+    (
+        [
+            [CatDF(([_3PGA, _ATP], [_13BPG, _ADP]))],
+            [CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))],
+            [TrnDF(_3PGA)],
+            [TrnDF(_ADP)],
+        ],
+        [_E, _13BPG],
+        [_E, _3PGA],
+        [_NADP, _ADP]
+    ),
+    # stage 3: from Ru5P to 3PGA
+    (
+        [
+            [CatDF(([_RuBP, _co2], [_3PGA, _3PGA]))],
+            [CatDF(([_Ru5P, _ATP], [_RuBP, _ADP]))],
+            [TrnDF(_Ru5P)],
+        ],
+        [_E, _3PGA],
+        [_E, _Ru5P, _co2],
+        [_NADP, _ADP]
+    ),
+    # stage 4: from G3P to Ru5P, balancing cycle
+    (
+        [
+            [CatDF(([_G3P, _G3P, _G3P, _G3P, _G3P], [_Ru5P, _Ru5P, _Ru5P]))],
+        ],
+        [_E, _Ru5P, _co2],
+        [_E, _co2],
+        [_NADP, _ADP, _RuBP]
+    ),
+]
+# fmt: on
+CV_STAGES_MAP = {f"CV-{i}": d for i, d in enumerate(CV_STAGES)}
+
 
 ADDITIVES = [_HSCoA, _FH4, _RuBP, _ADP, _NADP]
 SUBSTRATES = [_E, _co2]
