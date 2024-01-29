@@ -502,48 +502,30 @@ WL_STAGES_MAP = {f"WL-{i}": d for i, d in enumerate(WL_STAGES)}
 # stage: (new genes, substrates a, substrates b, additives)
 # fmt: off
 CV_STAGES: list[StageType] = [
-    # stage 0: from G3P to X
+    # stage 0: from 1,3BPG to X and NADPH generation
     (
         [
             [CatDF(([_G3P], [_X, _X, _X, _X, _X, _X, _X, _X]))],
-            [TrnDF(_G3P)],
-        ],
-        [_E, _X],
-        [_E, _G3P],
-        []
-    ),
-    # stage 1: from 1,3BPG to G3P and NADPH generation
-    (
-        [
             [CatDF(([_13BPG, _NADPH], [_G3P, _NADP]))],
             [CatDF(([_NADP, _E], [_NADPH]))],
             [TrnDF(_13BPG)],
             [TrnDF(_NADP)],
         ],
-        [_E, _G3P],
+        [_E, _X],
         [_E, _13BPG],
         [_NADP]
     ),
-    # stage 2: from 3PGA to 1,3BPG and ATP generation
+    # stage 1: from Ru5P to 1,3BPG and ATP generation
     (
         [
             [CatDF(([_3PGA, _ATP], [_13BPG, _ADP]))],
             [CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))],
-            [TrnDF(_3PGA)],
-            [TrnDF(_ADP)],
-        ],
-        [_E, _13BPG],
-        [_E, _3PGA],
-        [_NADP, _ADP]
-    ),
-    # stage 3: from Ru5P to 3PGA
-    (
-        [
             [CatDF(([_RuBP, _co2], [_3PGA, _3PGA]))],
             [CatDF(([_Ru5P, _ATP], [_RuBP, _ADP]))],
             [TrnDF(_Ru5P)],
+            [TrnDF(_ADP)],
         ],
-        [_E, _3PGA],
+        [_E, _13BPG],
         [_E, _Ru5P, _co2],
         [_NADP, _ADP]
     ),
@@ -561,5 +543,64 @@ CV_STAGES: list[StageType] = [
 CV_STAGES_MAP = {f"CV-{i}": d for i, d in enumerate(CV_STAGES)}
 
 
-ADDITIVES = [_HSCoA, _FH4, _RuBP, _ADP, _NADP]
+# RTCA
+# stage: (new genes, substrates a, substrates b, additives)
+# fmt: off
+RTCA_STAGES: list[StageType] = [
+    # stage 0: from isocitrate to X and ATP generation
+    (
+        [
+            [CatDF(([_acetylCoA], [_HSCoA, _X, _X, _X, _X, _X]))],
+            [CatDF(([_citrate, _HSCoA], [_oxalacetate, _acetylCoA])), CatDF(([_ATP], [_ADP]))],
+            [CatDF(([_isocitrate], [_citrate]))],
+            [CatDF(([_ADP, _ADP, _E], [_ATP, _ATP]))],
+            [TrnDF(_isocitrate)],
+            [TrnDF(_oxalacetate)],
+            [TrnDF(_HSCoA)],
+            [TrnDF(_ADP)],
+        ],
+        [_E, _X],
+        [_E, _isocitrate],
+        [_HSCoA, _ADP]
+    ),
+    # stage 1: succinate to isocitrtae and generate NADPH
+    (
+        [
+            [CatDF(([_aKetoglutarate, _co2, _NADPH], [_isocitrate, _NADP]))],
+            [CatDF(([_succinylCoA, _NADPH, _co2], [_aKetoglutarate, _HSCoA, _NADP]))],
+            [CatDF(([_succinate, _HSCoA], [_succinylCoA])), CatDF(([_ATP], [_ADP]))],
+            [CatDF(([_NADP, _E], [_NADPH]))],
+            [TrnDF(_NADP)],
+        ],
+        [_E, _isocitrate],
+        [_E, _co2, _succinate],
+        [_HSCoA, _ADP, _NADP]
+    ),
+    # stage 2: malate to succinate
+    (
+        [
+            [CatDF(([_malate], [_fumarate]))],
+            [CatDF(([_fumarate, _NADPH], [_succinate, _NADP]))],
+            [TrnDF(_malate)],
+        ],
+        [_E, _co2, _succinate],
+        [_E, _co2, _malate],
+        [_HSCoA, _ADP, _NADP]
+    ),
+    # stage 3: oxalacetate to malate and balance cycle
+    (
+        [
+            [CatDF(([_oxalacetate, _NADPH], [_malate, _NADP]))],
+            [TrnDF(_malate)],
+        ],
+        [_E, _co2, _malate],
+        [_E, _co2],
+        [_HSCoA, _ADP, _NADP, _oxalacetate]
+    ),
+]
+# fmt: on
+RTCA_STAGES_MAP = {f"RTCA-{i}": d for i, d in enumerate(RTCA_STAGES)}
+
+
+ADDITIVES = [_HSCoA, _FH4, _RuBP, _oxalacetate, _ADP, _NADP]
 SUBSTRATES = [_E, _co2]
