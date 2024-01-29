@@ -11,9 +11,9 @@ Fixed carbon is defined by molecule species such as acetyl-CoA.
 - [Experimental Setup](./docs/setup.md) cell selection, culturing methods, and other methods
 - [Wood-Ljungdahl Pathway Runs](./docs/WL_training.md) WL training run results
 
-![](./imgs/WL-training-result-cell.png)
+![](./imgs/WL-cell.png)
 
-_Illustration of final cells that were able to grow in a Chemostat on CO2 and energy alone. Cells developed a proteome resembling the Wood-Ljungdahl pathway. This is a summary proteome describing about 70% of cells. Rare and inactive proteins were left out. Only about 30% of cells have a protein to convert CO2 to CO. The others rely on passive CO-uptake._
+_**WL result cells**. Illustration summarizing about 70% of result cells after being cultured to develop the Wood-Ljungdahl pathway._
 
 
 ([back to top](#carbon-fixation))

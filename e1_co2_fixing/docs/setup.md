@@ -1,6 +1,6 @@
 ## Setup
 
-Mechanics of the simulation engine are [described here]([magicsoup docs](https://magic-soup.readthedocs.io/en/latest/mechanics/)) in detail.
+Simulation mechanics are described in the [magicsoup docs](https://magic-soup.readthedocs.io/en/latest/mechanics/).
 There is a circular 2D world map with cells and molecules.
 Cells can live on this world map and carry attributes such as genomes and proteomes.
 The simulation engine just integrates numbers irrelevant of what they represent.
