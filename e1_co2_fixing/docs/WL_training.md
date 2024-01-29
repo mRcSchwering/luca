@@ -39,7 +39,7 @@ As cells are transformed their average genome size increases at the start of ada
 However, throughout the run genome sizes usually slowly shrink, especially in later phases.
 This could be the genome-size-dependent killing function taking effect.
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-pathway-training.png)
+![](../imgs/WL-pathway-training.png)
 
 _**Wood-Ljungdahl training runs** Timeseries of batch culture runs of WL pathway training. Dashed vertical lines divide initial, adaption, and final phases of each stage. Generation, age, growth rate, and genome size show the average over all cells. Progress marks the progress from 0 to 1 for each stage._
 
@@ -86,13 +86,13 @@ Additionally, basically all cells combined
 1 HS-CoA + 1 methyl-FH4 + 1 CO $\rightleftharpoons$ 1 acetyl-CoA + 1 FH4.
 This actually makes sense because the second reaction with 0kJ can be pushed by the first reaction with -35kJ.
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
+![](../imgs/WL-trained-chemostat-final-state-genomic-clustering.png)
 
 _**WL-trained cells after ChemoStat** WL-trained cells after growing for 100 generations in ChemoStat clustered by genomes. Colors indicate clusters. Cell map and cluster abundancies (top row), cell parameters (2nd row), molecule concentrations (3rd row), and proteins (bottom row) for most abundant clusters are shown. Bottom row shows frequency of proteins in each cluster for the overall 30 most abundant proteins._
 
 #### Cluster c1
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c1.png)
+![](../imgs/WL-trained-chemostat-final-state-genomic-clustering-c1.png)
 
 _**Cluster c1 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 
@@ -127,7 +127,7 @@ _**Cluster c1 representative proteins** Protein encoded by each coding by each c
 
 #### Cluster c5
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c5.png)
+![](../imgs/WL-trained-chemostat-final-state-genomic-clustering-c5.png)
 
 _**Cluster c5 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 
@@ -175,7 +175,7 @@ _**Cluster c5 representative proteins** Protein encoded by each coding by each c
 #### Cluster c0
 
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/WL-trained-chemostat-final-state-genomic-clustering-c0.png)
+![](../imgs/WL-trained-chemostat-final-state-genomic-clustering-c0.png)
 
 _**Cluster c0 representative** Genome and transcriptome of (lower) and molecule concentration over time in (upper) cluster representing cell. Cell was isolated and its extracellular environment kept constant while advancing time. Transcripts above the genome are encoded on the forward strand, below it on the reverse-complement strand. Colors represent domain types._
 

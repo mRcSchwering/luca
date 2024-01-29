@@ -43,7 +43,7 @@ This is a measure to limit memory usage.
 Cells sometimes replicate their genome multiple times which leads to excessively large genomes,
 and in turn to massive tensors on the GPU.
 
-![](https://raw.githubusercontent.com/mRcSchwering/luca/main/e1_co2_fixing/imgs/cell_sampling.png)
+![](../imgs/cell_sampling.png)
 
 _**Cell sampling probabilities** Sampling probability of cells in dependence to variables X (top row), E (middle row) and genome size (bottom row). (Left column) probability over variable value, (right column) probability of being sampled at least once over steps._
 
