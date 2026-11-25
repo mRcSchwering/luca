@@ -15,6 +15,7 @@ while only allowing a maximum per reaction error of 15 kJ/mol.
 Diffusion coefficients were derived from charge and size using CO2, CO, Glucose, Sucrose, NADH, CoA as anchor points.
 Permeability was deemed neglectable for all but CO2, CO, Q, QH2.
 Half-lifes were assigned to the molecule's most liable group, neglecting everything above 100 days.
+A dummy molecule X which can be generated from acetyl-CoA, pyruvate, G3P was added for carbon accounting.
 
 The chemistry is defined in [chemistry.py](../src/chemistry.py).
 These are the parameters.

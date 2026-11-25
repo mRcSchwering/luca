@@ -16,6 +16,7 @@ while only allowing a maximum per reaction error of 15 kJ/mol.
 Diffusion coefficients were derived from charge and size using CO2, CO, Glucose, Sucrose, NADH, CoA as anchor points.
 Permeability was deemed neglectable for all but CO2, CO, Q, QH2.
 Half-lifes were assigned to the molecule's most liable group, neglecting everything above 100 days.
+A dummy molecule X which can be generated from acetyl-CoA, pyruvate, G3P was added for carbon accounting.
 
 ## Calvin cycle
 
@@ -127,6 +128,12 @@ fixed carbon: acetyl-CoA
 chemical energy: ATP
 reducing power: NADPH
 seed: acetyl-CoA
+
+## Carbon Accumulator
+
+acetyl-CoA <-> HS-CoA + 2 X (-28 kJ/mol)
+G3P <-> 3 X (-51 kJ/mol)
+pyruvate <-> 3 X (-15 kJ/mol)
 """
 
 from magicsoup.chemistry import Chemistry, Molecule, Reaction
@@ -182,6 +189,8 @@ _Pi = Molecule("Pi", 12, diffusivity=1e-5)
 _PPi = Molecule("PPi", 13, diffusivity=5e-6)
 _Q = Molecule("Q", 1, diffusivity=1e-7, permeability=10, half_life=10)
 
+_X = Molecule("X", 115, diffusivity=1e-7)
+
 molecules = [
     _AMP,
     _fumarate,
@@ -233,6 +242,7 @@ molecules = [
     _Pi,
     _PPi,
     _Q,
+    _X,
 ]
 
 reactions = [
@@ -292,6 +302,15 @@ reactions = [
     Reaction([_4hydroxybutyrate] + [_HSCoA] + [_ATP], [_hydroxybutyrylCoA] + [_AMP] + [_PPi]),
     Reaction([_hydroxybutyrylCoA] + [_NADP], [_acetoacetylCoA] + [_NADPH]),
     Reaction([_acetoacetylCoA] + [_HSCoA], 2 * [_acetylCoA]),
+    Reaction([_acetylCoA], [_HSCoA] + 2 * [_X]),
+    Reaction([_G3P], 3 * [_X]),
+    Reaction([_pyruvate], 3 * [_X]),
 ]
+
+
+fixed_carbon = [_G3P, _pyruvate, _acetylCoA]
+energy_sources = [_ATP, _NADPH, _QH2, _Fered, _FADH2, _Fdred]
+essentials = [_RuBP, _acetylCoA, _oxalacetate, _FH4, _HSCoA]
+
 
 chemistry = Chemistry(molecules=molecules, reactions=reactions)
