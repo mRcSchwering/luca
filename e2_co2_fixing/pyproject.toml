@@ -1,0 +1,27 @@
+[project]
+name = "luca-e2"
+version = "1.0.0"
+authors = [{ name = "Marc", email = "schweringmarc01@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+  "magicsoup>=2.0.1,<3", # simulation engine
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=9,<10",   # testing
+  "mypy>=2,<3",      # static type checking
+  "ruff>=0,<1",      # linting
+  "pylint>=4,<5",    # linting
+  "plotnine>=0,<1",  # plotting
+  "z3-solver>=5,<6", # estimating molecule energies
+]
+
+[tool.pytest.ini_options]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+
+[tool.pylint.messages_control]
+disable = ["C", "R"]
+
+[tool.ruff]
+line-length = 100
