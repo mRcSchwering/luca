@@ -55,7 +55,7 @@ citramalyl-CoA -> acetyl-CoA + pyruvate (-10 kJ/mol)
 fixed carbon: pyruvate
 chemical energy: ATP
 reducing power: NADPH, QH2
-seed: acetyl-CoA
+seed: HS-CoA
 
 ## Wood-Ljungdahl cycle
 
@@ -72,8 +72,8 @@ methyl-FH4 + CO + HS-CoA -> acetyl-CoA + FH4 (-20 kJ/mol)
 fixed carbon: acetyl-CoA
 chemical energy: ATP
 reducing power: NADPH, Fe-red
-seed: acetyl-CoA
-cofactors: FH4, HS-CoA
+seed: HS-CoA
+cofactors: FH4
 
 ## Reductive TCA
 
@@ -110,7 +110,7 @@ acetoacetyl-CoA + HS-CoA -> 2 acetyl-CoA (0 kJ/mol)
 fixed carbon: acetyl-CoA
 chemical energy: ATP
 reducing power: Fd-red, NADPH
-seed: acetyl-CoA
+seed: HS-CoA
 
 ## 3-Hydroxypropionate/4-Hydroxybutyrate Cycle
 
@@ -127,7 +127,7 @@ acetoacetyl-CoA + HS-CoA -> 2 acetyl-CoA (0 kJ/mol)
 fixed carbon: acetyl-CoA
 chemical energy: ATP
 reducing power: NADPH
-seed: acetyl-CoA
+seed: HS-CoA
 
 ## Carbon Accumulator
 
@@ -308,9 +308,9 @@ reactions = [
 ]
 
 
-fixed_carbon = [_G3P, _pyruvate, _acetylCoA]
-energy_sources = [_ATP, _NADPH, _QH2, _Fered, _FADH2, _Fdred]
-essentials = [_RuBP, _acetylCoA, _oxalacetate, _FH4, _HSCoA]
+substrates = [_CO2, _ATP, _NADPH, _QH2, _Fered, _FADH2, _Fdred]
+products = [_G3P, _pyruvate, _acetylCoA]
+cofactors = [_RuBP, _oxalacetate, _FH4, _HSCoA]
 
 
 chemistry = Chemistry(molecules=molecules, reactions=reactions)

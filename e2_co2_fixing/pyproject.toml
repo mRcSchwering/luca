@@ -5,6 +5,7 @@ authors = [{ name = "Marc", email = "schweringmarc01@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
   "magicsoup>=2.0.1,<3", # simulation engine
+  "tensorboard>=2,<3",   # monitoring
 ]
 
 [dependency-groups]
@@ -18,6 +19,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 
 [tool.pylint.messages_control]
