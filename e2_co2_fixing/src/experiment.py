@@ -95,7 +95,6 @@ class Passager(StateMixin):
 
     def __init__(self, confl_range: tuple[float, float] = (0.2, 0.7)) -> None:
         self.confl_range = confl_range
-        self.passage = 0
 
     def __call__(self, exp: "Experiment") -> bool:
         n = exp.world.cells.get_n_cells()
@@ -105,7 +104,6 @@ class Passager(StateMixin):
         mask = exp.world.frand(exp.world.cells.c) > self.confl_range[0]
         exp.world.kill_cells(mask=mask)
         exp.world.resuspend_cells()
-        self.passage += 1
         return True
 
 
@@ -200,7 +198,7 @@ class PassageProgressor(StateMixin):
         return min(1.0, self.valid_passages / self.n_passages)
 
 
-class GrowthRate(StateMixin):
+class GrowthRateUpdater(StateMixin):
     """Calculate growth rate based on cell generations in generations per second"""
 
     def __init__(self, world: ms.World, t0: float) -> None:
@@ -208,11 +206,12 @@ class GrowthRate(StateMixin):
         self.t0 = t0
         self.value = 0.0
 
-    def __call__(self, exp: "Experiment") -> None:
+    def __call__(self, exp: "Experiment") -> float:
         g1 = float(exp.world.cells.generations[exp.world.cells.alive].mean())
-        self.value = (g1 / self.g0) / (exp.time - self.t0)
+        value = (g1 / self.g0) / (exp.time - self.t0)
         self.g0 = g1
         self.t0 = exp.time
+        return value
 
 
 class Experiment(StateMixin):
@@ -236,6 +235,8 @@ class Experiment(StateMixin):
         self.last_check_time = 0
         self.check_interval = check_interval
         self.progress = 0.0
+        self.growth_rate = 0.0
+        self.passage = 0
         self.time_step = time_step
         self.world = world
         self.killers = [EnergyKiller(chem=world.chemistry)]
@@ -246,7 +247,7 @@ class Experiment(StateMixin):
         self.mediawell = mediawell or MediaWell(chem=world.chemistry, **(mediawell_kwargs or {}))
         self.progressor = progressor or PassageProgressor(**(progressor_kwargs or {}))
         self.genomeeditor = genomeeditor or GenomeEditor(world=world, **(genomeeditor_kwargs or {}))
-        self.gr = GrowthRate(world=world, t0=self.time)
+        self.grupdater = GrowthRateUpdater(world=world, t0=self.time)
 
     def advance_time(self) -> None:
         self.world.advance_time(n_steps=self.time_step)
@@ -265,9 +266,10 @@ class Experiment(StateMixin):
 
         if self.time - self.last_check_time >= self.check_interval:
             if self.passager(self):
+                self.passage += 1
                 self.world.compact()
                 self.mediawell(self)
                 self.genomeeditor(self)
 
-            self.gr(self)
+            self.growth_rate = self.grupdater(self)
             self.progress = self.progressor(self)

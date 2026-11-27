@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 
-import z3
+import z3  # type: ignore
 
 
 class Molecule:
