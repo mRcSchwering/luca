@@ -7,6 +7,7 @@ from pathlib import Path
 import magicsoup as ms
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
+from torch.utils.tensorboard.writer import Event, SessionLog
 
 from src.chemistry import chemistry
 from src.experiment import Experiment
@@ -57,8 +58,17 @@ class Monitor:
         m2i = chem.mol_2_idx
         self.m2i = {d.name: m2i[d] for d in mols}
         self.writer = SummaryWriter(log_dir=rundir)
+        self._session_started = False
+
+    def _emit_session_start(self, step: int) -> None:
+        file_writer = self.writer.file_writer
+        if file_writer is None:
+            return
+        file_writer.add_event(Event(step=step, session_log=SessionLog(status=SessionLog.START)))
+        self._session_started = True
 
     def init_summary(self, hparams: dict) -> None:
+        self._emit_session_start(step=0)
         metrics = {"Other/Progress": 0.0}
         flat_hparams = {
             k: ", ".join([str(dd) for dd in d]) if isinstance(d, (list, tuple)) else d
@@ -96,8 +106,17 @@ class Monitor:
         self.writer.add_scalar("Other/Progress", exp.progress, time)
 
     def revert_logs(self, exp: Experiment) -> None:
-        time = exp.time
-        # TODO: delete all previously entered Scalars up to time.time
+        if self.writer.file_writer is None:
+            return
+
+        self.writer.flush()
+        purge_step = int(exp.time) + 1
+        if not self._session_started:
+            # TensorBoard's plugin_event_accumulator treats the first SessionLog.START
+            # as an initial session marker and only purges on subsequent restarts.
+            self._emit_session_start(step=purge_step)
+        self._emit_session_start(step=purge_step)
+        self.writer.flush()
 
 
 class PassageEarlyStop:
@@ -164,7 +183,7 @@ class Manager:
 
     def setup(self) -> None:
         self.rundir.mkdir(parents=True, exist_ok=True)
-        self.rundir.write_text(json.dumps(self.hparams, indent=2))
+        (self.rundir / "hparams.json").write_text(json.dumps(self.hparams, indent=2))
         self.monitor.init_summary(hparams=self.hparams)
 
     def rollback(self, exp: Experiment) -> None:

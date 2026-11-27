@@ -185,6 +185,7 @@ class ProgressorKwargs(TypedDict, total=False):
     min_gr: float
 
 
+# TODO: rather use generations for progress
 class PassageProgressor(StateMixin):
     """Progress linearly through n passages with minimum growth rate"""
 
@@ -207,12 +208,11 @@ class GrowthRate(StateMixin):
         self.t0 = t0
         self.value = 0.0
 
-    def update(self, world: ms.World, t: float) -> float:
-        g1 = float(world.cells.generations[world.cells.alive].mean())
-        self.value = (g1 / self.g0) / (t - self.t0)
+    def __call__(self, exp: "Experiment") -> None:
+        g1 = float(exp.world.cells.generations[exp.world.cells.alive].mean())
+        self.value = (g1 / self.g0) / (exp.time - self.t0)
         self.g0 = g1
-        self.t0 = t
-        return self.value
+        self.t0 = exp.time
 
 
 class Experiment(StateMixin):
@@ -220,6 +220,7 @@ class Experiment(StateMixin):
         self,
         world: ms.World,
         time_step: int = 10,
+        check_interval: int = 100,
         mutator_kwargs: MutatorKwargs | None = None,
         passager_kwargs: PassagerKwargs | None = None,
         progressor_kwargs: ProgressorKwargs | None = None,
@@ -232,6 +233,8 @@ class Experiment(StateMixin):
         genomeeditor: Callable[["Experiment"], None] | None = None,
     ) -> None:
         self.time = 0
+        self.last_check_time = 0
+        self.check_interval = check_interval
         self.progress = 0.0
         self.time_step = time_step
         self.world = world
@@ -260,12 +263,11 @@ class Experiment(StateMixin):
 
         self.time += self.time_step
 
-    def passage_cells(self) -> bool:
-        self.gr.update(world=self.world, t=self.time)
-        passaged = self.passager(self)
-        if passaged:
-            self.mediawell(self)
-            self.progress = self.progressor(self)
-            self.genomeeditor(self)
+        if self.time - self.last_check_time >= self.check_interval:
+            if self.passager(self):
+                self.world.compact()
+                self.mediawell(self)
+                self.genomeeditor(self)
 
-        return passaged
+            self.gr(self)
+            self.progress = self.progressor(self)
