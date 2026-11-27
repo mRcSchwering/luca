@@ -1,3 +1,4 @@
+import json
 import logging
 import shutil
 from collections.abc import Callable, Iterable
@@ -8,7 +9,6 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams as get_summary
 
 from src.chemistry import chemistry
-from src.config import RUNSDIR
 from src.experiment import Experiment
 
 log = logging.getLogger(__name__)
@@ -96,8 +96,8 @@ class Monitor:
         self.writer.add_scalar("Other/Progress", exp.progress, time)
 
     def revert_logs(self, exp: Experiment) -> None:
-        # TODO:
-        pass
+        time = exp.time
+        # TODO: delete all previously entered Scalars up to time.time
 
 
 class PassageEarlyStop:
@@ -128,16 +128,32 @@ class CellAgeEarlyStop:
             raise TrialFailedErr("Cells got too old")
 
 
+class TimeEarlyStop:
+    def __init__(self, max_time: int = 10_000) -> None:
+        self.max_time = max_time
+        self.last_prog_time = 0
+        self.progress = 0.0
+
+    def __call__(self, exp: Experiment) -> None:
+        if exp.progress > self.progress:
+            self.progress = exp.progress
+            self.last_prog_time = exp.time
+            return
+
+        if (exp.time - self.last_prog_time) > self.max_time:
+            log.warning("%s s without progress", self.max_time)
+            raise TrialFailedErr("Too much time spent without progress")
+
+
 class Manager:
     def __init__(
         self,
+        rundir: Path,
         hparams: dict,
         chem: ms.Chemistry,
         stoppers: Iterable[Callable[[Experiment], None]],
-        runsdir: Path = RUNSDIR,
     ) -> None:
-        self.name = "my-exp"  # TODO
-        self.rundir = runsdir / self.name
+        self.rundir = rundir
         self.hparams = hparams
         self.trials = 0
         self.max_trials = 5
@@ -147,8 +163,8 @@ class Manager:
         self.monitor = Monitor(chem=chem, rundir=self.rundir)
 
     def setup(self) -> None:
-        # TODO: prepare directory
-        # TODO: write hparams
+        self.rundir.mkdir(parents=True, exist_ok=True)
+        self.rundir.write_text(json.dumps(self.hparams, indent=2))
         self.monitor.init_summary(hparams=self.hparams)
 
     def rollback(self, exp: Experiment) -> None:
@@ -173,12 +189,14 @@ class Manager:
             self.rollback(exp=exp)
 
 
-def main() -> None:
-    hparams = {}
+def main(hparams: dict, runsdir: Path) -> None:
     world = ms.World(chemistry=chemistry)
     exp = Experiment(world=world)
     mngr = Manager(
-        hparams=hparams, chem=chemistry, stoppers=[PassageEarlyStop(), CellAgeEarlyStop()]
+        rundir=runsdir / "asd",
+        hparams=hparams,
+        chem=chemistry,
+        stoppers=[PassageEarlyStop(), CellAgeEarlyStop(), TimeEarlyStop()],
     )
     mngr.setup()
     mngr.monitor.log(exp=exp)
